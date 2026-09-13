@@ -11,7 +11,8 @@
         </div>
     @endif
 
-    <form method="POST" action="/setup" autocomplete="off">
+    {{-- url() respeta la subcarpeta del Alias: la app vive en /venta-softland, no en la raíz. --}}
+    <form method="POST" action="{{ url('/setup') }}" autocomplete="off">
         @csrf
 
         <fieldset>
