@@ -7,10 +7,15 @@
 2026-09-13
 
 ## Resumen del estado actual
-**Fase 1 terminada y desplegada.** El servidor (API Laravel) está en
-`srv:C:\xampp\htdocs\venta-softland` con las dependencias instaladas y las 25
-rutas registradas. El APK compila y está en `venta-softland.apk`.
-Falta un paso manual para que la API quede accesible: publicarla en Apache.
+**Fase 1 terminada, desplegada e instalada.** El servidor (API Laravel) está
+en `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
+`http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
+existe en INNOVAGES, hay un administrador y las 12 reglas de notificación
+sembradas. El APK compila, entra y lista usuarios contra la base real.
+
+Comprobado contra INNOVAGES con `ventas:probe`: 2.350 cotizaciones, 800 notas
+de venta, 3.824 clientes, 1.229 productos, 21 vendedores, 594 centros de costo
+y folios CAF para factura (33) y nota de crédito (61).
 
 ## Hecho
 - [x] Relevado el flujo de ventas completo en la base `INNOVAGES` — tablas,
@@ -27,6 +32,8 @@ Falta un paso manual para que la API quede accesible: publicarla en Apache.
 - [x] App Android (Capacitor + Vue 3) con la paleta Softland y las pantallas
       de servidor, login, inicio y administración. APK compilado y verificado.
 - [x] Desplegado a `srv`: `composer install`, `APP_KEY` generada, rutas OK.
+- [x] Publicado en Apache bajo `/venta-softland` e instalado con `/setup`;
+      maestros de Softland verificados uno a uno contra INNOVAGES.
 
 ## Pendiente / próximos pasos
 - [ ] **Publicar la API en Apache** (ver «Problemas conocidos»).
@@ -70,11 +77,15 @@ Falta un paso manual para que la API quede accesible: publicarla en Apache.
   hay nada más que abrir.
 
 ## Problemas conocidos / bloqueos
-- **Falta correr `/setup`.** La API ya responde en
-  `http://172.30.205.106:8086/venta-softland`, pero `api/ping` devuelve
-  `configurado: false`: nadie ha guardado todavía la conexión a SQL ni ha
-  registrado al primer administrador. Hasta que eso ocurra la app muestra el
-  aviso de «no instalado» y las rutas protegidas responden 503.
+- **`cwtccos` no sigue el prefijo de tres letras.** Sus columnas son
+  `CodiCC`/`DescCC`, no `CcCod`/`CcDes` como en el resto de los maestros. Es la
+  excepción; conviene verificar el nombre real en `sys.columns` antes de
+  escribir cualquier consulta nueva a un maestro de Softland.
+- **Hay descripciones vacías en los maestros** (la lista de precios `01` de
+  INNOVAGES). `Catalogos::etiqueta()` cae al código cuando el nombre viene en
+  blanco, para que no salgan opciones invisibles en los desplegables.
+- **594 centros de costo activos** en un desplegable simple. Funciona, pero en
+  la fase 2 conviene un buscador en vez de un `<select>`.
 - **Boleta electrónica sin folios.** No hay CAF para el DTE 39 ni el 41 en
   `dte_siicaf`. El tipo `BE` existe en `cwttdoc`, así que Softland está
   preparado, pero sin folios no se puede emitir.

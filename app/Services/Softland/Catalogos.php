@@ -21,6 +21,20 @@ class Catalogos
         return DB::connection('softland');
     }
 
+    /**
+     * Nombre visible de un maestro.
+     *
+     * Softland deja descripciones en blanco (la lista de precios «01» de
+     * INNOVAGES, por ejemplo). Una opción vacía en un desplegable no se puede
+     * elegir a ciegas, así que se cae al código.
+     */
+    protected function etiqueta(?string $nombre, ?string $codigo): string
+    {
+        $nombre = trim((string) $nombre);
+
+        return $nombre !== '' ? $nombre : trim((string) $codigo);
+    }
+
     /** Vendedores (softland.cwtvend) — lo que se estampa en cotización y NV. */
     public function vendedores(): array
     {
@@ -30,7 +44,7 @@ class Catalogos
             ->get(['VenCod as codigo', 'VenDes as nombre', 'EMail as email'])
             ->map(fn ($v) => [
                 'codigo' => trim((string) $v->codigo),
-                'nombre' => trim((string) $v->nombre),
+                'nombre' => $this->etiqueta($v->nombre, $v->codigo),
                 'email' => trim((string) $v->email),
             ])->all();
     }
@@ -58,8 +72,10 @@ class Catalogos
             ->table('softland.iw_tbode')
             ->orderBy('DesBode')
             ->get(['CodBode as codigo', 'DesBode as nombre'])
-            ->map(fn ($b) => ['codigo' => trim((string) $b->codigo), 'nombre' => trim((string) $b->nombre)])
-            ->all();
+            ->map(fn ($b) => [
+                'codigo' => trim((string) $b->codigo),
+                'nombre' => $this->etiqueta($b->nombre, $b->codigo),
+            ])->all();
     }
 
     /** Listas de precio (softland.iw_tlispre). */
@@ -71,20 +87,33 @@ class Catalogos
             ->get(['CodLista as codigo', 'DesLista as nombre', 'TipoLista as tipo'])
             ->map(fn ($l) => [
                 'codigo' => trim((string) $l->codigo),
-                'nombre' => trim((string) $l->nombre),
+                'nombre' => $this->etiqueta($l->nombre, $l->codigo),
                 'tipo' => trim((string) $l->tipo),
             ])->all();
     }
 
-    /** Centros de costo (softland.cwtccos). */
+    /**
+     * Centros de costo (softland.cwtccos).
+     *
+     * Las columnas son `CodiCC`/`DescCC`, no `CcCod`/`CcDes`: Softland no sigue
+     * el prefijo de tres letras que usan las otras tablas maestras.
+     *
+     * `NivelCC` 1 son los agrupadores (10 en INNOVAGES) y 2 las hojas (584),
+     * que son las que de verdad se imputan. Se devuelve el nivel para que la
+     * pantalla pueda distinguirlos sin volver a consultar.
+     */
     public function centrosCosto(): array
     {
         return $this->conn()
             ->table('softland.cwtccos')
-            ->orderBy('CcDes')
-            ->get(['CcCod as codigo', 'CcDes as nombre'])
-            ->map(fn ($c) => ['codigo' => trim((string) $c->codigo), 'nombre' => trim((string) $c->nombre)])
-            ->all();
+            ->where('Activo', 'S')
+            ->orderBy('DescCC')
+            ->get(['CodiCC as codigo', 'DescCC as nombre', 'NivelCC as nivel'])
+            ->map(fn ($c) => [
+                'codigo' => trim((string) $c->codigo),
+                'nombre' => $this->etiqueta($c->nombre, $c->codigo),
+                'nivel' => (int) $c->nivel,
+            ])->all();
     }
 
     /** Condiciones de venta / pago (softland.cwtconv). */
@@ -96,7 +125,7 @@ class Catalogos
             ->get(['CveCod as codigo', 'CveDes as nombre', 'CveDias as dias'])
             ->map(fn ($c) => [
                 'codigo' => trim((string) $c->codigo),
-                'nombre' => trim((string) $c->nombre),
+                'nombre' => $this->etiqueta($c->nombre, $c->codigo),
                 'dias' => (int) $c->dias,
             ])->all();
     }

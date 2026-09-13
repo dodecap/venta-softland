@@ -73,13 +73,19 @@ class VentasProbe extends Command
                 'SELECT DocCod, MIN(FolioD) AS desde, MAX(FolioH) AS hasta, COUNT(*) AS lotes
                  FROM softland.dte_siicaf GROUP BY DocCod ORDER BY DocCod'
             );
+            // `DocCod` es char y viene con relleno; sin trim ningún código calza.
             $vistos = [];
             foreach ($caf as $c) {
-                $vistos[] = (string) $c->DocCod;
-                $this->line(sprintf('  DTE %-4s folios %s a %s (%d lotes)', $c->DocCod, $c->desde, $c->hasta, $c->lotes));
+                $cod = trim((string) $c->DocCod);
+                $vistos[] = $cod;
+                $this->line(sprintf('  DTE %-4s folios %s a %s (%d lotes)', $cod, $c->desde, $c->hasta, $c->lotes));
             }
-            foreach (['33' => 'factura electrónica', '39' => 'boleta electrónica', '61' => 'nota de crédito'] as $cod => $nom) {
-                if (! in_array($cod, $vistos, true)) {
+            // Ojo con las claves: PHP convierte '33' a int 33, así que el código
+            // que se compara tiene que volver a string o la comparación estricta
+            // falla siempre y el aviso sale aunque haya folios.
+            $esperados = ['33' => 'factura electrónica', '39' => 'boleta electrónica', '61' => 'nota de crédito'];
+            foreach ($esperados as $cod => $nom) {
+                if (! in_array((string) $cod, $vistos, true)) {
                     $this->line("  <fg=yellow>DTE {$cod} ({$nom}): sin CAF cargado — no se puede emitir</>");
                 }
             }
