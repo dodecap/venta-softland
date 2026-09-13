@@ -44,6 +44,8 @@ y folios CAF para factura (33) y nota de crédito (61).
       tira de KPIs desplazable, rejilla de acciones rápidas con el icono en su
       recuadro suave, rejilla compacta de administración y actividad reciente
       (los últimos correos enviados, dato real de la bitácora).
+- [x] Avisos con icono de estado (`Aviso.vue`), en las siete pantallas. El
+      color solo no basta a pleno sol ni para quien no distingue rojo y verde.
 - [x] Botón flotante de crear, abajo y movible a tres anclas (izquierda,
       centro, derecha) con presión larga y arrastre. La posición se guarda en
       el teléfono. Es uno solo para toda la app: cada pantalla solo declara su
@@ -108,9 +110,6 @@ y folios CAF para factura (33) y nota de crédito (61).
   Las pestañas de verdad (Panel · Clientes · Cotizaciones · Cuenta) nacen con
   la fase 2. Cuando se ponga, hay que subir `--pie-flotante` para que el botón
   flotante quede sobre la barra y no detrás.
-- **Los avisos (`.aviso error/ok/info`) siguen siendo solo texto.** Encajaría
-  un icono de estado a la izquierda; no se hizo para no tocar las seis
-  pantallas en el mismo cambio.
 - **Lo que flota se esconde con el teclado abierto** (`teclado.js`, evento
   `keyboardWillShow`). Si no, el botón queda montado sobre las teclas. Vale
   para cualquier control que se agregue al pie más adelante.

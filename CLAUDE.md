@@ -95,6 +95,8 @@ conectada al ERP.
   aviso, administración, peligro), no adorna.
 - Los iconos de acción van dentro de un recuadro redondeado de fondo suave:
   48–56 px de caja, 22–28 px de glifo, trazo 1.75.
+- Los avisos van con `<Aviso tipo="error|ok|info">`, que ya trae su icono de
+  estado. El color nunca es la única señal.
 - `npm run build` falla si aparece un emoji o un import suelto de Lucide
   (`mobile/scripts/sin-emojis.mjs`). Para revisar sin compilar: `npm run iconos`.
 

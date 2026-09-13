@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import AppIcon from '../components/AppIcon.vue';
+import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
 const cargando = ref(true);
@@ -95,8 +96,8 @@ async function probarCorreo() {
         </div>
 
         <div class="contenido">
-            <div class="aviso error" v-if="error">{{ error }}</div>
-            <div class="aviso ok" v-if="aviso">{{ aviso }}</div>
+            <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
+            <Aviso tipo="ok" v-if="aviso">{{ aviso }}</Aviso>
             <div class="cargando" v-if="cargando">Cargando…</div>
 
             <template v-else>
@@ -151,10 +152,10 @@ async function probarCorreo() {
                         </span>
                     </div>
                     <div class="tarjeta-cuerpo">
-                        <div class="aviso info" v-if="!correo.configurado">
+                        <Aviso tipo="info" v-if="!correo.configurado">
                             Mientras no haya SMTP configurado, los avisos no salen: quedan
                             registrados en el log del servidor.
-                        </div>
+                        </Aviso>
 
                         <div class="fila">
                             <div>

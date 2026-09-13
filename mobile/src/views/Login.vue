@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, ErrorApi } from '../api';
 import { db } from '../db';
+import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
 const usuario = ref('');
@@ -63,7 +64,7 @@ async function entrar() {
                 </div>
             </div>
 
-            <div class="aviso error" v-if="error">{{ error }}</div>
+            <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
 
             <div class="tarjeta">
                 <div class="tarjeta-cuerpo">

@@ -5,6 +5,7 @@ import { api } from '../api';
 import { db } from '../db';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
+import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
 const usuario = ref(null);
@@ -129,8 +130,8 @@ function fecha(n) {
         </div>
 
         <div class="contenido" style="padding:0 16px 16px;">
-            <div class="aviso error" v-if="error" style="margin-top:14px;">{{ error }}</div>
-            <div class="aviso ok" v-if="aviso" style="margin-top:14px;">{{ aviso }}</div>
+            <Aviso tipo="error" v-if="error" style="margin-top:14px;">{{ error }}</Aviso>
+            <Aviso tipo="ok" v-if="aviso" style="margin-top:14px;">{{ aviso }}</Aviso>
 
             <div class="seccion">
                 <h2>Panel de control</h2>

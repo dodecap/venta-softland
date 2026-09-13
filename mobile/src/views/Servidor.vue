@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { db } from '../db';
+import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
 const direccion = ref('');
@@ -56,13 +57,13 @@ async function probar() {
     <div class="pantalla">
         <div class="barra"><h1>Servidor</h1></div>
         <div class="contenido">
-            <div class="aviso info">
+            <Aviso tipo="info">
                 Escribe la dirección donde está instalado el servidor de la empresa.
                 Te la da el administrador; es la misma que se usó para instalarlo.
-            </div>
+            </Aviso>
 
-            <div class="aviso error" v-if="error">{{ error }}</div>
-            <div class="aviso ok" v-if="ok">{{ ok }}</div>
+            <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
+            <Aviso tipo="ok" v-if="ok">{{ ok }}</Aviso>
 
             <div class="tarjeta">
                 <div class="tarjeta-cuerpo">

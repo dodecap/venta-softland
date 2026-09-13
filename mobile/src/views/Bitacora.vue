@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import AppIcon from '../components/AppIcon.vue';
+import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
 const notificaciones = ref([]);
@@ -45,7 +46,7 @@ function fecha(n) {
         </div>
 
         <div class="contenido">
-            <div class="aviso error" v-if="error">{{ error }}</div>
+            <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
             <div class="cargando" v-if="cargando">Cargando…</div>
             <div class="vacio" v-else-if="!notificaciones.length">
                 Todavía no ha salido ningún correo.
@@ -60,9 +61,9 @@ function fecha(n) {
                         {{ fecha(n) }} · {{ n.evento }}
                         <span v-if="n.referencia"> · {{ n.referencia }}</span>
                     </div>
-                    <div class="aviso error" v-if="n.error" style="margin:8px 0 0;font-size:12px;">
+                    <Aviso tipo="error" v-if="n.error" style="margin:8px 0 0;font-size:12px;">
                         {{ n.error }}
-                    </div>
+                    </Aviso>
                 </div>
             </div>
         </div>

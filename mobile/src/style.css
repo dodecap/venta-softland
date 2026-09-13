@@ -515,7 +515,15 @@ input:focus, select:focus, textarea:focus {
     font-size: 13px;
     margin-bottom: 12px;
     line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
 }
+
+/* El icono se alinea con la primera línea de texto, no con el centro del
+   bloque: en un error de tres renglones quedaría flotando a media altura. */
+.aviso .ic { margin-top: 2px; }
+.aviso .texto { flex: 1; min-width: 0; }
 
 .aviso.error { background: #fdecec; color: #8a1f1f; border-left: 4px solid var(--rojo); }
 .aviso.ok { background: #eafaf0; color: #1a6b38; border-left: 4px solid var(--verde); }

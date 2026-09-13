@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useCapa } from '../nav';
 import { useAccionCrear } from '../crear';
 import AppIcon from '../components/AppIcon.vue';
+import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
 const usuarios = ref([]);
@@ -165,8 +166,8 @@ function color(u) {
         </div>
 
         <div class="contenido">
-            <div class="aviso error" v-if="error">{{ error }}</div>
-            <div class="aviso ok" v-if="aviso">{{ aviso }}</div>
+            <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
+            <Aviso tipo="ok" v-if="aviso">{{ aviso }}</Aviso>
 
             <div class="campo-buscar">
                 <AppIcon name="buscar" :size="18" />

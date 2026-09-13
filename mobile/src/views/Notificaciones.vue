@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import AppIcon from '../components/AppIcon.vue';
+import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
 const eventos = ref([]);
@@ -55,13 +56,13 @@ async function guardar(ev) {
         </div>
 
         <div class="contenido">
-            <div class="aviso error" v-if="error">{{ error }}</div>
-            <div class="aviso ok" v-if="aviso">{{ aviso }}</div>
-            <div class="aviso info">
+            <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
+            <Aviso tipo="ok" v-if="aviso">{{ aviso }}</Aviso>
+            <Aviso tipo="info">
                 Están listados todos los avisos del flujo completo. Los de fases que
                 todavía no existen se pueden dejar configurados desde ya: empezarán a
                 salir solos cuando esa parte entre en funcionamiento.
-            </div>
+            </Aviso>
 
             <div class="cargando" v-if="cargando">Cargando…</div>
 
