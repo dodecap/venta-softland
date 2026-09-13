@@ -6,6 +6,9 @@ import { db } from '../db';
 import { olvidarAvisos } from '../avisos';
 import { cambiarDensidad, densidad, ETIQUETAS } from '../densidad';
 import { conectado } from '../red';
+import { cargarCatalogos } from '../catalogos';
+import { contarRegistros, inventarioLocal, progreso, sincronizando, sincronizar as sincronizarMaestros } from '../sync';
+import { contarPendientes, descartar, enviarPendientes, porEnviar } from '../pendientes';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import FilaAjuste from '../components/FilaAjuste.vue';
@@ -23,8 +26,9 @@ const usuario = ref(null);
 const servidor = ref('');
 const info = ref(null);
 const sincronizado = ref(null);
-const catalogos = ref({});
-const sincronizando = ref(false);
+const registros = ref(0);
+const pendientes = ref([]);
+const detalleDatos = ref(false);
 const aviso = ref('');
 const error = ref('');
 
@@ -44,14 +48,16 @@ onMounted(async () => {
     servidor.value = await db.getServidor();
     info.value = await db.getServidorInfo();
     sincronizado.value = await db.getSincronizado();
-    catalogos.value = await db.getCatalogos();
+    await refrescar();
 });
+
+async function refrescar() {
+    registros.value = await contarRegistros();
+    pendientes.value = await contarPendientes();
+}
 
 const iniciales = computed(() => (usuario.value?.nombre || '')
     .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || 'VS');
-
-const registros = computed(() => Object.values(catalogos.value || {})
-    .reduce((n, lista) => n + (Array.isArray(lista) ? lista.length : 0), 0));
 
 const cuando = computed(() => {
     if (!sincronizado.value) return 'Nunca';
@@ -64,27 +70,62 @@ const cuando = computed(() => {
 /** Deja sin el «http://» de adelante: en una fila angosta ocupa y no dice nada. */
 const direccion = computed(() => (servidor.value || '').replace(/^https?:\/\//, ''));
 
-async function sincronizar() {
+/**
+ * @param {boolean} completa  Vuelve a bajarlo todo desde cero, en vez de solo lo
+ *                            que cambió. Es el botón para cuando algo quedó raro:
+ *                            no repara nada en particular, pero deja el teléfono
+ *                            exactamente como está Softland.
+ */
+async function sincronizar(completa = false) {
     error.value = '';
     aviso.value = '';
-    sincronizando.value = true;
     try {
+        const salida = await enviarPendientes();
         const b = await api.bootstrap();
-        await db.setCatalogos(b.catalogos);
         await db.setUsuario(b.usuario);
         await db.setServidorInfo(b.servidor);
-        await db.setSincronizado(b.sincronizado_at);
         usuario.value = b.usuario;
         info.value = b.servidor;
-        sincronizado.value = b.sincronizado_at;
-        catalogos.value = b.catalogos;
-        aviso.value = 'Datos actualizados.';
+
+        const r = await sincronizarMaestros({ completa });
+        await cargarCatalogos();
+        await refrescar();
+        sincronizado.value = await db.getSincronizado();
+
+        aviso.value = r.errores.length
+            ? `Casi todo actualizado, pero ${r.errores[0]}`
+            : `Listo: ${registros.value.toLocaleString('es-CL')} registros.`
+                + (salida.enviados ? ` Se enviaron ${salida.enviados} cambios.` : '');
     } catch (e) {
         error.value = e.message;
-    } finally {
-        sincronizando.value = false;
     }
 }
+
+async function reintentarPendientes() {
+    error.value = '';
+    aviso.value = '';
+    const r = await enviarPendientes();
+    await refrescar();
+    if (r.sinRed) error.value = 'Sin señal: se reintentará al volver la red.';
+    else if (r.enviados) aviso.value = `Se enviaron ${r.enviados} cambios.`;
+    else if (r.fallidos) error.value = 'Softland rechazó los cambios; míralos en la ficha del cliente.';
+}
+
+async function descartarPendiente(p) {
+    if (! confirm('¿Descartar este cambio sin enviar? Se pierde lo que se escribió.')) return;
+    await descartar(p.uuid);
+    await refrescar();
+}
+
+async function volverADescargar() {
+    if (! confirm('¿Volver a descargar todo? Puede tardar un par de minutos con datos móviles.')) return;
+    await sincronizar(true);
+}
+
+/** Los maestros con nombre y cuenta, para el detalle desplegable. */
+const maestros = computed(() => Object.values(inventarioLocal.value)
+    .filter((m) => m.local > 0)
+    .sort((a, b) => b.local - a.local));
 
 async function salir() {
     if (!confirm('¿Cerrar sesión? Los datos descargados se borran del teléfono y hay que volver a entrar.')) return;
@@ -119,10 +160,52 @@ async function salir() {
                 </div>
             </div>
 
-            <div class="seccion"><h2>Datos en el teléfono</h2></div>
+            <!-- Bandeja de salida. Va antes que nada porque es lo único de esta
+                 pantalla que pide una decisión: hay trabajo hecho que Softland
+                 todavía no tiene. -->
+            <template v-if="porEnviar">
+                <div class="seccion">
+                    <h2>Cambios por enviar</h2>
+                    <span class="sub">{{ porEnviar }}</span>
+                    <button class="ver-todo" @click="reintentarPendientes">
+                        Enviar ahora <AppIcon name="subir" :size="15" color="currentColor" />
+                    </button>
+                </div>
+                <div class="ajustes">
+                    <FilaAjuste v-for="p in pendientes" :key="p.uuid"
+                                :icono="p.estado === 'rechazado' ? 'error' : 'subir'"
+                                :rotulo="p.accion === 'cliente.crear' ? `Nuevo cliente ${p.datos.nombre}` : `Cambios en ${p.datos.nombre || p.clave}`"
+                                :detalle="p.estado === 'rechazado' ? p.mensaje : 'Esperando señal'"
+                                :peligro="p.estado === 'rechazado'">
+                        <template #control>
+                            <button class="enlace" @click.stop="descartarPendiente(p)">Descartar</button>
+                        </template>
+                    </FilaAjuste>
+                </div>
+            </template>
+
+            <div class="seccion">
+                <h2>Datos en el teléfono</h2>
+                <button class="ver-todo" @click="detalleDatos = !detalleDatos">
+                    {{ detalleDatos ? 'Ocultar' : 'Ver detalle' }}
+                    <AppIcon :name="detalleDatos ? 'desplegar' : 'avanzar'" :size="15" color="currentColor" />
+                </button>
+            </div>
+
+            <!-- Mientras baja se muestra qué maestro va: una descarga completa
+                 son unas 12.000 filas y sin esto la pantalla parece colgada. -->
+            <div class="descarga" v-if="sincronizando">
+                <div class="titulo"><span>{{ progreso.titulo }}</span></div>
+                <div class="detalle">
+                    {{ progreso.hechas.toLocaleString('es-CL') }}
+                    <template v-if="progreso.total">de {{ progreso.total.toLocaleString('es-CL') }}</template>
+                    · maestro {{ progreso.indice }} de {{ progreso.recursos }}
+                </div>
+            </div>
+
             <div class="ajustes">
                 <FilaAjuste icono="sincronizar" rotulo="Sincronizar ahora"
-                            :detalle="`Última vez: ${cuando}`" @click="sincronizar">
+                            :detalle="`Última vez: ${cuando}`" @click="sincronizar(false)">
                     <template #control>
                         <AppIcon name="sincronizar" :size="18" color="var(--indigo)"
                                  :class="{ girando: sincronizando }" />
@@ -132,6 +215,15 @@ async function salir() {
                             :valor="registros.toLocaleString('es-CL')" />
                 <FilaAjuste :icono="conectado ? 'alDia' : 'sinRed'" rotulo="Conexión"
                             :valor="conectado ? 'En línea' : 'Sin señal'" />
+                <FilaAjuste icono="descargar" rotulo="Volver a descargar todo"
+                            detalle="Deja el teléfono igual a Softland. Tarda más." lleva
+                            @click="volverADescargar" />
+            </div>
+
+            <div class="ajustes" v-if="detalleDatos">
+                <FilaAjuste v-for="m in maestros" :key="m.recurso" icono="datos"
+                            :rotulo="m.recurso.replace(/_/g, ' ')"
+                            :valor="m.local.toLocaleString('es-CL')" />
             </div>
 
             <div class="seccion">

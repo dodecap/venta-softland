@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, ErrorApi } from '../api';
 import { db } from '../db';
+import { sincronizar } from '../sync';
+import { cargarCatalogos } from '../catalogos';
 import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
@@ -30,15 +32,19 @@ async function entrar() {
         await db.setToken(r.token);
         await db.setUsuario(r.usuario);
 
-        // Traer los maestros de inmediato: es lo que permite trabajar después sin señal.
         try {
             const b = await api.bootstrap();
-            await db.setCatalogos(b.catalogos);
             await db.setUsuario(b.usuario);
-            await db.setSincronizado(b.sincronizado_at);
-        } catch { /* sin maestros se puede entrar igual; se reintenta desde Inicio */ }
+            await db.setServidorInfo(b.servidor);
+        } catch { /* se puede entrar igual; se reintenta desde el panel */ }
 
+        // Entrar primero y descargar después, en segundo plano. Los maestros son
+        // 12.000 filas: esperarlas con la pantalla de login congelada haría que
+        // el vendedor creyera que la clave no sirvió y volviera a intentar.
         router.replace('/inicio');
+        sincronizar()
+            .then(() => cargarCatalogos())
+            .catch(() => { /* sin señal se reintenta desde el panel */ });
     } catch (e) {
         error.value = e.message;
         if (e instanceof ErrorApi && e.status === 0) {

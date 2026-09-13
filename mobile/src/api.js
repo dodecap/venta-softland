@@ -2,9 +2,13 @@ import { db } from './db';
 
 /** Error con el status HTTP, para distinguir "sin red" de "credenciales malas". */
 export class ErrorApi extends Error {
-    constructor(mensaje, status) {
+    constructor(mensaje, status, datos = null) {
         super(mensaje);
         this.status = status;
+        // El cuerpo de la respuesta, cuando dice algo más que el mensaje. El alta
+        // de un cliente repetido responde 409 con la ficha que ya existía, y la
+        // pantalla la necesita para ofrecer abrirla en vez de repetir el error.
+        this.datos = datos;
     }
 }
 
@@ -39,7 +43,7 @@ async function pedir(ruta, { method = 'GET', body = null, auth = true } = {}) {
         const msg =
             json?.message ||
             (json?.errors ? Object.values(json.errors)[0][0] : `Error ${res.status}`);
-        throw new ErrorApi(msg, res.status);
+        throw new ErrorApi(msg, res.status, json);
     }
     return json;
 }
@@ -53,6 +57,28 @@ export const api = {
 
     /** Buzón personal del usuario. No es la bitácora: son solo sus avisos. */
     avisos: (limite = 40) => pedir(`/avisos?limite=${limite}`),
+
+    // ---- Maestros para trabajar sin señal (el orquestador está en sync.js) ----
+
+    /** Qué maestros hay y cuántas filas tiene cada uno hoy en Softland. */
+    catalogo: () => pedir('/catalogo'),
+
+    /**
+     * Una página de un maestro. `desde` trae solo lo cambiado desde esa hora y
+     * `cursor` retoma donde quedó la página anterior.
+     */
+    catalogoPagina: (recurso, { desde = null, cursor = null, limite = 500 } = {}) => {
+        const q = new URLSearchParams({ limite: String(limite) });
+        if (desde) q.set('desde', desde);
+        if (cursor) q.set('cursor', cursor);
+        return pedir(`/catalogo/${recurso}?${q}`);
+    },
+
+    // ---- Clientes: lo único de Softland que la app escribe en esta fase ----
+    cliente: (codigo) => pedir(`/clientes/${encodeURIComponent(codigo)}`),
+    crearCliente: (c) => pedir('/clientes', { method: 'POST', body: c }),
+    editarCliente: (codigo, c) =>
+        pedir(`/clientes/${encodeURIComponent(codigo)}`, { method: 'PUT', body: c }),
 
     // Administración (rol admin)
     usuarios: () => pedir('/admin/usuarios'),

@@ -9,13 +9,17 @@ import AppIcon from './AppIcon.vue';
 /**
  * Navegación principal, al pie y flotando.
  *
- * Tres destinos y no más: el pulgar alcanza tres blancos sin mirar, y cada
- * pestaña que se agrega le quita ancho a las otras. Clientes entra como cuarta
- * con la fase 2; cotizaciones y productos NO son pestañas, son acciones del
- * panel — una pestaña es un lugar donde se vuelve, no una acción que se hace.
+ * Cuatro destinos, y aquí se cierra la lista. Clientes entró con la fase 2
+ * porque es a donde el vendedor vuelve todo el día; cotizaciones, notas de
+ * venta y productos NO son pestañas, son acciones del panel — una pestaña es un
+ * lugar donde se vuelve, no una acción que se hace.
+ *
+ * Cuatro es el techo: con la activa desplegada, en 360 px quedan 328 px de
+ * barra y las tres inactivas ocupan 132. Una quinta no cabría sin achicar el
+ * área pulsable por debajo de los 44 px.
  *
  * Solo la activa muestra su nombre. Un icono suelto se adivina; con la etiqueta
- * al lado se lee. Mostrarlas las tres obligaría a achicar la letra a un tamaño
+ * al lado se lee. Mostrarlas todas obligaría a achicar la letra a un tamaño
  * que no se lee a pleno sol.
  */
 const router = useRouter();
@@ -23,6 +27,7 @@ const route = useRoute();
 
 const PESTANAS = [
     { ruta: '/inicio', icono: 'panel', rotulo: 'Panel' },
+    { ruta: '/clientes', icono: 'cliente', rotulo: 'Clientes' },
     { ruta: '/avisos', icono: 'notificacion', rotulo: 'Avisos', contador: true },
     { ruta: '/cuenta', icono: 'cuenta', rotulo: 'Cuenta' },
 ];

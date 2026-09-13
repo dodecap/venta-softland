@@ -4,8 +4,11 @@ import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { db } from '../db';
 import { refrescarAvisos } from '../avisos';
+import { cargarCatalogos } from '../catalogos';
 import { px } from '../densidad';
 import { conectado } from '../red';
+import { contarRegistros, progreso, sincronizando, sincronizar, cancelarSincronizacion } from '../sync';
+import { enviarPendientes, contarPendientes, porEnviar } from '../pendientes';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import Vacio from '../components/Vacio.vue';
@@ -13,8 +16,7 @@ import Vacio from '../components/Vacio.vue';
 const router = useRouter();
 const usuario = ref(null);
 const sincronizado = ref(null);
-const sincronizando = ref(false);
-const catalogos = ref({});
+const registros = ref(0);
 const actividad = ref([]);
 const aviso = ref('');
 const error = ref('');
@@ -22,17 +24,18 @@ const error = ref('');
 const esAdmin = computed(() => !!usuario.value?.es_admin);
 
 /*
- * Accesos del flujo de ventas. Se muestran desde ya, apagados y con la fase a
- * la vista: el vendedor entiende hacia dónde va la herramienta y nadie
- * promete un botón que todavía no hace nada.
+ * Accesos del flujo de ventas. Los de fase 2 ya llevan a alguna parte; los que
+ * todavía no existen se muestran apagados y con la fase a la vista, para que el
+ * vendedor entienda hacia dónde va la herramienta y nadie prometa un botón que
+ * no hace nada.
  *
  * Lo administrativo NO está aquí: vive en Cuenta. El panel es del vendedor.
  */
 const FLUJO = [
-    { icono: 'cotizacion', rotulo: 'Cotizaciones', fase: 'Fase 3' },
-    { icono: 'notaVenta', rotulo: 'Notas de venta', fase: 'Fase 3' },
-    { icono: 'cliente', rotulo: 'Clientes', fase: 'Fase 2' },
-    { icono: 'producto', rotulo: 'Productos', fase: 'Fase 2' },
+    { icono: 'cotizacion', rotulo: 'Cotizaciones', ruta: '/cotizaciones' },
+    { icono: 'notaVenta', rotulo: 'Notas de venta', ruta: '/notas-venta' },
+    { icono: 'cliente', rotulo: 'Clientes', ruta: '/clientes' },
+    { icono: 'producto', rotulo: 'Productos', ruta: '/productos' },
     { icono: 'factura', rotulo: 'Facturar', fase: 'Fase 4' },
     { icono: 'cobranza', rotulo: 'Cobranza', fase: 'Fase 5' },
 ];
@@ -40,14 +43,15 @@ const FLUJO = [
 onMounted(async () => {
     usuario.value = await db.getUsuario();
     sincronizado.value = await db.getSincronizado();
-    catalogos.value = await db.getCatalogos();
+    registros.value = await contarRegistros();
+    await contarPendientes();
     // El punto rojo de la barra inferior sale de aquí: si se pidiera recién al
     // abrir el buzón, nunca habría aviso de que hay algo que mirar.
     refrescarAvisos();
     if (esAdmin.value) cargarActividad();
 });
 
-/** Últimos correos que salieron. Es la única actividad real que hay en fase 1. */
+/** Últimos correos que salieron. Es la actividad del administrador. */
 async function cargarActividad() {
     try {
         const r = await api.bitacora(5);
@@ -57,27 +61,35 @@ async function cargarActividad() {
     }
 }
 
-/** Refresca usuario y maestros. Es lo que hay que hacer antes de salir a terreno. */
-async function sincronizar() {
+/**
+ * Lo que hay que hacer antes de salir a terreno: bajar los maestros y mandar lo
+ * que quedó pendiente. Va en ese orden porque si hay algo por enviar conviene
+ * que llegue antes de volver a descargar, o la descarga lo pisa con el dato viejo.
+ */
+async function sincronizarTodo() {
     error.value = '';
     aviso.value = '';
-    sincronizando.value = true;
     try {
+        const salida = await enviarPendientes();
         const b = await api.bootstrap();
-        await db.setCatalogos(b.catalogos);
         await db.setUsuario(b.usuario);
         await db.setServidorInfo(b.servidor);
-        await db.setSincronizado(b.sincronizado_at);
         usuario.value = b.usuario;
-        sincronizado.value = b.sincronizado_at;
-        catalogos.value = b.catalogos;
-        aviso.value = 'Datos actualizados.';
+
+        const r = await sincronizar();
+        await cargarCatalogos();
+        registros.value = await contarRegistros();
+        sincronizado.value = await db.getSincronizado();
+
+        aviso.value = r.errores.length
+            ? `Se actualizó casi todo, pero ${r.errores[0]}`
+            : `Listo: ${registros.value.toLocaleString('es-CL')} registros en el teléfono.`
+                + (salida.enviados ? ` Se enviaron ${salida.enviados} cambios.` : '');
+
         refrescarAvisos();
         if (esAdmin.value) cargarActividad();
     } catch (e) {
         error.value = e.message;
-    } finally {
-        sincronizando.value = false;
     }
 }
 
@@ -94,9 +106,16 @@ const cuando = computed(() => {
     return hoy ? `Hoy ${hora}` : d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' }) + ` ${hora}`;
 });
 
-/** Registros de maestros guardados en el teléfono. Es lo que se lleva a terreno. */
-const registros = computed(() => Object.values(catalogos.value || {})
-    .reduce((n, lista) => n + (Array.isArray(lista) ? lista.length : 0), 0));
+/** Sin maestros la app no sirve en terreno, y eso hay que decirlo, no insinuarlo. */
+const sinDatos = computed(() => registros.value === 0 && !sincronizando.value);
+
+const pct = computed(() => {
+    const p = progreso.value;
+    if (!p || !p.recursos) return 0;
+    const porRecurso = 100 / p.recursos;
+    const dentro = p.total ? Math.min(p.hechas / p.total, 1) : 1;
+    return Math.round((p.indice - 1) * porRecurso + dentro * porRecurso);
+});
 
 function fecha(n) {
     const v = n.enviada_at || n.created_at;
@@ -118,7 +137,7 @@ function fecha(n) {
             </div>
             <!-- Cerrar sesión ya no está aquí: se fue a Cuenta. Al lado de
                  «sincronizar» era un dedazo de distancia perder la sesión. -->
-            <button class="icono-barra" :disabled="sincronizando" title="Sincronizar" @click="sincronizar">
+            <button class="icono-barra" :disabled="sincronizando" title="Sincronizar" @click="sincronizarTodo">
                 <AppIcon name="sincronizar" :size="20" :class="{ girando: sincronizando }" />
             </button>
         </div>
@@ -126,6 +145,21 @@ function fecha(n) {
         <div class="contenido panel">
             <Aviso tipo="error" v-if="error" style="margin-top:14px;">{{ error }}</Aviso>
             <Aviso tipo="ok" v-if="aviso" style="margin-top:14px;">{{ aviso }}</Aviso>
+
+            <!-- Mientras baja, la barra dice qué maestro va y cuánto lleva: una
+                 descarga completa son 12.000 filas y sin esto parece colgada. -->
+            <div class="descarga" v-if="sincronizando">
+                <div class="titulo">
+                    <span>{{ progreso.titulo }}</span>
+                    <button class="enlace" @click="cancelarSincronizacion">Cancelar</button>
+                </div>
+                <div class="progreso"><div class="relleno" :style="{ width: pct + '%' }"></div></div>
+                <div class="detalle">
+                    {{ progreso.hechas.toLocaleString('es-CL') }}
+                    <template v-if="progreso.total">de {{ progreso.total.toLocaleString('es-CL') }}</template>
+                    · maestro {{ progreso.indice }} de {{ progreso.recursos }}
+                </div>
+            </div>
 
             <div class="seccion">
                 <h2>Panel de control</h2>
@@ -148,17 +182,28 @@ function fecha(n) {
                     <div class="dato">{{ registros.toLocaleString('es-CL') }}</div>
                     <div class="rotulo">Registros en el teléfono</div>
                 </div>
+                <div class="kpi aviso" v-if="porEnviar">
+                    <AppIcon name="subir" :caja="px(36)" :size="px(18)" variant="aviso" />
+                    <div class="dato">{{ porEnviar }}</div>
+                    <div class="rotulo">Cambios por enviar</div>
+                </div>
             </div>
+
+            <Aviso tipo="info" v-if="sinDatos">
+                Todavía no te has traído los datos. Toca el botón de sincronizar,
+                arriba a la derecha, antes de salir a terreno.
+            </Aviso>
 
             <div class="seccion">
                 <h2>Acciones rápidas</h2>
             </div>
 
             <div class="rejilla">
-                <button class="accion" v-for="a in FLUJO" :key="a.rotulo" disabled>
+                <button class="accion" v-for="a in FLUJO" :key="a.rotulo"
+                        :disabled="!a.ruta" @click="a.ruta && router.push(a.ruta)">
                     <AppIcon :name="a.icono" :caja="px(48)" :size="px(22)" />
                     <span class="rotulo">{{ a.rotulo }}</span>
-                    <span class="fase">{{ a.fase }}</span>
+                    <span class="fase" v-if="a.fase">{{ a.fase }}</span>
                 </button>
             </div>
 

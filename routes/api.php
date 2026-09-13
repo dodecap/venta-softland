@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvisoController;
+use App\Http\Controllers\Api\CatalogoController;
+use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\ConfiguracionController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +25,19 @@ Route::middleware('auth.api')->group(function () {
     // Buzón personal: lo que le llegó a quien está mirando el teléfono.
     // No confundir con /admin/notificaciones/bitacora, que es todo lo enviado.
     Route::get('/avisos', [AvisoController::class, 'index']);
+
+    /*
+     * Maestros para trabajar sin señal. `/catalogo` dice qué hay y cuánto pesa;
+     * `/catalogo/{recurso}` lo sirve por páginas. El orquestador está en el
+     * teléfono (`mobile/src/sync.js`): el servidor no recuerda qué bajó quién.
+     */
+    Route::get('/catalogo', [CatalogoController::class, 'index']);
+    Route::get('/catalogo/{recurso}', [CatalogoController::class, 'show']);
+
+    // Clientes: lo único de Softland que la app escribe además del flujo de venta.
+    Route::get('/clientes/{codigo}', [ClienteController::class, 'show']);
+    Route::post('/clientes', [ClienteController::class, 'store']);
+    Route::put('/clientes/{codigo}', [ClienteController::class, 'update']);
 
     Route::middleware('rol:admin')->prefix('admin')->group(function () {
         // Usuarios

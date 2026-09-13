@@ -1,9 +1,10 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { App as AppNativa } from '@capacitor/app';
 import { cerrarCapaSuperior } from './nav';
 import { conectado } from './red';
+import { contarPendientes, enviarPendientes, porEnviar } from './pendientes';
 import AppIcon from './components/AppIcon.vue';
 import BarraInferior from './components/BarraInferior.vue';
 import BotonCrear from './components/BotonCrear.vue';
@@ -16,7 +17,7 @@ const avisoSalida = ref(false);
  * Pantallas sin nada detrás. Retroceder desde aquí no lleva a ningún lado,
  * así que el gesto se interpreta como salir de la app.
  *
- * Son las tres pestañas (`meta.tab`) y las dos de entrada. Las pestañas se
+ * Son las cuatro pestañas (`meta.tab`) y las dos de entrada. Las pestañas se
  * navegan con `replace`, así que entre ellas no hay historial que desandar:
  * desde cualquiera, «atrás» significa salir.
  */
@@ -56,7 +57,20 @@ function atras() {
     }, 2000);
 }
 
+/*
+ * Cuando vuelve la señal, lo que se guardó sin ella sale solo.
+ *
+ * Va aquí y no en una pantalla porque la red puede volver en cualquier momento
+ * y con cualquier cosa a la vista. Si dependiera de que el vendedor pase por
+ * Cuenta, el cliente que dio de alta en la mañana podría quedarse una semana
+ * en el teléfono.
+ */
+watch(conectado, (hayRed) => {
+    if (hayRed && porEnviar.value) enviarPendientes();
+});
+
 onMounted(async () => {
+    contarPendientes();
     try {
         oyentes.push(await AppNativa.addListener('backButton', atras));
     } catch {

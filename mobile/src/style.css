@@ -1041,3 +1041,146 @@ button.fila-ajuste:active { background: var(--fondo); }
 
 .hoja-cabecera h2 { margin: 0; font-size: 16px; flex: 1; }
 .hoja-cuerpo { padding: 16px; overflow-y: auto; }
+
+/* ---------- Fase 2: consulta de catálogos y documentos ----------
+   Pantallas de leer, no de llenar. La densidad es alta a propósito: el vendedor
+   busca un cliente entre 3.373 y cuantas más fichas quepan sin apretar, menos
+   veces desplaza. */
+
+/* La X del buscador aparece solo cuando hay texto que borrar. */
+.campo-buscar .limpiar {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 99px;
+    background: var(--fondo);
+    color: var(--texto-suave);
+    cursor: pointer;
+}
+.campo-buscar .limpiar:active { background: var(--borde); }
+
+/* Las listas de esta fase se abren al tocarlas; el resto de los `.item` no. */
+.item[onclick], .contenido .item { cursor: pointer; }
+.contenido .item:active { background: #fafafa; }
+
+/* Filtro de una sola opción, sobre la lista. Va en tarjeta para que se lea como
+   parte del buscador y no como un dato más de la pantalla. */
+.interruptor.filtro {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    min-height: 44px;
+}
+
+select.filtro-grupo { margin-bottom: 12px; }
+
+/* Pestañas de filtro dentro del contenido, no bajo la barra: sin fondo propio
+   ni línea inferior, que ahí ya hay una tarjeta debajo. */
+.pestanas.en-linea {
+    padding: 0 0 12px;
+    background: none;
+    border-bottom: 0;
+}
+
+/* ---------- Ficha (encabezado de un cliente, producto o documento) ---------- */
+
+.ficha { padding: 4px 2px 14px; }
+.ficha h2 {
+    margin: 0;
+    font-size: calc(19px * var(--d));
+    font-weight: 800;
+    line-height: 1.25;
+    color: var(--texto);
+}
+.ficha .sub { font-size: calc(13px * var(--d)); color: var(--texto-suave); margin-top: 3px; }
+.ficha .etiquetas { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+
+/* Pares dato/valor. El rótulo arriba y chico, el valor abajo y grueso: en 360 px
+   no caben en la misma línea sin cortar direcciones y correos. */
+.datos > div {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 8px 0;
+    border-top: 1px solid var(--fondo);
+}
+.datos > div:first-child { border-top: 0; padding-top: 0; }
+.datos > div > span { font-size: 12px; color: var(--texto-suave); }
+.datos > div > b {
+    font-size: calc(14px * var(--d));
+    font-weight: 600;
+    color: var(--texto);
+    overflow-wrap: anywhere;
+}
+.datos > div.fuerte { border-top: 1px solid var(--borde); margin-top: 4px; }
+.datos > div.fuerte > b { font-size: calc(17px * var(--d)); font-weight: 800; color: var(--indigo); }
+
+/* ---------- Progreso de descarga ---------- */
+
+.progreso {
+    height: 6px;
+    border-radius: 99px;
+    background: var(--fondo);
+    overflow: hidden;
+}
+.progreso .relleno {
+    height: 100%;
+    background: var(--cian);
+    border-radius: 99px;
+    transition: width .25s linear;
+}
+
+.descarga {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    padding: 12px 14px;
+    margin: 14px 0 4px;
+}
+.descarga .titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: calc(14px * var(--d));
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+.descarga .titulo > span { flex: 1; min-width: 0; }
+.descarga .detalle { font-size: 12px; color: var(--texto-suave); margin-top: 7px; }
+
+/* Botón que se lee como enlace: para acciones secundarias dentro de un texto
+   («Reintentar ahora», «Descartar»), donde un botón de verdad pesaría demasiado. */
+.enlace {
+    border: 0;
+    background: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 700;
+    color: var(--cian-oscuro);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.enlace:active { opacity: .6; }
+
+.ayuda.centrado { text-align: center; padding: 6px 0 2px; }
+.ayuda.malo { color: var(--rojo); font-weight: 600; }
+
+/* Contacto dentro del formulario de cliente: sus dos filas se leen como un
+   bloque y no como cuatro campos sueltos del formulario. */
+.contacto {
+    background: var(--fondo);
+    border-radius: var(--radio);
+    padding: 10px;
+    margin-bottom: 10px;
+}
+.contacto .fila { align-items: center; }
+.contacto .fila + .fila { margin-top: 8px; }
+.contacto input { margin-bottom: 0; }
+.contacto .icono-barra { flex: 0 0 40px; color: var(--rojo); }

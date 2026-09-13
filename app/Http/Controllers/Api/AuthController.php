@@ -80,8 +80,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Todo lo que la app necesita para arrancar y luego trabajar sin señal:
-     * el usuario, los maestros que no cambian seguido y las capacidades activas.
+     * Lo que la app necesita para arrancar: quién es y contra qué instalación
+     * está hablando.
+     *
+     * Los maestros ya **no** viajan aquí. Desde la fase 2 se descargan por
+     * `/api/catalogo`, por páginas y a IndexedDB: 3.824 clientes y 1.229
+     * productos no caben en una respuesta de login, y sobre todo no se pueden
+     * buscar si llegan como un solo bloque.
      */
     public function bootstrap(Request $request)
     {
@@ -93,13 +98,6 @@ class AuthController extends Controller
                 'app' => (string) config('app.name'),
                 'base' => SoftlandConfig::load()['database'] ?? null,
                 'rut_emisor' => $this->catalogos->rutEmisor(),
-            ],
-            'catalogos' => [
-                'vendedores' => $this->catalogos->vendedores(),
-                'bodegas' => $this->catalogos->bodegas(),
-                'listas_precio' => $this->catalogos->listasPrecio(),
-                'centros_costo' => $this->catalogos->centrosCosto(),
-                'condiciones_venta' => $this->catalogos->condicionesVenta(),
             ],
             'sincronizado_at' => now()->toIso8601String(),
         ]);

@@ -7,15 +7,23 @@
 2026-09-13
 
 ## Resumen del estado actual
-**Fase 1 terminada, desplegada e instalada.** El servidor (API Laravel) está
-en `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
+**Fases 1 y 2 terminadas.** El servidor (API Laravel) está en
+`srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
 existe en INNOVAGES, hay un administrador y las 12 reglas de notificación
-sembradas. El APK compila, entra y lista usuarios contra la base real.
+sembradas.
+
+Con la fase 2 el teléfono **trabaja sin señal**: se baja 21 maestros a
+IndexedDB (14.175 registros, menos de 10 s por WiFi) y desde ahí se buscan
+clientes y productos, se leen cotizaciones y notas de venta, y se dan de alta y
+se editan clientes con sus contactos. Lo que se escribe sin red queda en una
+bandeja de salida y sale solo cuando vuelve.
 
 Comprobado contra INNOVAGES con `ventas:probe`: 2.350 cotizaciones, 800 notas
 de venta, 3.824 clientes, 1.229 productos, 21 vendedores, 594 centros de costo
-y folios CAF para factura (33) y nota de crédito (61).
+y folios CAF para factura (33) y nota de crédito (61). Lo que efectivamente
+baja el teléfono es menos porque va filtrado (solo clientes, solo productos
+vendibles, 12 meses de documentos y solo los del vendedor).
 
 ## Hecho
 - [x] Relevado el flujo de ventas completo en la base `INNOVAGES` — tablas,
@@ -69,11 +77,57 @@ y folios CAF para factura (33) y nota de crédito (61).
       acción (`useAccionCrear`), así que cotizaciones, notas de venta y
       facturación lo heredan sin volver a dibujar nada.
 
+### Fase 2 — consulta y catálogos offline
+- [x] `Maestros.php`: un solo servicio declarativo sirve los **21 maestros**
+      por páginas. Cada recurso se describe con tabla, clave, mapa de campos y
+      filtro; agregar uno nuevo es agregar un arreglo, no un controlador.
+- [x] Paginación por **cursor** (clave siguiente), no por `OFFSET`: con 3.373
+      clientes el `OFFSET` de la última página vuelve a leer todas las
+      anteriores. Soporta claves compuestas (contactos, precios, líneas).
+- [x] Alcance por vendedor en el propio maestro: un vendedor solo baja sus
+      cotizaciones y notas de venta; supervisor ve las de su gente; admin y
+      facturación, todas. **Sin contexto no se abre nada** (`1 = 0`), para que
+      un camino nuevo que no sepa de permisos falle cerrado y no abierto.
+- [x] Almacenamiento en **IndexedDB** (`mobile/src/idb.js`), sin librería
+      envoltorio. Búsqueda por índice `multiEntry` de palabras normalizadas:
+      «compania» y «COMPAÑÍA» dan las mismas 43 fichas, en 6 ms.
+- [x] Sincronización **incremental** por `FechaUlMod` donde la columna sirve
+      (clientes y productos), completa en el resto. Reloj del servidor, nunca
+      del teléfono.
+- [x] **Sello de corrida**: la descarga completa marca cada fila con la hora de
+      la corrida y al final borra las que quedaron con sello viejo. Es la única
+      forma de enterarse de lo que se borró en Softland. El almacén no se vacía
+      al empezar: una descarga cortada no puede dejar al vendedor con medio
+      catálogo.
+- [x] Reconciliación por cuenta: si tras una corrida incremental lo local no
+      cuadra con el total del servidor, se repite completa sola.
+- [x] Sincronización **reanudable**: cursor, sello y fecha se guardan después
+      de cada página.
+- [x] Pantallas nuevas: **Clientes** (4ª pestaña), ficha de cliente con alta y
+      edición, **Productos** con filtro por grupo y hoja de precios, y
+      **Cotizaciones** y **Notas de venta** de solo lectura con su detalle.
+- [x] **Bandeja de salida** (`pendientes.js`): lo que se guarda sin señal sale
+      solo al volver la red. Idempotente porque la clave del cliente es el RUT:
+      un reintento choca con la clave primaria y el 409 se toma como éxito.
+- [x] `ClienteController`: alta y edición contra `cwtauxi`/`cwtaxco`, único
+      lugar que escribe en tablas nativas de Softland. Edición **parcial** (de
+      62 columnas se tocan las diez que la app conoce), claves foráneas
+      verificadas antes de escribir para devolver un 422 legible en vez de un
+      500 con el nombre del constraint, y auditoría como la escribe el ERP.
+- [x] `Selector.vue`: elegir un código de un maestro largo con filtro de texto
+      — giros (2.009), ciudades (937), cargos (606), comunas (352). De paso
+      resuelve el `<select>` de 594 centros de costo que estaba en el backlog.
+- [x] Probado de punta a punta contra INNOVAGES: alta sin señal, envío al
+      volver la red, edición parcial, descarte, 409 por RUT repetido y borrado
+      del cliente de prueba. La base quedó con sus 3.373 clientes y 2.816
+      contactos originales.
+
 ## Pendiente / próximos pasos
-- [ ] **Publicar la API en Apache** (ver «Problemas conocidos»).
-- [ ] Correr `/setup` en el navegador y crear los primeros vendedores.
+- [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
+      admin: el alcance por vendedor está probado contra la base, pero no con
+      alguien usando el teléfono.
 - [ ] Configurar el SMTP desde la app y mandar un correo de prueba.
-- [ ] Empezar la fase 2 (catálogos offline). Ver `docs/roadmap.md`.
+- [ ] Empezar la fase 3 (cotización y nota de venta). Ver `docs/roadmap.md`.
 - [ ] **Solicitar al SII los folios CAF de boleta electrónica (DTE 39)** — es
       el bloqueo de plazo más largo del proyecto, conviene iniciarlo ya.
 - [ ] Averiguar si la API REST oficial de Softland (`Softland.DteClient`) está
@@ -95,6 +149,27 @@ y folios CAF para factura (33) y nota de crédito (61).
 - **Almacenamiento local con Preferences en fase 1**, IndexedDB desde la fase 2:
   Preferences guarda un string por clave y no sirve para buscar entre miles de
   productos, pero para token y maestros chicos alcanza y evita una dependencia.
+- **El orquestador de la sincronización vive en el teléfono.** El servidor
+  sirve páginas y no recuerda qué bajó quién: no hay estado por dispositivo que
+  mantener, y un teléfono que se formatea no deja basura en la base.
+- **El reloj de lo incremental es el del servidor** (`servidor_at` de cada
+  respuesta), nunca el del teléfono. Un aparato con la hora corrida se saltaría
+  cambios para siempre y nadie se enteraría.
+- **La búsqueda es por principio de palabra, no por trozo suelto.** «rojas»
+  encuentra a CLAUDIA ROJAS y «mauricio rojas» exige las dos, en cualquier
+  orden; «auricio» no encuentra nada. Es como busca la gente y es la diferencia
+  entre responder en 3 ms y recorrer 3.373 fichas en cada tecla.
+- **Un 409 al reintentar un alta es éxito, no error.** La clave del cliente es
+  el RUT: si el teléfono mandó el alta y se cortó antes de la respuesta, el
+  reintento choca con la clave primaria y eso significa que ya está creado.
+- **La edición de cliente es parcial de verdad.** Solo se escriben las columnas
+  que vinieron en la petición. `cwtauxi` tiene 62 columnas y la app conoce
+  diez: escribirlas todas dejaría en NULL el giro y la dirección de alguien que
+  solo quiso corregir un teléfono.
+- **El precio de una línea de documento está en la moneda del producto**, no en
+  la del documento; `CtEquiv`/`nvEquiv` es el factor entre las dos. Un tercio
+  de las líneas de INNOVAGES lo tiene distinto de 1 (producto en UF, documento
+  en pesos). Mostrar el precio a secas escribe «1 UNIDAD × $ 5 = $ 214.735».
 
 - **`public/.htaccess` lleva `RewriteBase /venta-softland/` y es obligatorio**:
   el archivo se copió de rinde-caja con su `RewriteBase /rinde-caja/`, y como
@@ -152,8 +227,28 @@ y folios CAF para factura (33) y nota de crédito (61).
 - **Hay descripciones vacías en los maestros** (la lista de precios `01` de
   INNOVAGES). `Catalogos::etiqueta()` cae al código cuando el nombre viene en
   blanco, para que no salgan opciones invisibles en los desplegables.
-- **594 centros de costo activos** en un desplegable simple. Funciona, pero en
-  la fase 2 conviene un buscador en vez de un `<select>`.
+- **La lista de precios de INNOVAGES no sirve.** `iw_tlprprod` tiene 838 filas
+  y **ninguno** de sus 835 códigos de producto existe en `iw_tprod`: quedó de
+  una carga vieja que nadie mantiene. Se sigue descargando porque otra empresa
+  Softland sí puede tenerla al día; en la hoja del producto simplemente no
+  aparece ninguna fila de lista. Si alguna vez hay que arreglarla, es un
+  problema de datos del cliente, no de la app.
+- **La bandeja de salida no resuelve conflictos: gana el último que llega.** Si
+  dos vendedores editan al mismo cliente sin señal, el segundo pisa al primero
+  sin avisar. Con tres personas en terreno y 3.373 clientes es teórico; el día
+  que deje de serlo, hay que mirar `mobile/src/pendientes.js`.
+- **Descartar una edición sin señal deja el dato editado en el teléfono** hasta
+  la próxima descarga completa. Con señal se vuelve a pedir la ficha al
+  servidor y queda correcta al instante.
+- **`->delete()` de Laravel informa 0 filas en las tablas de Softland** aunque
+  borre. Pasa al menos en `cwtaxco`. El borrado ocurre — se comprobó contando
+  antes y después — pero el número que devuelve no se puede usar para decidir
+  nada.
+- **La auditoría de `cwtauxi` del cliente 79528870** (COMPAÑIA NACIONAL DE
+  CUEROS) quedó con `Usuario=softland / Proceso=App de ventas` y la fecha del
+  13-09-2026 por una prueba de la fase 2. El dato de negocio se restauró (su
+  teléfono volvió a quedar vacío, como estaba); lo que no se pudo devolver es
+  quién lo había tocado antes, porque la columna se sobrescribe.
 - **Boleta electrónica sin folios.** No hay CAF para el DTE 39 ni el 41 en
   `dte_siicaf`. El tipo `BE` existe en `cwttdoc`, así que Softland está
   preparado, pero sin folios no se puede emitir.

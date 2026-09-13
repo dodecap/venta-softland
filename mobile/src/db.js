@@ -1,12 +1,14 @@
 import { Preferences } from '@capacitor/preferences';
+import { idb } from './idb';
 
 /**
- * Estado local del teléfono.
+ * Preferencias del teléfono: cosas chicas, de una línea, que no se consultan.
  *
- * Fase 1 guarda poco (servidor, token, usuario, maestros chicos) y le alcanza
- * con Preferences. Cuando entren los catálogos grandes — 1.200 productos, 3.800
- * clientes, 2.200 precios — esto pasa a IndexedDB, porque Preferences guarda
- * todo como un solo string por clave y no se puede consultar ni filtrar.
+ * Aquí vive lo que identifica al aparato y a la sesión — servidor, token,
+ * usuario, dónde dejó el botón flotante, qué tamaño de letra eligió. Los
+ * **maestros no están aquí**: desde la fase 2 viven en IndexedDB (`idb.js`),
+ * porque Preferences guarda un string por clave y buscar un cliente entre 3.373
+ * obligaría a leer y parsear el bloque completo en cada tecla.
  */
 
 async function leer(clave, porDefecto) {
@@ -40,9 +42,6 @@ export const db = {
 
     getUsuario: () => leer('usuario', null),
     setUsuario: (v) => escribir('usuario', v),
-
-    getCatalogos: () => leer('catalogos', {}),
-    setCatalogos: (v) => escribir('catalogos', v),
 
     /** Datos del servidor que devuelve el bootstrap: nombre, base y RUT emisor. */
     getServidorInfo: () => leer('servidor_info', null),
@@ -93,5 +92,12 @@ export const db = {
         for (const k of ['token', 'usuario', 'catalogos', 'servidor_info', 'sincronizado_at', 'aviso_visto']) {
             await Preferences.remove({ key: k });
         }
+        // `catalogos` ya no se escribe: se borra por los teléfonos que vienen de
+        // la fase 1 y todavía lo tienen guardado ocupando espacio.
+
+        // Y se van los maestros. No es prolijidad: en el teléfono hay 3.373
+        // clientes de la empresa con su RUT, su dirección y su correo. Un
+        // aparato que cambia de manos no se los lleva puestos.
+        await idb.vaciarTodo();
     },
 };

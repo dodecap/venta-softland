@@ -86,7 +86,9 @@ apilan con `push` sobre una pestaña y se salen con «atrás».
 
 Una pestaña es un lugar al que se vuelve, no una acción que se hace: crear
 cuelga del botón flotante y cotizaciones o productos son acciones del panel.
-Clientes entra como cuarta pestaña con la fase 2 y ahí se cierra la lista.
+Desde la fase 2 las pestañas son cuatro — **Panel · Clientes · Avisos ·
+Cuenta** — y ahí se cierra la lista: con la activa desplegada, en 360 px no
+cabe una quinta sin bajar de los 44 px de área pulsable.
 
 ### Tamaño de la interfaz
 
@@ -129,6 +131,28 @@ conectada al ERP.
   icono o un import suelto de Lucide (`mobile/scripts/sin-emojis.mjs`). Para
   revisar sin compilar: `npm run iconos`.
 
+## Datos en el teléfono
+
+Desde la fase 2 el teléfono trabaja sin señal. Lo que hay que saber antes de
+tocar nada de esto:
+
+- Los maestros viven en **IndexedDB** (`mobile/src/idb.js`), no en Preferences.
+  Preferences guarda lo de una línea: servidor, token, usuario, preferencias.
+- El catálogo se describe **una sola vez**, en
+  `app/Services/Softland/Maestros.php`: tabla, clave, mapa de campos y filtro.
+  Un maestro nuevo es un arreglo más, no un controlador.
+- El **orquestador está en el teléfono** (`mobile/src/sync.js`). El servidor
+  sirve páginas por cursor y no recuerda qué bajó quién.
+- Lo incremental se mide con el **reloj del servidor**, nunca con el del
+  aparato.
+- Lo que se escribe sin red va a la **bandeja de salida**
+  (`mobile/src/pendientes.js`) y sale solo al volver la señal. La idempotencia
+  del alta de clientes va por el RUT, que es la clave en Softland.
+- Toda traducción de código a nombre pasa por `mobile/src/catalogos.js`.
+  Ninguna pantalla lee un maestro chico por su cuenta.
+- Para elegir un código de un maestro largo se usa `Selector.vue`, no un
+  `<select>` pelado: 2.009 giros en un desplegable de Android no se navegan.
+
 ## Comandos habituales
 
 ```bash
@@ -143,5 +167,5 @@ ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan venta
 ```
 
 ## Estado actual
-Ver `STATE.md`. El mapa de tablas del flujo de ventas está en
+Fases 1 y 2 terminadas. Ver `STATE.md`. El mapa de tablas del flujo de ventas está en
 `docs/flujo-ventas-softland.md` y el plan por fases en `docs/roadmap.md`.

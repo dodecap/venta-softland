@@ -97,6 +97,32 @@ class Usuario extends Model
         return array_values(array_unique($result));
     }
 
+    /**
+     * Códigos de vendedor de Softland cuyos documentos puede ver este usuario.
+     *
+     * `null` significa «todos», y es distinto de lista vacía: administración y
+     * facturación ven la empresa entera, mientras que un vendedor al que nadie
+     * le asignó `ven_cod` no ve nada — no hay documento que sea suyo.
+     */
+    public function vendedoresVisibles(): ?array
+    {
+        if ($this->esRol('admin', 'facturacion')) {
+            return null;
+        }
+
+        $codigos = array_filter([$this->ven_cod]);
+
+        if ($this->esRol('supervisor')) {
+            $deSuGente = static::on($this->getConnectionName())
+                ->whereIn('id', $this->subordinadosIds())
+                ->pluck('ven_cod')
+                ->all();
+            $codigos = array_merge($codigos, array_filter($deSuGente));
+        }
+
+        return array_values(array_unique($codigos));
+    }
+
     /** Lo que la app necesita saber del usuario conectado. */
     public function payload(): array
     {

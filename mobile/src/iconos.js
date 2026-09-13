@@ -19,10 +19,10 @@
 import {
     Bell, BellOff, Boxes, Building2, ChartNoAxesCombined, CheckCheck, ChevronLeft,
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
-    CreditCard, FileText, Inbox, Info, LayoutDashboard, LogOut, Mail, MailCheck,
-    MailX, Package, Plus, RefreshCw, Route, Search, SearchX, Server, Settings,
-    ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal, Smartphone, Trash2,
-    TriangleAlert, Type, UserCog, UserPlus, Users, WifiOff, X,
+    CloudDownload, CloudUpload, CreditCard, Database, FileText, Inbox, Info, LayoutDashboard,
+    LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
+    Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
+    Smartphone, Trash2, TriangleAlert, Type, UserCog, UserPlus, Users, WifiOff, X,
 } from 'lucide-vue-next';
 
 /*
@@ -75,6 +75,7 @@ export const ICONOS = {
     empresa: { glifo: Building2, variante: 'admin' },
     dispositivo: { glifo: Smartphone, variante: 'admin' },
     tamanoTexto: { glifo: Type, variante: 'admin' },
+    datos: { glifo: Database, variante: 'admin' },
 
     // ---- Controles de interfaz ----
     crear: { glifo: Plus },
@@ -83,6 +84,10 @@ export const ICONOS = {
     avanzar: { glifo: ChevronRight },
     desplegar: { glifo: ChevronDown },
     sincronizar: { glifo: RefreshCw },
+    // Bajar y subir son cosas distintas y se leen distinto: descargar es traerse
+    // los maestros al teléfono; subir es mandar a Softland lo que se hizo sin señal.
+    descargar: { glifo: CloudDownload, variante: 'catalogo' },
+    subir: { glifo: CloudUpload, variante: 'aviso' },
     salir: { glifo: LogOut },
     buscar: { glifo: Search },
     borrar: { glifo: Trash2, variante: 'peligro' },
