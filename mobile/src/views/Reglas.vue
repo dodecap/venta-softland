@@ -52,14 +52,15 @@ async function guardar(ev) {
     <div class="pantalla">
         <div class="barra">
             <button class="icono-barra" @click="router.back()"><AppIcon name="atras" :size="24" /></button>
-            <h1>Notificaciones</h1>
+            <h1>Reglas de aviso</h1>
         </div>
 
         <div class="contenido">
             <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
             <Aviso tipo="ok" v-if="aviso">{{ aviso }}</Aviso>
             <Aviso tipo="info">
-                Están listados todos los avisos del flujo completo. Los de fases que
+                Manda qué correo sale y a quién. Están listados todos los avisos
+                del flujo completo. Los de fases que
                 todavía no existen se pueden dejar configurados desde ya: empezarán a
                 salir solos cuando esa parte entre en funcionamiento.
             </Aviso>
@@ -75,7 +76,8 @@ async function guardar(ev) {
                     <span class="etiqueta" :class="ev.activa ? 'verde' : 'roja'">
                         {{ ev.activa ? 'activo' : 'apagado' }}
                     </span>
-                    <span>{{ abierto === ev.evento ? '▾' : '▸' }}</span>
+                    <AppIcon :name="abierto === ev.evento ? 'desplegar' : 'avanzar'" :size="18"
+                             color="var(--texto-suave)" />
                 </div>
 
                 <div class="tarjeta-cuerpo" v-if="abierto === ev.evento">

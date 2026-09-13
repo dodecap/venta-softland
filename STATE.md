@@ -46,6 +46,23 @@ y folios CAF para factura (33) y nota de crédito (61).
       (los últimos correos enviados, dato real de la bitácora).
 - [x] Avisos con icono de estado (`Aviso.vue`), en las siete pantallas. El
       color solo no basta a pleno sol ni para quien no distingue rojo y verde.
+- [x] Navegación inferior por pestañas: **Panel · Avisos · Cuenta**, píldora
+      flotante con el nombre solo en la activa y contador de avisos sin leer.
+      Se esconde con el teclado y con una hoja encima, y sube `--pie-flotante`
+      para que el botón de crear quede sobre ella, no detrás.
+- [x] Pantalla **Cuenta**: ficha del usuario, datos descargados, tamaño de la
+      interfaz, el bloque de administración (que salió del panel) y el «acerca
+      de» con servidor, base, RUT emisor y versión. Cerrar sesión vive aquí, en
+      rojo y con confirmación: en el encabezado del panel estaba a un dedazo
+      del botón de sincronizar.
+- [x] Buzón de avisos del vendedor (`GET /api/avisos`): lo que le llegó a él,
+      no toda la bitácora. Pestañas por familia de evento, que las manda el
+      servidor (`Eventos::familias()`). Lo leído se guarda en el teléfono.
+- [x] Escala de interfaz con tres tamaños (compacta · normal · amplia), una
+      sola variable CSS `--d`. Probado en 360×640: las seis acciones rápidas
+      caben sobre la barra sin desplazar en las tres escalas.
+- [x] Estados vacíos con icono (`Vacio.vue`) y «Ver todo» en la cabecera de
+      actividad reciente.
 - [x] Botón flotante de crear, abajo y movible a tres anclas (izquierda,
       centro, derecha) con presión larga y arrastre. La posición se guarda en
       el teléfono. Es uno solo para toda la app: cada pantalla solo declara su
@@ -94,22 +111,27 @@ y folios CAF para factura (33) y nota de crédito (61).
   hay nada más que abrir.
 
 - **Queda arriba la flecha de volver, no el ＋.** Crear ya se hace desde el
-  botón flotante del pie y retroceder tiene el gesto nativo, así que la barra
-  de acciones inferior completa dejó de ser necesaria. Lo que sí conviene al
-  abrir la fase 2 es la barra de pestañas fija tipo Banorte, que además
-  reordena el router.
+  botón flotante del pie y retroceder tiene el gesto nativo.
+- **Tres pestañas y no más, y se navegan con `replace`.** Una pestaña es un
+  lugar al que se vuelve, no una acción: por eso cotizaciones y productos son
+  acciones del panel y no pestañas. Con `push` en vez de `replace`, «atrás»
+  recorrería el historial de saltos entre pestañas en vez de salir de la app,
+  que es lo que espera la mano. Clientes entra como cuarta con la fase 2.
+- **La pantalla de reglas se llamaba «notificaciones».** Ese nombre pasó a ser
+  el del buzón del vendedor, así que ahora son `/reglas` (qué correo sale y a
+  quién) y `/avisos` (lo que me llegó). `/notificaciones` queda como redirección.
+- **Lo leído del buzón se guarda en el teléfono, no en la base.** Así el
+  contador funciona sin señal y abrir la pestaña no escribe en SQL Server cada
+  vez. Lo que sí es del servidor es a quién le corresponde cada aviso.
+- **El tamaño de la interfaz lo elige el vendedor, no nosotros.** Una sola
+  variable (`--d`) y tres escalas. No se escalan nunca los 44 px de área
+  pulsable, los 16 px de los campos ni el texto de 12 px o menos.
 - **El pie de la pantalla tiene dueño: `--pie-flotante`.** Todo lo que flote
   abajo (botón de crear, avisos) cuelga de esa variable, que levanta 28 px
   sobre el área segura. La razón no es estética: en los teléfonos con barra de
   tres botones, «atrás» queda justo debajo del borde de la app, y un pulgar
   que apunta al botón flotante y se queda corto se saldría de la pantalla. Si
   alguna vez se baja ese valor, vuelve el problema.
-- **La navegación inferior por pestañas todavía no se puso.** Está en el
-  diseño de referencia y es el siguiente paso visual, pero hoy no hay destinos
-  para las pestañas: las cuatro pantallas que existen son de administración.
-  Las pestañas de verdad (Panel · Clientes · Cotizaciones · Cuenta) nacen con
-  la fase 2. Cuando se ponga, hay que subir `--pie-flotante` para que el botón
-  flotante quede sobre la barra y no detrás.
 - **Lo que flota se esconde con el teclado abierto** (`teclado.js`, evento
   `keyboardWillShow`). Si no, el botón queda montado sobre las teclas. Vale
   para cualquier control que se agregue al pie más adelante.
@@ -118,6 +140,11 @@ y folios CAF para factura (33) y nota de crédito (61).
   Capacitor deja de dispararse y la navegación vuelve a romperse.
 
 ## Problemas conocidos / bloqueos
+- **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
+  tiene filas porque el SMTP todavía no está configurado, y el único usuario
+  creado no tiene correo. La consulta está probada de punta a punta contra
+  INNOVAGES con filas de prueba (insertadas y borradas), incluido que el
+  escape del `_` en el LIKE impide que a alguien le lleguen avisos ajenos.
 - **`cwtccos` no sigue el prefijo de tres letras.** Sus columnas son
   `CodiCC`/`DescCC`, no `CcCod`/`CcDes` como en el resto de los maestros. Es la
   excepción; conviene verificar el nombre real en `sys.columns` antes de

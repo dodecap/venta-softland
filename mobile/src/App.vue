@@ -5,6 +5,7 @@ import { App as AppNativa } from '@capacitor/app';
 import { cerrarCapaSuperior } from './nav';
 import { conectado } from './red';
 import AppIcon from './components/AppIcon.vue';
+import BarraInferior from './components/BarraInferior.vue';
 import BotonCrear from './components/BotonCrear.vue';
 
 const router = useRouter();
@@ -14,8 +15,14 @@ const avisoSalida = ref(false);
 /**
  * Pantallas sin nada detrás. Retroceder desde aquí no lleva a ningún lado,
  * así que el gesto se interpreta como salir de la app.
+ *
+ * Son las tres pestañas (`meta.tab`) y las dos de entrada. Las pestañas se
+ * navegan con `replace`, así que entre ellas no hay historial que desandar:
+ * desde cualquiera, «atrás» significa salir.
  */
-const RAICES = ['/inicio', '/login', '/servidor'];
+const RAICES = ['/login', '/servidor'];
+
+const enRaiz = () => RAICES.includes(route.path) || !!route.meta.tab;
 
 let salidaArmada = null;
 const oyentes = [];
@@ -31,7 +38,7 @@ const oyentes = [];
 function atras() {
     if (cerrarCapaSuperior()) return;
 
-    if (!RAICES.includes(route.path)) {
+    if (!enRaiz()) {
         router.back();
         return;
     }
@@ -69,6 +76,7 @@ onUnmounted(() => {
         Sin conexión — trabajando en el teléfono
     </div>
     <router-view />
+    <BarraInferior />
     <BotonCrear />
     <div class="brindis" v-if="avisoSalida">Pulsa otra vez para salir</div>
 </template>

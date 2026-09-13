@@ -44,6 +44,10 @@ export const db = {
     getCatalogos: () => leer('catalogos', {}),
     setCatalogos: (v) => escribir('catalogos', v),
 
+    /** Datos del servidor que devuelve el bootstrap: nombre, base y RUT emisor. */
+    getServidorInfo: () => leer('servidor_info', null),
+    setServidorInfo: (v) => escribir('servidor_info', v),
+
     /**
      * Lado donde el vendedor dejó el botón flotante: izq | centro | der.
      * Es del teléfono, no de la sesión: el aparato tiene un dueño y una mano.
@@ -59,9 +63,34 @@ export const db = {
     getSincronizado: () => leer('sincronizado_at', null),
     setSincronizado: (v) => escribir('sincronizado_at', v),
 
+    /**
+     * Tamaño de la interfaz: compacta | normal | amplia.
+     * Del aparato, no de la sesión — depende de la pantalla y de la vista de
+     * quien lo usa, no de quién entró. Ver `densidad.js`.
+     */
+    async getDensidad() {
+        const v = (await Preferences.get({ key: 'densidad' })).value;
+        return ['compacta', 'normal', 'amplia'].includes(v) ? v : 'normal';
+    },
+    async setDensidad(v) {
+        await Preferences.set({ key: 'densidad', value: v });
+    },
+
+    /**
+     * Último aviso que el vendedor alcanzó a ver, para contar los no leídos.
+     * Se guarda en el teléfono a propósito: así la cuenta funciona sin señal y
+     * abrir el buzón no escribe en la base cada vez.
+     */
+    async getAvisoVisto() {
+        return Number((await Preferences.get({ key: 'aviso_visto' })).value || 0);
+    },
+    async setAvisoVisto(id) {
+        await Preferences.set({ key: 'aviso_visto', value: String(id || 0) });
+    },
+
     /** Cierra sesión pero conserva la dirección del servidor: no se reconfigura cada vez. */
     async olvidarSesion() {
-        for (const k of ['token', 'usuario', 'catalogos', 'sincronizado_at']) {
+        for (const k of ['token', 'usuario', 'catalogos', 'servidor_info', 'sincronizado_at', 'aviso_visto']) {
             await Preferences.remove({ key: k });
         }
     },

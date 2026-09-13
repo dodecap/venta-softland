@@ -17,11 +17,12 @@
  * agrégalo abajo con la variante que le corresponda por función.
  */
 import {
-    Bell, Boxes, ChartNoAxesCombined, CheckCheck, ChevronLeft, ChevronRight,
-    CircleAlert, CircleCheck, CircleHelp, ClipboardList, CreditCard, FileText,
-    Info, LayoutDashboard, LogOut, Mail, MailCheck, Package, Plus, RefreshCw,
-    Route, Search, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText,
-    Trash2, TriangleAlert, UserCog, UserPlus, Users, WifiOff, X,
+    Bell, BellOff, Boxes, Building2, ChartNoAxesCombined, CheckCheck, ChevronLeft,
+    ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
+    CreditCard, FileText, Inbox, Info, LayoutDashboard, LogOut, Mail, MailCheck,
+    MailX, Package, Plus, RefreshCw, Route, Search, SearchX, Server, Settings,
+    ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal, Smartphone, Trash2,
+    TriangleAlert, Type, UserCog, UserPlus, Users, WifiOff, X,
 } from 'lucide-vue-next';
 
 /*
@@ -57,8 +58,12 @@ export const ICONOS = {
 
     // ---- Avisos ----
     notificacion: { glifo: Bell, variante: 'aviso' },
+    sinNotificaciones: { glifo: BellOff, variante: 'neutro' },
+    buzon: { glifo: Inbox, variante: 'aviso' },
     correo: { glifo: Mail, variante: 'aviso' },
     correoEnviado: { glifo: MailCheck, variante: 'aviso' },
+    correoFallido: { glifo: MailX, variante: 'peligro' },
+    reglaAviso: { glifo: SlidersHorizontal, variante: 'aviso' },
 
     // ---- Administración ----
     panel: { glifo: LayoutDashboard, variante: 'admin' },
@@ -66,16 +71,22 @@ export const ICONOS = {
     configuracion: { glifo: Settings, variante: 'admin' },
     servidor: { glifo: Server, variante: 'admin' },
     permisos: { glifo: ShieldCheck, variante: 'admin' },
+    cuenta: { glifo: CircleUser, variante: 'admin' },
+    empresa: { glifo: Building2, variante: 'admin' },
+    dispositivo: { glifo: Smartphone, variante: 'admin' },
+    tamanoTexto: { glifo: Type, variante: 'admin' },
 
     // ---- Controles de interfaz ----
     crear: { glifo: Plus },
     cerrar: { glifo: X },
     atras: { glifo: ChevronLeft },
     avanzar: { glifo: ChevronRight },
+    desplegar: { glifo: ChevronDown },
     sincronizar: { glifo: RefreshCw },
     salir: { glifo: LogOut },
     buscar: { glifo: Search },
     borrar: { glifo: Trash2, variante: 'peligro' },
+    sinResultados: { glifo: SearchX, variante: 'neutro' },
 
     // ---- Estados ----
     ok: { glifo: CircleCheck, variante: 'dinero' },

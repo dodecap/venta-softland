@@ -3,9 +3,12 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { db } from '../db';
+import { refrescarAvisos } from '../avisos';
+import { px } from '../densidad';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
+import Vacio from '../components/Vacio.vue';
 
 const router = useRouter();
 const usuario = ref(null);
@@ -22,6 +25,8 @@ const esAdmin = computed(() => !!usuario.value?.es_admin);
  * Accesos del flujo de ventas. Se muestran desde ya, apagados y con la fase a
  * la vista: el vendedor entiende hacia dónde va la herramienta y nadie
  * promete un botón que todavía no hace nada.
+ *
+ * Lo administrativo NO está aquí: vive en Cuenta. El panel es del vendedor.
  */
 const FLUJO = [
     { icono: 'cotizacion', rotulo: 'Cotizaciones', fase: 'Fase 3' },
@@ -32,24 +37,20 @@ const FLUJO = [
     { icono: 'cobranza', rotulo: 'Cobranza', fase: 'Fase 5' },
 ];
 
-const ADMIN = [
-    { icono: 'usuario', rotulo: 'Usuarios', ruta: '/usuarios' },
-    { icono: 'configuracion', rotulo: 'Configuración', ruta: '/configuracion' },
-    { icono: 'notificacion', rotulo: 'Notificaciones', ruta: '/notificaciones' },
-    { icono: 'correoEnviado', rotulo: 'Correos', ruta: '/bitacora' },
-];
-
 onMounted(async () => {
     usuario.value = await db.getUsuario();
     sincronizado.value = await db.getSincronizado();
     catalogos.value = await db.getCatalogos();
+    // El punto rojo de la barra inferior sale de aquí: si se pidiera recién al
+    // abrir el buzón, nunca habría aviso de que hay algo que mirar.
+    refrescarAvisos();
     if (esAdmin.value) cargarActividad();
 });
 
 /** Últimos correos que salieron. Es la única actividad real que hay en fase 1. */
 async function cargarActividad() {
     try {
-        const r = await api.bitacora(6);
+        const r = await api.bitacora(5);
         actividad.value = r.notificaciones;
     } catch {
         // Sin red el panel sigue sirviendo: la actividad es un extra, no falla la pantalla.
@@ -65,25 +66,19 @@ async function sincronizar() {
         const b = await api.bootstrap();
         await db.setCatalogos(b.catalogos);
         await db.setUsuario(b.usuario);
+        await db.setServidorInfo(b.servidor);
         await db.setSincronizado(b.sincronizado_at);
         usuario.value = b.usuario;
         sincronizado.value = b.sincronizado_at;
         catalogos.value = b.catalogos;
         aviso.value = 'Datos actualizados.';
+        refrescarAvisos();
         if (esAdmin.value) cargarActividad();
     } catch (e) {
         error.value = e.message;
     } finally {
         sincronizando.value = false;
     }
-}
-
-async function salir() {
-    try {
-        await api.logout();
-    } catch { /* si no hay red, el token queda huérfano en el servidor y expira con el uso */ }
-    await db.olvidarSesion();
-    router.replace('/login');
 }
 
 /** Iniciales del vendedor para la placa del encabezado. */
@@ -96,7 +91,7 @@ const cuando = computed(() => {
     const hoy = new Date().toDateString() === d.toDateString();
     // 24 horas: «12:18 p. m.» ocupa el doble y no dice nada más.
     const hora = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
-    return hoy ? `Hoy ${hora}` : d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit' }) + ` ${hora}`;
+    return hoy ? `Hoy ${hora}` : d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' }) + ` ${hora}`;
 });
 
 /** Registros de maestros guardados en el teléfono. Es lo que se lleva a terreno. */
@@ -106,7 +101,7 @@ const registros = computed(() => Object.values(catalogos.value || {})
 function fecha(n) {
     const v = n.enviada_at || n.created_at;
     if (!v) return '';
-    return new Date(v.replace(' ', 'T'))
+    return new Date(String(v).replace(' ', 'T'))
         .toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 </script>
@@ -121,15 +116,14 @@ function fecha(n) {
                     {{ usuario?.rol }}<span v-if="usuario?.ven_cod"> · vendedor {{ usuario.ven_cod }}</span>
                 </div>
             </div>
+            <!-- Cerrar sesión ya no está aquí: se fue a Cuenta. Al lado de
+                 «sincronizar» era un dedazo de distancia perder la sesión. -->
             <button class="icono-barra" :disabled="sincronizando" title="Sincronizar" @click="sincronizar">
-                <AppIcon name="sincronizar" :size="21" :class="{ girando: sincronizando }" />
-            </button>
-            <button class="icono-barra" title="Cerrar sesión" @click="salir">
-                <AppIcon name="salir" :size="21" />
+                <AppIcon name="sincronizar" :size="20" :class="{ girando: sincronizando }" />
             </button>
         </div>
 
-        <div class="contenido" style="padding:0 16px 16px;">
+        <div class="contenido panel">
             <Aviso tipo="error" v-if="error" style="margin-top:14px;">{{ error }}</Aviso>
             <Aviso tipo="ok" v-if="aviso" style="margin-top:14px;">{{ aviso }}</Aviso>
 
@@ -140,17 +134,17 @@ function fecha(n) {
 
             <div class="kpis">
                 <div class="kpi" :class="conectado ? 'dinero' : 'aviso'">
-                    <AppIcon :name="conectado ? 'alDia' : 'sinRed'" :caja="38" :size="19" />
+                    <AppIcon :name="conectado ? 'alDia' : 'sinRed'" :caja="px(36)" :size="px(18)" />
                     <div class="dato corto">{{ conectado ? 'En línea' : 'Sin señal' }}</div>
                     <div class="rotulo">{{ conectado ? 'Todo se envía al momento' : 'Se guarda en el teléfono' }}</div>
                 </div>
                 <div class="kpi venta">
-                    <AppIcon name="sincronizar" :caja="38" :size="19" variant="venta" />
+                    <AppIcon name="sincronizar" :caja="px(36)" :size="px(18)" variant="venta" />
                     <div class="dato corto">{{ cuando }}</div>
                     <div class="rotulo">Última sincronización</div>
                 </div>
                 <div class="kpi catalogo">
-                    <AppIcon name="inventario" :caja="38" :size="19" />
+                    <AppIcon name="inventario" :caja="px(36)" :size="px(18)" />
                     <div class="dato">{{ registros.toLocaleString('es-CL') }}</div>
                     <div class="rotulo">Registros en el teléfono</div>
                 </div>
@@ -162,7 +156,7 @@ function fecha(n) {
 
             <div class="rejilla">
                 <button class="accion" v-for="a in FLUJO" :key="a.rotulo" disabled>
-                    <AppIcon :name="a.icono" :caja="52" :size="24" />
+                    <AppIcon :name="a.icono" :caja="px(48)" :size="px(22)" />
                     <span class="rotulo">{{ a.rotulo }}</span>
                     <span class="fase">{{ a.fase }}</span>
                 </button>
@@ -170,25 +164,19 @@ function fecha(n) {
 
             <template v-if="esAdmin">
                 <div class="seccion">
-                    <h2>Administración</h2>
-                </div>
-
-                <div class="rejilla compacta">
-                    <button class="accion" v-for="a in ADMIN" :key="a.ruta" @click="router.push(a.ruta)">
-                        <AppIcon :name="a.icono" :caja="48" :size="22" />
-                        <span class="rotulo">{{ a.rotulo }}</span>
+                    <h2>Actividad reciente</h2>
+                    <span class="sub">Correos enviados</span>
+                    <button class="ver-todo" @click="router.push('/bitacora')">
+                        Ver todo
+                        <AppIcon name="avanzar" :size="15" color="currentColor" />
                     </button>
                 </div>
 
-                <div class="seccion">
-                    <h2>Actividad reciente</h2>
-                    <span class="sub">Correos enviados</span>
-                </div>
-
                 <div class="actividad">
-                    <div class="vacia" v-if="!actividad.length">Todavía no ha salido ningún correo.</div>
+                    <Vacio v-if="!actividad.length" icono="correo" titulo="Sin movimiento" />
                     <div class="fila" v-for="n in actividad" :key="n.id">
-                        <AppIcon :name="n.enviada_at ? 'correoEnviado' : 'alerta'" :caja="38" :size="19" />
+                        <AppIcon :name="n.estado === 'error' ? 'correoFallido' : (n.enviada_at ? 'correoEnviado' : 'correo')"
+                                 :caja="px(36)" :size="px(18)" />
                         <div class="texto">
                             <div class="titulo">{{ n.asunto }}</div>
                             <div class="sub">{{ fecha(n) }} · {{ n.evento }}</div>

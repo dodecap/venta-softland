@@ -20,6 +20,7 @@ const GLIFOS = new RegExp(
     '[\\u{1F000}-\\u{1FAFF}'   // emoji y pictogramas
     + '\\u{2190}-\\u{21FF}'    // flechas
     + '\\u{2300}-\\u{23FF}'    // símbolos técnicos
+    + '\\u{25A0}-\\u{25FF}'   // formas geométricas: los triángulos de desplegar
     + '\\u{2600}-\\u{27BF}'    // símbolos varios y dingbats
     + '\\u{27F0}-\\u{27FF}'    // flechas suplementarias
     + '\\u{2B00}-\\u{2BFF}'    // flechas y figuras

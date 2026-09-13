@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AvisoController;
 use App\Http\Controllers\Api\ConfiguracionController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
@@ -18,6 +19,10 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth.api')->group(function () {
     Route::get('/bootstrap', [AuthController::class, 'bootstrap']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Buzón personal: lo que le llegó a quien está mirando el teléfono.
+    // No confundir con /admin/notificaciones/bitacora, que es todo lo enviado.
+    Route::get('/avisos', [AvisoController::class, 'index']);
 
     Route::middleware('rol:admin')->prefix('admin')->group(function () {
         // Usuarios

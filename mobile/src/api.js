@@ -51,6 +51,9 @@ export const api = {
     bootstrap: () => pedir('/bootstrap'),
     logout: () => pedir('/logout', { method: 'POST' }),
 
+    /** Buzón personal del usuario. No es la bitácora: son solo sus avisos. */
+    avisos: (limite = 40) => pedir(`/avisos?limite=${limite}`),
+
     // Administración (rol admin)
     usuarios: () => pedir('/admin/usuarios'),
     usuariosOpciones: () => pedir('/admin/usuarios/opciones'),

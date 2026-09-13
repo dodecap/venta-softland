@@ -25,12 +25,29 @@
     --rojo: #e13838;
 
     --alto-barra: 56px;
+    --alto-barra-inferior: 58px;
+
+    /* Escala de la interfaz. Todo lo que crece o se achica en el panel cuelga
+       de aquí: los tamaños base están calibrados para --d: 1 sobre un ancho de
+       360 px, el más común en Android. Lo elige quien usa el teléfono
+       (Cuenta -> Tamaño de la interfaz); `densidad.js` escribe esta variable.
+
+       Tres cosas NO se escalan nunca, y por eso no usan --d:
+         - los 44 px de área pulsable,
+         - los 16 px de los campos de formulario (bajo eso Android hace zoom
+           al enfocar),
+         - el texto de 12 px o menos, que ya está en el piso de lectura.
+       Quien achica el panel gana espacio con la separación y los iconos, no
+       con la letra chica: esa ya no se lee a pleno sol. */
+    --d: 1;
+
     /* Altura a la que flota lo que va al pie.
        No es un margen cualquiera: en los teléfonos con la barra de tres
        botones, «atrás» queda justo debajo del borde de la app. Con menos
        separación, el pulgar que apunta al botón flotante y se queda corto
        aterriza en «atrás» y se sale de la pantalla. */
-    --pie-flotante: calc(env(safe-area-inset-bottom, 0px) + 28px);
+    --pie-base: calc(env(safe-area-inset-bottom, 0px) + 28px);
+    --pie-flotante: var(--pie-base);
     --radio: 10px;
     --radio-grande: 16px;
     --sombra: 0 1px 4px rgba(0, 0, 0, .12);
@@ -51,6 +68,11 @@
     --ic-peligro-bg: #fde9e9;   --ic-peligro-fg: #b32626;
     --ic-neutro-bg: #f0f1f4;    --ic-neutro-fg: #5c6273;
 }
+
+/* Con la barra inferior a la vista, el pie de la pantalla ya está ocupado:
+   todo lo que flota sube de una vez en vez de que cada cosa se entere aparte.
+   La clase la pone y la quita `BarraInferior.vue`. */
+html.con-barra { --pie-flotante: calc(var(--pie-base) + 52px); }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -140,6 +162,15 @@ body {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
 }
 
+/* El panel y la cuenta sangran distinto: el aire lateral lo ponen sus
+   secciones, no el contenedor. El fondo lo sigue mandando la regla de arriba,
+   para que el hueco de la barra inferior valga también aquí. */
+.contenido.panel { padding-top: 0; padding-left: 16px; padding-right: 16px; }
+
+html.con-barra .contenido {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--alto-barra-inferior) + 30px);
+}
+
 /* ---------- Tarjetas ---------- */
 
 .tarjeta {
@@ -220,31 +251,40 @@ body {
     flex: 0 0 auto;
     background: var(--blanco);
     border-bottom: 1px solid var(--borde);
-    padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 14px;
+    padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 12px;
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
+/* Pestaña sin saludo: solo el título y, si acaso, una acción a la derecha. */
+.encabezado.simple h1 {
+    margin: 0;
+    flex: 1;
+    font-size: calc(19px * var(--d));
+    font-weight: 700;
+    letter-spacing: -.2px;
+}
+
 .encabezado .marca {
-    width: 44px;
-    height: 44px;
-    border-radius: 13px;
+    width: calc(40px * var(--d));
+    height: calc(40px * var(--d));
+    border-radius: 12px;
     background: var(--indigo);
     color: var(--blanco);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 800;
-    font-size: 15px;
+    font-size: calc(14px * var(--d));
     letter-spacing: .5px;
     flex: 0 0 auto;
 }
 
 .encabezado .saludo { flex: 1; min-width: 0; }
-.encabezado .saludo .hola { font-size: 17px; font-weight: 700; color: var(--texto); }
+.encabezado .saludo .hola { font-size: calc(16px * var(--d)); font-weight: 700; color: var(--texto); }
 .encabezado .saludo .quien {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--texto-suave);
     white-space: nowrap;
     overflow: hidden;
@@ -257,11 +297,29 @@ body {
     display: flex;
     align-items: baseline;
     gap: 10px;
-    margin: 22px 2px 12px;
+    margin: calc(18px * var(--d)) 2px calc(10px * var(--d));
 }
-.seccion:first-child { margin-top: 4px; }
-.seccion h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--texto); }
-.seccion .sub { font-size: 12.5px; color: var(--texto-suave); flex: 1; }
+.seccion:first-child { margin-top: calc(14px * var(--d)); }
+.seccion h2 { margin: 0; font-size: calc(16px * var(--d)); font-weight: 700; color: var(--texto); }
+.seccion .sub { font-size: 12px; color: var(--texto-suave); flex: 1; }
+
+/* Atajo a la lista completa. Va en la cabecera de la sección, no como una
+   fila más al final: al final se confunde con un elemento de la lista. */
+.ver-todo {
+    flex: 0 0 auto;
+    background: none;
+    border: 0;
+    padding: 6px 2px 6px 8px;
+    font-family: inherit;
+    font-size: calc(12.5px * var(--d));
+    font-weight: 700;
+    color: var(--indigo);
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+}
+.ver-todo:active { opacity: .6; }
 
 /* --- Tira de KPIs, desplazable como en las apps de banco --- */
 
@@ -281,16 +339,16 @@ body {
 
 .kpi {
     flex: 0 0 auto;
-    width: 156px;
+    width: calc(148px * var(--d));
     scroll-snap-align: start;
     background: var(--blanco);
     border: 1px solid var(--borde);
     border-radius: var(--radio-grande);
     box-shadow: var(--sombra-suave);
-    padding: 14px;
+    padding: calc(13px * var(--d));
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: calc(7px * var(--d));
     /* La franja de color a la izquierda es la que dice de qué familia es el
        dato sin tener que leerlo. */
     border-left: 3px solid var(--ic-neutro-fg);
@@ -303,33 +361,36 @@ body {
 .kpi.peligro { border-left-color: var(--ic-peligro-fg); }
 
 .kpi .dato {
-    font-size: 21px;
+    font-size: calc(19px * var(--d));
     font-weight: 700;
     color: var(--texto);
     line-height: 1.15;
     letter-spacing: -.3px;
 }
-.kpi .dato.corto { font-size: 16px; }
-.kpi .rotulo { font-size: 12.5px; color: var(--texto-suave); }
+.kpi .dato.corto { font-size: calc(15px * var(--d)); }
+.kpi .rotulo { font-size: 12px; line-height: 1.35; color: var(--texto-suave); }
 
 /* --- Rejilla de acciones: icono en recuadro suave y el nombre debajo --- */
 
 .rejilla {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 6px 4px;
+    gap: 4px;
 }
 .rejilla.compacta { grid-template-columns: repeat(4, 1fr); }
 
 .accion {
     background: none;
     border: 0;
-    padding: 10px 4px;
+    /* El recuadro puede achicarse con la escala; el relleno mantiene el área
+       pulsable sobre los 44 px aunque --d baje. Eso no se negocia. */
+    padding: calc(8px * var(--d)) 4px;
+    min-height: 44px;
     border-radius: 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: calc(7px * var(--d));
     cursor: pointer;
     font-family: inherit;
     color: var(--texto);
@@ -337,7 +398,7 @@ body {
 .accion:active { background: var(--blanco); }
 
 .accion .rotulo {
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1.25;
     text-align: center;
@@ -375,26 +436,36 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 14px;
+    padding: calc(11px * var(--d)) 13px;
     border-top: 1px solid var(--fondo);
 }
 .actividad .fila:first-child { border-top: 0; }
 .actividad .fila .texto { flex: 1; min-width: 0; }
 .actividad .fila .titulo {
-    font-size: 14px;
+    font-size: calc(13.5px * var(--d));
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .actividad .fila .sub {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--texto-suave);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.actividad .vacia { padding: 18px 14px; font-size: 13px; color: var(--texto-suave); }
+.actividad .fila .sub.error { color: var(--ic-peligro-fg); }
+
+/* La hora, alineada a la derecha y sin encogerse: es lo primero que se busca
+   al repasar una lista de avisos. */
+.actividad .fila .cuando {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    font-size: 11.5px;
+    color: var(--texto-suave);
+    font-variant-numeric: tabular-nums;
+}
 
 /* ---------- Formularios ---------- */
 
@@ -544,11 +615,17 @@ input:focus, select:focus, textarea:focus {
 .etiqueta.roja { background: #fdecec; color: #8a1f1f; }
 
 .vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
     text-align: center;
     color: var(--texto-suave);
-    font-size: 14px;
-    padding: 48px 24px;
+    padding: 44px 28px;
 }
+
+.vacio .titulo { font-size: calc(15px * var(--d)); font-weight: 700; color: var(--texto-medio); }
+.vacio .detalle { margin: 0; font-size: calc(12.5px * var(--d)); line-height: 1.5; max-width: 34ch; }
 
 .cargando {
     text-align: center;
@@ -667,6 +744,269 @@ input:focus, select:focus, textarea:focus {
     border-radius: 14px;
     background: rgba(29, 16, 96, .14);
 }
+
+/* ---------- Navegación inferior ----------
+   Píldora flotante, no una franja pegada al borde. La franja pegada queda a un
+   pelo de la barra de tres botones de Android y se confunde con ella; flotando
+   se lee como parte de la app.
+
+   Solo la pestaña activa muestra su nombre: un icono suelto se adivina, con la
+   etiqueta al lado se lee. Mostrar las tres etiquetas obligaría a una letra
+   que no se lee a pleno sol. */
+
+.barra-inferior {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+    height: var(--alto-barra-inferior);
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 4px;
+    padding: 0 6px;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(16, 12, 48, .14);
+    transition: opacity .18s, transform .18s;
+}
+
+/* Se va con el teclado abierto o con una hoja encima, igual que el botón de
+   crear: los dos viven en el mismo pie. */
+.barra-inferior.oculta {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+}
+
+.pestana {
+    flex: 0 1 auto;
+    min-width: 46px;
+    min-height: 44px;          /* piso de área pulsable; no baja con la escala */
+    border: 0;
+    background: none;
+    font-family: inherit;
+    color: var(--texto-suave);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .18s, color .18s, flex-grow .18s;
+}
+
+.pestana .glifo { position: relative; display: inline-flex; }
+
+/* El nombre solo existe en la activa. `max-width` y no `display:none` para que
+   el cambio se vea deslizar en vez de aparecer de golpe. */
+.pestana .rotulo {
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0;
+    transition: max-width .2s ease, opacity .15s ease;
+}
+
+.pestana.activa {
+    background: var(--indigo-suave);
+    color: var(--indigo);
+}
+
+.pestana.activa .rotulo { max-width: 110px; opacity: 1; }
+.pestana:not(.activa):active { background: var(--fondo); }
+
+/* Cuenta de avisos sin leer. Lleva número, no solo el punto: «tienes algo» y
+   «tienes once cosas» no se atienden igual. */
+.pestana .punto {
+    position: absolute;
+    top: -4px;
+    right: -7px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--rojo);
+    color: var(--blanco);
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 16px;
+    text-align: center;
+    border: 2px solid var(--blanco);
+    box-sizing: content-box;
+}
+
+/* ---------- Pestañas de filtro (dentro de una pantalla) ---------- */
+
+.pestanas {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0 16px 10px;
+    background: var(--blanco);
+    border-bottom: 1px solid var(--borde);
+}
+.pestanas::-webkit-scrollbar { display: none; }
+
+.pestanas button {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--borde);
+    border-radius: 999px;
+    background: var(--blanco);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--texto-medio);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pestanas button.activa {
+    background: var(--indigo);
+    border-color: var(--indigo);
+    color: var(--blanco);
+}
+
+/* ---------- Lista de ajustes ----------
+   Para opciones sueltas, en vez de un formulario. Un formulario pide llenar;
+   una lista de ajustes pide mirar. */
+
+.ajustes {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-suave);
+    overflow: hidden;
+}
+
+.fila-ajuste {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: calc(10px * var(--d)) 13px;
+    min-height: 52px;
+    border: 0;
+    border-top: 1px solid var(--fondo);
+    background: var(--blanco);
+    font-family: inherit;
+    text-align: left;
+    color: var(--texto);
+}
+.fila-ajuste:first-child { border-top: 0; }
+button.fila-ajuste { cursor: pointer; }
+button.fila-ajuste:active { background: var(--fondo); }
+
+.fila-ajuste .texto { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fila-ajuste .rotulo { font-size: calc(14px * var(--d)); font-weight: 600; }
+.fila-ajuste .detalle {
+    font-size: 11.5px;
+    color: var(--texto-suave);
+    line-height: 1.35;
+}
+.fila-ajuste .valor {
+    flex: 0 1 auto;
+    font-size: calc(12.5px * var(--d));
+    color: var(--texto-suave);
+    text-align: right;
+    word-break: break-all;
+}
+.fila-ajuste.peligro .rotulo { color: var(--ic-peligro-fg); }
+
+/* Control ancho: baja a su propia línea en vez de estrujar el rótulo. En 360 px
+   no caben tres opciones al costado de un texto. */
+.fila-ajuste.apilada { flex-wrap: wrap; }
+.fila-ajuste.apilada > :last-child { flex: 1 0 100%; margin-top: 10px; }
+
+/* Control de tres posiciones. Se usa cuando las opciones son pocas y se
+   comparan entre sí: un desplegable las esconde justo cuando hay que elegir. */
+.segmentado {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 2px;
+    background: var(--fondo);
+    border-radius: 9px;
+    padding: 2px;
+}
+
+.segmentado button {
+    flex: 1;
+    min-height: 34px;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--texto-medio);
+    padding: 7px 9px;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.segmentado button.activa {
+    background: var(--blanco);
+    color: var(--indigo);
+    box-shadow: var(--sombra-suave);
+}
+
+/* ---------- Ficha del usuario en Cuenta ---------- */
+
+.perfil {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 0 4px;
+}
+
+.perfil .marca.grande {
+    width: calc(56px * var(--d));
+    height: calc(56px * var(--d));
+    border-radius: 17px;
+    background: var(--indigo);
+    color: var(--blanco);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: calc(19px * var(--d));
+    letter-spacing: .5px;
+    flex: 0 0 auto;
+}
+
+.perfil .datos { flex: 1; min-width: 0; }
+.perfil .nombre { font-size: calc(17px * var(--d)); font-weight: 700; }
+.perfil .correo {
+    font-size: calc(12.5px * var(--d));
+    color: var(--texto-suave);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.perfil .chapas { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+
+/* Cerrar sesión: en rojo, con borde y no relleno. Es destructivo, pero no es
+   lo que se viene a hacer — llena de rojo invitaría a pulsarlo. */
+.boton.salir {
+    background: var(--blanco);
+    color: var(--rojo);
+    border: 1px solid var(--rojo);
+    border-bottom: 1px solid var(--rojo);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 24px;
+}
+.boton.salir:active { background: #fdecec; }
 
 /* ---------- Hoja inferior (formularios sobre la lista) ---------- */
 

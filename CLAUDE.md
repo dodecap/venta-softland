@@ -75,7 +75,33 @@ derecha el estado de sincronización — para leerlas de un vistazo.
 El objetivo es un **panel empresarial**: fintech + ERP + CRM. Tarjetas planas
 con borde fino y sombra casi nula, mucho aire, densidad alta sin saturación.
 El panel de inicio va en este orden: encabezado → KPIs → acciones rápidas →
-actividad reciente.
+actividad reciente → barra de navegación inferior.
+
+### Navegación
+
+Dos niveles, no más. Arriba las **pestañas** (`meta.tab` en el router):
+**Panel · Avisos · Cuenta**, hermanas entre sí, se saltan con `router.replace`
+y llevan la barra inferior flotante. Abajo las pantallas **de adentro**, que se
+apilan con `push` sobre una pestaña y se salen con «atrás».
+
+Una pestaña es un lugar al que se vuelve, no una acción que se hace: crear
+cuelga del botón flotante y cotizaciones o productos son acciones del panel.
+Clientes entra como cuarta pestaña con la fase 2 y ahí se cierra la lista.
+
+### Tamaño de la interfaz
+
+Todo lo que crece o se achica cuelga de la variable CSS `--d`, que escribe
+`mobile/src/densidad.js` y elige el vendedor en Cuenta (compacta · normal ·
+amplia). Los tamaños base están calibrados para `--d: 1` sobre 360 px de ancho.
+
+Tres cosas **no se escalan nunca**: los 44 px de área pulsable, los 16 px de
+los campos de formulario (bajo eso Android hace zoom al enfocar) y el texto de
+12 px o menos, que ya está en el piso de lectura. Quien quiera un panel más
+apretado gana espacio con la separación y los iconos, no con la letra chica.
+
+La prueba objetiva antes de tocar un tamaño: en 360×640 las seis acciones
+rápidas tienen que caber sobre la barra inferior sin desplazar, en las tres
+escalas.
 
 ### Iconografía — regla dura
 
@@ -97,8 +123,11 @@ conectada al ERP.
   48–56 px de caja, 22–28 px de glifo, trazo 1.75.
 - Los avisos van con `<Aviso tipo="error|ok|info">`, que ya trae su icono de
   estado. El color nunca es la única señal.
-- `npm run build` falla si aparece un emoji o un import suelto de Lucide
-  (`mobile/scripts/sin-emojis.mjs`). Para revisar sin compilar: `npm run iconos`.
+- Los estados vacíos van con `<Vacio icono="…" titulo="…">`: nunca texto
+  pelado, que se confunde con una pantalla que no cargó.
+- `npm run build` falla si aparece un emoji, una forma geométrica haciendo de
+  icono o un import suelto de Lucide (`mobile/scripts/sin-emojis.mjs`). Para
+  revisar sin compilar: `npm run iconos`.
 
 ## Comandos habituales
 

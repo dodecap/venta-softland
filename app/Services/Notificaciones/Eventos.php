@@ -131,6 +131,40 @@ class Eventos
         return array_key_exists($evento, self::catalogo());
     }
 
+    /**
+     * Familia a la que pertenece el evento, para agrupar el buzón del vendedor.
+     *
+     * Vive aquí y no en la app: si mañana se agrega un evento, la pestaña en
+     * que cae se decide en el mismo archivo donde se declara, no en el teléfono.
+     */
+    public static function familia(string $evento): string
+    {
+        return match (true) {
+            str_starts_with($evento, 'cotizacion_') => 'cotizacion',
+            str_starts_with($evento, 'nv_') => 'nota_venta',
+            str_starts_with($evento, 'factura_'),
+            str_starts_with($evento, 'boleta_'),
+            str_starts_with($evento, 'nc_'),
+            str_starts_with($evento, 'dte_') => 'documento',
+            default => 'sistema',
+        };
+    }
+
+    /**
+     * Pestañas del buzón, en orden. La clave viaja en cada aviso como `familia`.
+     *
+     * @return array<string, string>
+     */
+    public static function familias(): array
+    {
+        return [
+            'cotizacion' => 'Cotizaciones',
+            'nota_venta' => 'Notas de venta',
+            'documento' => 'Documentos',
+            'sistema' => 'Sistema',
+        ];
+    }
+
     public static function label(string $evento): string
     {
         return self::catalogo()[$evento]['label'] ?? $evento;
