@@ -55,12 +55,18 @@ Falta un paso manual para que la API quede accesible: publicarla en Apache.
   Preferences guarda un string por clave y no sirve para buscar entre miles de
   productos, pero para token y maestros chicos alcanza y evita una dependencia.
 
+- **`public/.htaccess` lleva `RewriteBase /venta-softland/` y es obligatorio**:
+  el archivo se copió de rinde-caja con su `RewriteBase /rinde-caja/`, y como
+  las dos apps comparten el vhost del 8086, el rewrite entregaba las peticiones
+  al `index.php` de rinde-caja. El síntoma era un 404 de Laravel en vez de uno
+  de Apache, que confunde: parecía un problema de rutas y era de Apache.
+
 ## Problemas conocidos / bloqueos
-- **La API todavía no se sirve por HTTP.** El archivo
-  `conf/extra/venta-softland.conf` ya está subido a `srv`, pero falta agregar
-  `Include conf/extra/venta-softland.conf` en `httpd.conf` (junto a la línea
-  de `rinde-caja.conf`) y recargar Apache. No lo hice porque ese Apache también
-  sirve SEMCO-SGC, rinde-caja y dte-xml, y tocarlo es decisión del usuario.
+- **Falta correr `/setup`.** La API ya responde en
+  `http://172.30.205.106:8086/venta-softland`, pero `api/ping` devuelve
+  `configurado: false`: nadie ha guardado todavía la conexión a SQL ni ha
+  registrado al primer administrador. Hasta que eso ocurra la app muestra el
+  aviso de «no instalado» y las rutas protegidas responden 503.
 - **Boleta electrónica sin folios.** No hay CAF para el DTE 39 ni el 41 en
   `dte_siicaf`. El tipo `BE` existe en `cwttdoc`, así que Softland está
   preparado, pero sin folios no se puede emitir.

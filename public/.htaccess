@@ -5,9 +5,9 @@
 
     RewriteEngine On
 
-    # Servido bajo subcarpeta en Apache (XAMPP): /rinde-caja -> public/.
+    # Servido bajo subcarpeta en Apache (XAMPP): /venta-softland -> public/.
     # Sin esto el front controller entra en bucle de redirecciones internas.
-    RewriteBase /rinde-caja/
+    RewriteBase /venta-softland/
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
@@ -28,7 +28,7 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
-# --- Rendimiento (Rinde Caja) ---
+# --- Rendimiento (Venta Softland) ---
 # Comprime HTML/JSON/JS/CSS: el bundle viaja ~3x más liviano al celular.
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
