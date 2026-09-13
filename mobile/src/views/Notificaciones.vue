@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
+import AppIcon from '../components/AppIcon.vue';
 
 const router = useRouter();
 const eventos = ref([]);
@@ -49,7 +50,7 @@ async function guardar(ev) {
 <template>
     <div class="pantalla">
         <div class="barra">
-            <button class="icono-barra" @click="router.back()">‹</button>
+            <button class="icono-barra" @click="router.back()"><AppIcon name="atras" :size="24" /></button>
             <h1>Notificaciones</h1>
         </div>
 

@@ -1,0 +1,98 @@
+/*
+ * Sistema de iconografía — única fuente de verdad.
+ *
+ * Regla dura: en esta app NO se usan emojis ni glifos tipográficos como
+ * iconos: ni la cruz de cerrar, ni la comilla angular de volver, ni la flecha
+ * circular de actualizar.
+ * Un emoji se dibuja distinto en cada teléfono, no hereda el color del texto,
+ * no tiene grosor de trazo y le da aire de prototipo a una herramienta que va
+ * conectada al ERP de la empresa.
+ *
+ * Todo icono sale de **Lucide**, una sola familia, sin mezclar. Y ninguna
+ * pantalla elige su icono: elige un **concepto** de esta tabla. Así «cliente»
+ * se ve igual en el panel, en el buscador y en la cotización, y cambiar el
+ * icono de clientes en toda la app es cambiar una línea aquí.
+ *
+ * Para agregar uno: busca el nombre en https://lucide.dev, impórtalo arriba y
+ * agrégalo abajo con la variante que le corresponda por función.
+ */
+import {
+    Bell, Boxes, ChartNoAxesCombined, CheckCheck, ChevronLeft, ChevronRight,
+    CircleAlert, CircleCheck, CircleHelp, ClipboardList, CreditCard, FileText,
+    Info, LayoutDashboard, LogOut, Mail, MailCheck, Package, Plus, RefreshCw,
+    Route, Search, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText,
+    Trash2, TriangleAlert, UserCog, UserPlus, Users, WifiOff, X,
+} from 'lucide-vue-next';
+
+/*
+ * Variantes = familia funcional, no adorno. El color dice de qué se trata:
+ *
+ *   venta     el flujo del negocio (cotizacion, NV, DTE)      indigo corporativo
+ *   catalogo  lo que se consulta: clientes, productos         cian
+ *   dinero    plata: cobros, montos, estadística              verde
+ *   aviso     lo que interrumpe: notificaciones, correos      ámbar
+ *   admin     configuración y usuarios                        gris azulado
+ *   peligro   destructivo o en falla                          rojo
+ *   neutro    controles de interfaz sin categoría             gris
+ */
+export const VARIANTES = ['venta', 'catalogo', 'dinero', 'aviso', 'admin', 'peligro', 'neutro'];
+
+export const ICONOS = {
+    // ---- Flujo de ventas ----
+    cotizacion: { glifo: FileText, variante: 'venta' },
+    notaVenta: { glifo: ClipboardList, variante: 'venta' },
+    factura: { glifo: ReceiptText, variante: 'venta' },
+    venta: { glifo: ShoppingCart, variante: 'venta' },
+
+    // ---- Catálogos ----
+    cliente: { glifo: Users, variante: 'catalogo' },
+    nuevoCliente: { glifo: UserPlus, variante: 'catalogo' },
+    producto: { glifo: Package, variante: 'catalogo' },
+    inventario: { glifo: Boxes, variante: 'catalogo' },
+    ruta: { glifo: Route, variante: 'catalogo' },
+
+    // ---- Dinero ----
+    cobranza: { glifo: CreditCard, variante: 'dinero' },
+    estadistica: { glifo: ChartNoAxesCombined, variante: 'dinero' },
+
+    // ---- Avisos ----
+    notificacion: { glifo: Bell, variante: 'aviso' },
+    correo: { glifo: Mail, variante: 'aviso' },
+    correoEnviado: { glifo: MailCheck, variante: 'aviso' },
+
+    // ---- Administración ----
+    panel: { glifo: LayoutDashboard, variante: 'admin' },
+    usuario: { glifo: UserCog, variante: 'admin' },
+    configuracion: { glifo: Settings, variante: 'admin' },
+    servidor: { glifo: Server, variante: 'admin' },
+    permisos: { glifo: ShieldCheck, variante: 'admin' },
+
+    // ---- Controles de interfaz ----
+    crear: { glifo: Plus },
+    cerrar: { glifo: X },
+    atras: { glifo: ChevronLeft },
+    avanzar: { glifo: ChevronRight },
+    sincronizar: { glifo: RefreshCw },
+    salir: { glifo: LogOut },
+    buscar: { glifo: Search },
+    borrar: { glifo: Trash2, variante: 'peligro' },
+
+    // ---- Estados ----
+    ok: { glifo: CircleCheck, variante: 'dinero' },
+    error: { glifo: CircleAlert, variante: 'peligro' },
+    alerta: { glifo: TriangleAlert, variante: 'aviso' },
+    info: { glifo: Info, variante: 'admin' },
+    sinRed: { glifo: WifiOff, variante: 'aviso' },
+    alDia: { glifo: CheckCheck, variante: 'dinero' },
+};
+
+/** Icono de un concepto. Si no existe, se ve un signo de pregunta — a propósito. */
+export function icono(nombre) {
+    const i = ICONOS[nombre];
+    if (i) return i;
+
+    // Ruidoso queriendo: un icono mal escrito tiene que notarse en desarrollo,
+    // no desaparecer en silencio y dejar un hueco en la pantalla.
+    console.warn(`[iconos] «${nombre}» no está en el mapa. Agrégalo en src/iconos.js.`);
+    return { glifo: CircleHelp, variante: 'neutro' };
+}

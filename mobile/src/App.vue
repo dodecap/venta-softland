@@ -2,13 +2,10 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { App as AppNativa } from '@capacitor/app';
-import { Network } from '@capacitor/network';
 import { cerrarCapaSuperior } from './nav';
+import { conectado } from './red';
+import AppIcon from './components/AppIcon.vue';
 import BotonCrear from './components/BotonCrear.vue';
-
-// La franja de "sin conexión" es global: en terreno es la primera pregunta
-// que se hace el vendedor cuando algo no sube.
-const conectado = ref(true);
 
 const router = useRouter();
 const route = useRoute();
@@ -54,16 +51,6 @@ function atras() {
 
 onMounted(async () => {
     try {
-        conectado.value = (await Network.getStatus()).connected;
-        oyentes.push(await Network.addListener('networkStatusChange', (s) => {
-            conectado.value = s.connected;
-        }));
-    } catch {
-        // En el navegador (npm run dev) el plugin no existe: se asume con red.
-        conectado.value = true;
-    }
-
-    try {
         oyentes.push(await AppNativa.addListener('backButton', atras));
     } catch {
         // Fuera de Android no hay botón físico que escuchar.
@@ -77,7 +64,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="sin-red" v-if="!conectado">Sin conexión — trabajando en el teléfono</div>
+    <div class="sin-red" v-if="!conectado">
+        <AppIcon name="sinRed" :size="15" color="currentColor" />
+        Sin conexión — trabajando en el teléfono
+    </div>
     <router-view />
     <BotonCrear />
     <div class="brindis" v-if="avisoSalida">Pulsa otra vez para salir</div>

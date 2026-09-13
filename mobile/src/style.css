@@ -32,8 +32,24 @@
        aterriza en «atrás» y se sale de la pantalla. */
     --pie-flotante: calc(env(safe-area-inset-bottom, 0px) + 28px);
     --radio: 10px;
+    --radio-grande: 16px;
     --sombra: 0 1px 4px rgba(0, 0, 0, .12);
     --sombra-alta: 0 4px 16px rgba(0, 0, 0, .18);
+    /* Tarjetas de dashboard: borde sutil y sombra casi nula. La separación la
+       da el aire y el borde, no la sombra — es lo que distingue una app de
+       banco de un menú de botones. */
+    --sombra-suave: 0 1px 2px rgba(16, 12, 48, .05);
+
+    /* Iconografía: un par fondo/trazo por familia funcional. El color dice de
+       qué se trata (venta, catálogo, plata, aviso, administración); no se
+       elige por gusto. Ver src/iconos.js. */
+    --ic-venta-bg: #ebe8f6;     --ic-venta-fg: #2a1a86;
+    --ic-catalogo-bg: #e2f4fc;  --ic-catalogo-fg: #0a7ba6;
+    --ic-dinero-bg: #e3f6ea;    --ic-dinero-fg: #17753f;
+    --ic-aviso-bg: #fdf0da;     --ic-aviso-fg: #96620a;
+    --ic-admin-bg: #edeff4;     --ic-admin-fg: #47516b;
+    --ic-peligro-bg: #fde9e9;   --ic-peligro-fg: #b32626;
+    --ic-neutro-bg: #f0f1f4;    --ic-neutro-fg: #5c6273;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -82,15 +98,39 @@ body {
     text-overflow: ellipsis;
 }
 
-.barra .icono-barra {
+.icono-barra {
     background: none;
     border: 0;
-    color: var(--blanco);
-    font-size: 22px;
-    line-height: 1;
-    padding: 6px;
+    color: currentColor;
+    padding: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
     cursor: pointer;
 }
+
+.barra .icono-barra { color: var(--blanco); }
+.barra .icono-barra:active { background: rgba(255, 255, 255, .16); }
+.icono-barra:disabled { opacity: .45; }
+
+/* ---------- Iconografía ----------
+   Todo icono entra por <AppIcon>. Aquí solo va cómo se asienta en la caja:
+   el recuadro suave de las apps de banco, cuadrado y de esquina redondeada. */
+
+.ic { display: block; flex: 0 0 auto; }
+
+.ic-caja {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+/* Gira mientras se sincroniza: es la única señal de que algo está pasando. */
+.girando { animation: girar 1s linear infinite; }
+
+@keyframes girar { to { transform: rotate(360deg); } }
 
 .contenido {
     flex: 1 1 auto;
@@ -168,38 +208,193 @@ body {
 
 .item-meta { font-size: 12px; color: var(--texto-suave); }
 
-/* ---------- Mosaico del inicio ---------- */
+/* ---------- Panel de control ----------
+   La jerarquía de la pantalla de inicio, de arriba abajo:
+   encabezado -> KPIs -> acciones rápidas -> actividad reciente.
+   Densidad alta sin saturar: aire generoso entre secciones, tarjetas planas
+   con borde fino, y el color reservado para lo que significa algo. */
 
-.mosaico {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+/* El panel no lleva la franja índigo: es la pantalla de estar, y el índigo
+   pesa. Las pantallas de adentro sí la llevan, y así se nota dónde estás. */
+.encabezado {
+    flex: 0 0 auto;
+    background: var(--blanco);
+    border-bottom: 1px solid var(--borde);
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 14px;
+    display: flex;
+    align-items: center;
     gap: 12px;
 }
 
-.mosaico .teja {
+.encabezado .marca {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: var(--indigo);
+    color: var(--blanco);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: .5px;
+    flex: 0 0 auto;
+}
+
+.encabezado .saludo { flex: 1; min-width: 0; }
+.encabezado .saludo .hola { font-size: 17px; font-weight: 700; color: var(--texto); }
+.encabezado .saludo .quien {
+    font-size: 12.5px;
+    color: var(--texto-suave);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.encabezado .icono-barra { color: var(--texto-medio); }
+.encabezado .icono-barra:active { background: var(--fondo); }
+
+.seccion {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 22px 2px 12px;
+}
+.seccion:first-child { margin-top: 4px; }
+.seccion h2 { margin: 0; font-size: 16px; font-weight: 700; color: var(--texto); }
+.seccion .sub { font-size: 12.5px; color: var(--texto-suave); flex: 1; }
+
+/* --- Tira de KPIs, desplazable como en las apps de banco --- */
+
+.kpis {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    /* Sangra los 16px del contenido para que la primera tarjeta quede alineada
+       y la última alcance a salirse del borde: se ve que hay más. */
+    margin: 0 -16px;
+    padding: 2px 16px 6px;
+    scrollbar-width: none;
+}
+.kpis::-webkit-scrollbar { display: none; }
+
+.kpi {
+    flex: 0 0 auto;
+    width: 156px;
+    scroll-snap-align: start;
     background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-suave);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* La franja de color a la izquierda es la que dice de qué familia es el
+       dato sin tener que leerlo. */
+    border-left: 3px solid var(--ic-neutro-fg);
+}
+.kpi.venta { border-left-color: var(--ic-venta-fg); }
+.kpi.catalogo { border-left-color: var(--ic-catalogo-fg); }
+.kpi.dinero { border-left-color: var(--ic-dinero-fg); }
+.kpi.aviso { border-left-color: var(--ic-aviso-fg); }
+.kpi.admin { border-left-color: var(--ic-admin-fg); }
+.kpi.peligro { border-left-color: var(--ic-peligro-fg); }
+
+.kpi .dato {
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--texto);
+    line-height: 1.15;
+    letter-spacing: -.3px;
+}
+.kpi .dato.corto { font-size: 16px; }
+.kpi .rotulo { font-size: 12.5px; color: var(--texto-suave); }
+
+/* --- Rejilla de acciones: icono en recuadro suave y el nombre debajo --- */
+
+.rejilla {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 4px;
+}
+.rejilla.compacta { grid-template-columns: repeat(4, 1fr); }
+
+.accion {
+    background: none;
     border: 0;
-    border-bottom: 5px solid var(--cian);
-    border-radius: var(--radio);
-    box-shadow: var(--sombra);
-    padding: 20px 12px;
+    padding: 10px 4px;
+    border-radius: 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 8px;
-    min-height: 108px;
     cursor: pointer;
-    color: var(--texto-medio);
     font-family: inherit;
+    color: var(--texto);
+}
+.accion:active { background: var(--blanco); }
+
+.accion .rotulo {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: center;
+}
+.rejilla.compacta .accion .rotulo { font-size: 11.5px; }
+
+/* Fase pendiente: se deja a la vista para que el vendedor sepa qué viene,
+   pero apagada y sin prometer que se puede pulsar. */
+.accion:disabled { cursor: default; color: var(--texto-suave); }
+.accion:disabled .ic-caja { background: var(--ic-neutro-bg) !important; opacity: .7; }
+.accion:disabled .ic { color: var(--texto-suave) !important; }
+
+.accion .fase {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    color: var(--texto-suave);
+    background: var(--ic-neutro-bg);
+    border-radius: 6px;
+    padding: 1px 5px;
+    text-transform: uppercase;
 }
 
-.mosaico .teja:active { background: var(--indigo-suave); }
-.mosaico .teja.ancha { grid-column: span 2; }
-.mosaico .teja .glifo { font-size: 30px; line-height: 1; }
-.mosaico .teja .rotulo { font-size: 13px; font-weight: 700; text-align: center; }
-.mosaico .teja .dato { font-size: 22px; font-weight: 700; color: var(--indigo); }
-.mosaico .teja:disabled { opacity: .45; cursor: default; border-bottom-color: var(--borde); }
+/* --- Actividad reciente --- */
+
+.actividad {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-suave);
+    overflow: hidden;
+}
+
+.actividad .fila {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--fondo);
+}
+.actividad .fila:first-child { border-top: 0; }
+.actividad .fila .texto { flex: 1; min-width: 0; }
+.actividad .fila .titulo {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.actividad .fila .sub {
+    font-size: 12px;
+    color: var(--texto-suave);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.actividad .vacia { padding: 18px 14px; font-size: 13px; color: var(--texto-suave); }
 
 /* ---------- Formularios ---------- */
 
@@ -229,6 +424,34 @@ input:focus, select:focus, textarea:focus {
     border-color: var(--cian);
     box-shadow: 0 0 0 3px rgba(38, 189, 239, .18);
 }
+
+/* Buscador con el icono dentro del campo: es como se ve en cualquier app de
+   banco y ahorra la etiqueta de arriba. */
+.campo-buscar {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    padding: 0 12px;
+    margin-bottom: 12px;
+    color: var(--texto-suave);
+}
+
+.campo-buscar:focus-within {
+    border-color: var(--cian);
+    box-shadow: 0 0 0 3px rgba(38, 189, 239, .18);
+}
+
+.campo-buscar input {
+    border: 0;
+    background: none;
+    padding: 11px 0;
+    border-radius: 0;
+}
+
+.campo-buscar input:focus { outline: none; box-shadow: none; }
 
 .fila { display: flex; gap: 10px; }
 .fila > * { flex: 1; min-width: 0; }
@@ -332,8 +555,11 @@ input:focus, select:focus, textarea:focus {
     color: #4a3300;
     font-size: 12px;
     font-weight: 700;
-    text-align: center;
-    padding: 5px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
 }
 
 /* Aviso pasajero al pie. Va abajo a propósito: es donde está la vista cuando

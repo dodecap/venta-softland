@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { useCapa } from '../nav';
 import { useAccionCrear } from '../crear';
+import AppIcon from '../components/AppIcon.vue';
 
 const router = useRouter();
 const usuarios = ref([]);
@@ -22,8 +23,8 @@ const form = ref(vacio());
 // la pantalla: es lo que hace el resto del teléfono y lo que espera la mano.
 useCapa(computed(() => editando.value !== null), () => { editando.value = null; });
 
-// El ＋ vive abajo, flotando, donde alcanza el pulgar: la pantalla solo dice
-// qué hace. Ver `crear.js`.
+// El botón de crear vive abajo, flotando, donde alcanza el pulgar: esta
+// pantalla solo declara qué hace. Ver `crear.js`.
 useAccionCrear('Nuevo usuario', nuevo);
 
 function vacio() {
@@ -159,7 +160,7 @@ function color(u) {
 <template>
     <div class="pantalla">
         <div class="barra">
-            <button class="icono-barra" @click="router.back()">‹</button>
+            <button class="icono-barra" @click="router.back()"><AppIcon name="atras" :size="24" /></button>
             <h1>Usuarios</h1>
         </div>
 
@@ -167,8 +168,11 @@ function color(u) {
             <div class="aviso error" v-if="error">{{ error }}</div>
             <div class="aviso ok" v-if="aviso">{{ aviso }}</div>
 
-            <input v-model="busqueda" type="search" placeholder="Buscar por nombre, correo o vendedor"
-                   autocapitalize="off" style="margin-bottom:12px;">
+            <div class="campo-buscar">
+                <AppIcon name="buscar" :size="18" />
+                <input v-model="busqueda" type="search" placeholder="Buscar por nombre, correo o vendedor"
+                       autocapitalize="off">
+            </div>
 
             <div class="cargando" v-if="cargando">Cargando…</div>
             <div class="vacio" v-else-if="!filtrados.length">No hay usuarios que coincidan.</div>
@@ -194,7 +198,7 @@ function color(u) {
             <div class="hoja">
                 <div class="hoja-cabecera">
                     <h2>{{ editando === 'nuevo' ? 'Nuevo usuario' : 'Editar usuario' }}</h2>
-                    <button class="icono-barra" @click="editando = null">✕</button>
+                    <button class="icono-barra" @click="editando = null"><AppIcon name="cerrar" :size="21" /></button>
                 </div>
                 <div class="hoja-cuerpo">
                     <label>Nombre</label>

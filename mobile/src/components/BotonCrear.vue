@@ -4,6 +4,7 @@ import { accionCrear } from '../crear';
 import { hayCapa } from '../nav';
 import { tecladoAbierto } from '../teclado';
 import { db } from '../db';
+import AppIcon from './AppIcon.vue';
 
 /**
  * Botón flotante de crear.
@@ -135,6 +136,8 @@ onUnmounted(() => window.removeEventListener('resize', medir));
                 :aria-label="etiqueta" :title="etiqueta"
                 @pointerdown="abajo" @pointermove="mover"
                 @pointerup="arriba" @pointercancel="arriba"
-                @contextmenu.prevent @click="clic">＋</button>
+                @contextmenu.prevent @click="clic">
+            <AppIcon name="crear" :size="26" :stroke-width="2.25" color="currentColor" />
+        </button>
     </div>
 </template>

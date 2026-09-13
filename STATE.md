@@ -36,6 +36,14 @@ y folios CAF para factura (33) y nota de crédito (61).
       maestros de Softland verificados uno a uno contra INNOVAGES.
 - [x] Botón y gesto «atrás» de Android conectados: cierran la capa abierta,
       si no retroceden de pantalla, y en la raíz piden confirmación para salir.
+- [x] Sistema de iconografía propio: una sola familia (Lucide), un componente
+      (`AppIcon`), un mapa central de concepto → icono (`mobile/src/iconos.js`)
+      y un guardia que falla la compilación si vuelve a entrar un emoji.
+      Cero emojis en la app.
+- [x] Panel de inicio rediseñado como dashboard: encabezado claro con saludo,
+      tira de KPIs desplazable, rejilla de acciones rápidas con el icono en su
+      recuadro suave, rejilla compacta de administración y actividad reciente
+      (los últimos correos enviados, dato real de la bitácora).
 - [x] Botón flotante de crear, abajo y movible a tres anclas (izquierda,
       centro, derecha) con presión larga y arrastre. La posición se guarda en
       el teléfono. Es uno solo para toda la app: cada pantalla solo declara su
@@ -94,6 +102,15 @@ y folios CAF para factura (33) y nota de crédito (61).
   tres botones, «atrás» queda justo debajo del borde de la app, y un pulgar
   que apunta al botón flotante y se queda corto se saldría de la pantalla. Si
   alguna vez se baja ese valor, vuelve el problema.
+- **La navegación inferior por pestañas todavía no se puso.** Está en el
+  diseño de referencia y es el siguiente paso visual, pero hoy no hay destinos
+  para las pestañas: las cuatro pantallas que existen son de administración.
+  Las pestañas de verdad (Panel · Clientes · Cotizaciones · Cuenta) nacen con
+  la fase 2. Cuando se ponga, hay que subir `--pie-flotante` para que el botón
+  flotante quede sobre la barra y no detrás.
+- **Los avisos (`.aviso error/ok/info`) siguen siendo solo texto.** Encajaría
+  un icono de estado a la izquierda; no se hizo para no tocar las seis
+  pantallas en el mismo cambio.
 - **Lo que flota se esconde con el teclado abierto** (`teclado.js`, evento
   `keyboardWillShow`). Si no, el botón queda montado sobre las teclas. Vale
   para cualquier control que se agregue al pie más adelante.

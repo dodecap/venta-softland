@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
+import AppIcon from '../components/AppIcon.vue';
 
 const router = useRouter();
 const cargando = ref(true);
@@ -89,7 +90,7 @@ async function probarCorreo() {
 <template>
     <div class="pantalla">
         <div class="barra">
-            <button class="icono-barra" @click="router.back()">‹</button>
+            <button class="icono-barra" @click="router.back()"><AppIcon name="atras" :size="24" /></button>
             <h1>Configuración</h1>
         </div>
 

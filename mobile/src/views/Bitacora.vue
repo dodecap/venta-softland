@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
+import AppIcon from '../components/AppIcon.vue';
 
 const router = useRouter();
 const notificaciones = ref([]);
@@ -38,9 +39,9 @@ function fecha(n) {
 <template>
     <div class="pantalla">
         <div class="barra">
-            <button class="icono-barra" @click="router.back()">‹</button>
+            <button class="icono-barra" @click="router.back()"><AppIcon name="atras" :size="24" /></button>
             <h1>Correos enviados</h1>
-            <button class="icono-barra" title="Actualizar" @click="cargar">⟳</button>
+            <button class="icono-barra" title="Actualizar" @click="cargar"><AppIcon name="sincronizar" :size="20" /></button>
         </div>
 
         <div class="contenido">

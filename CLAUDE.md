@@ -72,6 +72,32 @@ todo elemento pulsable importante lleva subrayado cian de 4–5 px. Las listas d
 documentos usan dos franjas verticales — izquierda el estado del documento,
 derecha el estado de sincronización — para leerlas de un vistazo.
 
+El objetivo es un **panel empresarial**: fintech + ERP + CRM. Tarjetas planas
+con borde fino y sombra casi nula, mucho aire, densidad alta sin saturación.
+El panel de inicio va en este orden: encabezado → KPIs → acciones rápidas →
+actividad reciente.
+
+### Iconografía — regla dura
+
+**Prohibido usar emojis como iconos.** Tampoco glifos tipográficos haciendo de
+icono (la cruz de cerrar, la comilla angular de volver, la flecha circular de
+actualizar). Un emoji se dibuja distinto en cada teléfono, no hereda el color
+del texto ni el grosor de trazo, y le da aire de prototipo a una herramienta
+conectada al ERP.
+
+- Una sola familia: **Lucide** (`lucide-vue-next`). No se mezcla con otras.
+- Todo icono se dibuja con `<AppIcon name="…">`. Ninguna pantalla importa de
+  `lucide-vue-next` por su cuenta.
+- Las pantallas eligen un **concepto** (`cliente`, `factura`, `cobranza`), no
+  un icono. El mapa concepto → icono → familia funcional está en
+  `mobile/src/iconos.js`, y es el único lugar donde se toca.
+- El color del icono dice **de qué familia es** (venta, catálogo, dinero,
+  aviso, administración, peligro), no adorna.
+- Los iconos de acción van dentro de un recuadro redondeado de fondo suave:
+  48–56 px de caja, 22–28 px de glifo, trazo 1.75.
+- `npm run build` falla si aparece un emoji o un import suelto de Lucide
+  (`mobile/scripts/sin-emojis.mjs`). Para revisar sin compilar: `npm run iconos`.
+
 ## Comandos habituales
 
 ```bash
