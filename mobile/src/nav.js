@@ -1,4 +1,4 @@
-import { onUnmounted, watch } from 'vue';
+import { onUnmounted, ref, watch } from 'vue';
 
 /**
  * Pila de capas abiertas — hojas de edición, diálogos, cualquier cosa que se
@@ -12,6 +12,13 @@ import { onUnmounted, watch } from 'vue';
  * una, de la más reciente a la más antigua.
  */
 const pila = [];
+
+/** Si hay algo abierto encima. Lo que flota al pie se esconde mientras tanto. */
+export const hayCapa = ref(false);
+
+function sincronizarBandera() {
+    hayCapa.value = pila.length > 0;
+}
 
 /**
  * Registra una capa mientras `abierta` sea verdadera.
@@ -33,6 +40,7 @@ export function useCapa(abierta, cerrar) {
             if (i >= 0) pila.splice(i, 1);
             mia = null;
         }
+        sincronizarBandera();
     };
 
     watch(abierta, sincronizar, { immediate: true });
@@ -42,6 +50,7 @@ export function useCapa(abierta, cerrar) {
 /** Cierra la capa de más arriba. Devuelve si había alguna. */
 export function cerrarCapaSuperior() {
     const cerrar = pila.pop();
+    sincronizarBandera();
     if (!cerrar) return false;
 
     cerrar();

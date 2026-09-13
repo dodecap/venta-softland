@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { useCapa } from '../nav';
+import { useAccionCrear } from '../crear';
 
 const router = useRouter();
 const usuarios = ref([]);
@@ -20,6 +21,10 @@ const form = ref(vacio());
 // Con la hoja abierta, el «atrás» de Android la cierra en vez de salir de
 // la pantalla: es lo que hace el resto del teléfono y lo que espera la mano.
 useCapa(computed(() => editando.value !== null), () => { editando.value = null; });
+
+// El ＋ vive abajo, flotando, donde alcanza el pulgar: la pantalla solo dice
+// qué hace. Ver `crear.js`.
+useAccionCrear('Nuevo usuario', nuevo);
 
 function vacio() {
     return {
@@ -156,7 +161,6 @@ function color(u) {
         <div class="barra">
             <button class="icono-barra" @click="router.back()">‹</button>
             <h1>Usuarios</h1>
-            <button class="icono-barra" title="Nuevo" @click="nuevo">＋</button>
         </div>
 
         <div class="contenido">

@@ -36,6 +36,11 @@ y folios CAF para factura (33) y nota de crédito (61).
       maestros de Softland verificados uno a uno contra INNOVAGES.
 - [x] Botón y gesto «atrás» de Android conectados: cierran la capa abierta,
       si no retroceden de pantalla, y en la raíz piden confirmación para salir.
+- [x] Botón flotante de crear, abajo y movible a tres anclas (izquierda,
+      centro, derecha) con presión larga y arrastre. La posición se guarda en
+      el teléfono. Es uno solo para toda la app: cada pantalla solo declara su
+      acción (`useAccionCrear`), así que cotizaciones, notas de venta y
+      facturación lo heredan sin volver a dibujar nada.
 
 ## Pendiente / próximos pasos
 - [ ] **Publicar la API en Apache** (ver «Problemas conocidos»).
@@ -78,12 +83,20 @@ y folios CAF para factura (33) y nota de crédito (61).
   y el firewall de Windows está desactivado en los tres perfiles, así que no
   hay nada más que abrir.
 
-- **Los controles siguen arriba a la izquierda.** La flecha de volver está en
-  el peor punto para un pulgar derecho en un teléfono grande. El gesto nativo
-  ya lo alivia, pero la solución visible es bajar los controles: barra de
-  acciones inferior en las cinco pantallas (con el teclado resuelto, que es la
-  parte difícil) y, al abrir la fase 2, barra de pestañas fija tipo Banorte.
-  No se hizo aún: decisión pendiente del usuario.
+- **Queda arriba la flecha de volver, no el ＋.** Crear ya se hace desde el
+  botón flotante del pie y retroceder tiene el gesto nativo, así que la barra
+  de acciones inferior completa dejó de ser necesaria. Lo que sí conviene al
+  abrir la fase 2 es la barra de pestañas fija tipo Banorte, que además
+  reordena el router.
+- **El pie de la pantalla tiene dueño: `--pie-flotante`.** Todo lo que flote
+  abajo (botón de crear, avisos) cuelga de esa variable, que levanta 28 px
+  sobre el área segura. La razón no es estética: en los teléfonos con barra de
+  tres botones, «atrás» queda justo debajo del borde de la app, y un pulgar
+  que apunta al botón flotante y se queda corto se saldría de la pantalla. Si
+  alguna vez se baja ese valor, vuelve el problema.
+- **Lo que flota se esconde con el teclado abierto** (`teclado.js`, evento
+  `keyboardWillShow`). Si no, el botón queda montado sobre las teclas. Vale
+  para cualquier control que se agregue al pie más adelante.
 - **`enableOnBackInvokedCallback` debe seguir ausente** del `AndroidManifest`.
   Si se activa el «atrás predictivo» de Android 13, el oyente `backButton` de
   Capacitor deja de dispararse y la navegación vuelve a romperse.

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { App as AppNativa } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import { cerrarCapaSuperior } from './nav';
+import BotonCrear from './components/BotonCrear.vue';
 
 // La franja de "sin conexión" es global: en terreno es la primera pregunta
 // que se hace el vendedor cuando algo no sube.
@@ -78,5 +79,6 @@ onUnmounted(() => {
 <template>
     <div class="sin-red" v-if="!conectado">Sin conexión — trabajando en el teléfono</div>
     <router-view />
+    <BotonCrear />
     <div class="brindis" v-if="avisoSalida">Pulsa otra vez para salir</div>
 </template>

@@ -44,6 +44,18 @@ export const db = {
     getCatalogos: () => leer('catalogos', {}),
     setCatalogos: (v) => escribir('catalogos', v),
 
+    /**
+     * Lado donde el vendedor dejó el botón flotante: izq | centro | der.
+     * Es del teléfono, no de la sesión: el aparato tiene un dueño y una mano.
+     */
+    async getPosBoton() {
+        const v = (await Preferences.get({ key: 'pos_boton' })).value;
+        return ['izq', 'centro', 'der'].includes(v) ? v : 'centro';
+    },
+    async setPosBoton(v) {
+        await Preferences.set({ key: 'pos_boton', value: v });
+    },
+
     getSincronizado: () => leer('sincronizado_at', null),
     setSincronizado: (v) => escribir('sincronizado_at', v),
 

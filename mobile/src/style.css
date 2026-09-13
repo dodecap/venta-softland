@@ -25,6 +25,12 @@
     --rojo: #e13838;
 
     --alto-barra: 56px;
+    /* Altura a la que flota lo que va al pie.
+       No es un margen cualquiera: en los teléfonos con la barra de tres
+       botones, «atrás» queda justo debajo del borde de la app. Con menos
+       separación, el pulgar que apunta al botón flotante y se queda corto
+       aterriza en «atrás» y se sale de la pantalla. */
+    --pie-flotante: calc(env(safe-area-inset-bottom, 0px) + 28px);
     --radio: 10px;
     --sombra: 0 1px 4px rgba(0, 0, 0, .12);
     --sombra-alta: 0 4px 16px rgba(0, 0, 0, .18);
@@ -336,7 +342,7 @@ input:focus, select:focus, textarea:focus {
     position: fixed;
     left: 50%;
     transform: translateX(-50%);
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+    bottom: calc(var(--pie-flotante) + 68px);
     background: var(--indigo);
     color: var(--blanco);
     font-size: 13px;
@@ -347,6 +353,85 @@ input:focus, select:focus, textarea:focus {
     box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
     z-index: 40;
     pointer-events: none;
+}
+
+/* ---------- Botón flotante de crear ---------- */
+
+/* El carro solo posiciona: ocupa el tamaño del botón y no intercepta toques,
+   para no comerse los de la lista que hay debajo. */
+.fab-carro {
+    position: fixed;
+    left: 0;
+    bottom: var(--pie-flotante);
+    width: 56px;
+    height: 56px;
+    z-index: 15;
+    pointer-events: none;
+}
+
+/* Al soltar viaja hasta el ancla; mientras se arrastra va pegado al dedo. */
+.fab-carro.quieto { transition: transform .22s cubic-bezier(.2, .8, .3, 1); }
+
+.fab {
+    width: 56px;
+    height: 56px;
+    box-sizing: border-box;
+    border: 0;
+    border-bottom: 4px solid var(--cian);
+    border-radius: 50%;
+    background: var(--indigo);
+    color: var(--blanco);
+    font-size: 30px;
+    line-height: 1;
+    padding: 0 0 4px;
+    box-shadow: var(--sombra-alta);
+    pointer-events: auto;
+    cursor: pointer;
+    /* La presión larga es nuestra: sin esto Android abre el menú de selección
+       y el navegador intenta desplazar la página con el arrastre. */
+    touch-action: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    transition: opacity .15s, transform .15s, background .15s;
+}
+
+.fab:active { background: var(--indigo-claro); }
+
+/* En modo mover se agranda: es la señal de que ahora se arrastra y de que
+   soltar no va a crear nada. */
+.fab.moviendo {
+    transform: scale(1.15);
+    background: var(--cian);
+    border-bottom-color: var(--indigo);
+}
+
+/* Se esconde con el teclado abierto o con una hoja encima. */
+.fab.oculto {
+    opacity: 0;
+    transform: scale(.6);
+    pointer-events: none;
+}
+
+/* Marcas de las tres posiciones posibles, solo mientras se arrastra. */
+.fab-anclas {
+    position: fixed;
+    left: 0;
+    bottom: var(--pie-flotante);
+    width: 56px;
+    height: 56px;
+    z-index: 14;
+    pointer-events: none;
+}
+
+.fab-ancla {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -14px;
+    width: 56px;
+    height: 28px;
+    border-radius: 14px;
+    background: rgba(29, 16, 96, .14);
 }
 
 /* ---------- Hoja inferior (formularios sobre la lista) ---------- */
