@@ -1,0 +1,9 @@
+{
+  "appId": "cl.netdomain.ventasoftland",
+  "appName": "Venta Softland",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}

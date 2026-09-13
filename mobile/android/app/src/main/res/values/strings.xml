@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Venta Softland</string>
+    <string name="title_activity_main">Venta Softland</string>
+    <string name="package_name">cl.netdomain.ventasoftland</string>
+    <string name="custom_url_scheme">cl.netdomain.ventasoftland</string>
+</resources>

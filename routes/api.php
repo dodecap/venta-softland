@@ -1,0 +1,43 @@
+<?php
+
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ConfiguracionController;
+use App\Http\Controllers\Api\UsuarioController;
+use Illuminate\Support\Facades\Route;
+
+/*
+ * API de la app móvil. Token Bearer emitido en /api/login.
+ *
+ * Convención: todo lo administrativo cuelga de /api/admin y exige rol admin,
+ * porque no hay panel web — la administración se hace desde el teléfono.
+ */
+
+Route::get('/ping', [AuthController::class, 'ping']);
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware('auth.api')->group(function () {
+    Route::get('/bootstrap', [AuthController::class, 'bootstrap']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::middleware('rol:admin')->prefix('admin')->group(function () {
+        // Usuarios
+        Route::get('/usuarios', [UsuarioController::class, 'index']);
+        Route::get('/usuarios/opciones', [UsuarioController::class, 'opciones']);
+        Route::post('/usuarios', [UsuarioController::class, 'store']);
+        Route::put('/usuarios/{id}', [UsuarioController::class, 'update']);
+        Route::delete('/usuarios/{id}', [UsuarioController::class, 'destroy']);
+        Route::get('/usuarios/{id}/sesiones', [UsuarioController::class, 'sesiones']);
+        Route::delete('/usuarios/{id}/sesiones', [UsuarioController::class, 'revocarSesiones']);
+
+        // Configuración del servidor
+        Route::get('/configuracion', [ConfiguracionController::class, 'index']);
+        Route::put('/configuracion/conexion', [ConfiguracionController::class, 'guardarConexion']);
+        Route::put('/configuracion/correo', [ConfiguracionController::class, 'guardarCorreo']);
+        Route::post('/configuracion/correo/probar', [ConfiguracionController::class, 'probarCorreo']);
+
+        // Notificaciones
+        Route::get('/notificaciones', [ConfiguracionController::class, 'notificaciones']);
+        Route::get('/notificaciones/bitacora', [ConfiguracionController::class, 'bitacora']);
+        Route::put('/notificaciones/{evento}', [ConfiguracionController::class, 'guardarNotificacion']);
+    });
+});

@@ -1,0 +1,365 @@
+/*
+ * Paleta y componentes base de la app.
+ *
+ * El índigo #1d1060 es el color corporativo de Softland y el cian #26bdef el
+ * acento: la combinación viene de la app que ya estaba en uso, así que los
+ * vendedores la reconocen. La regla visual que la define: todo elemento
+ * "pulsable" importante lleva un subrayado cian de 4-5px.
+ */
+:root {
+    --indigo: #1d1060;
+    --indigo-claro: #2f236d;
+    --indigo-suave: #efedf6;
+    --cian: #26bdef;
+    --cian-oscuro: #23aedc;
+
+    --fondo: #f4f4f4;
+    --blanco: #ffffff;
+    --borde: #e0e0e0;
+    --texto: #2b2b2b;
+    --texto-medio: #545454;
+    --texto-suave: #919191;
+
+    --verde: #2ec95c;
+    --amarillo: #f0ad2e;
+    --rojo: #e13838;
+
+    --alto-barra: 56px;
+    --radio: 10px;
+    --sombra: 0 1px 4px rgba(0, 0, 0, .12);
+    --sombra-alta: 0 4px 16px rgba(0, 0, 0, .18);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body, #app {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    overscroll-behavior-y: none;
+}
+
+/* ---------- Estructura de pantalla ---------- */
+
+.pantalla {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.barra {
+    flex: 0 0 auto;
+    background: var(--indigo);
+    color: var(--blanco);
+    border-bottom: 4px solid var(--cian);
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: var(--alto-barra);
+}
+
+.barra h1 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.barra .icono-barra {
+    background: none;
+    border: 0;
+    color: var(--blanco);
+    font-size: 22px;
+    line-height: 1;
+    padding: 6px;
+    cursor: pointer;
+}
+
+.contenido {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+}
+
+/* ---------- Tarjetas ---------- */
+
+.tarjeta {
+    background: var(--blanco);
+    border-radius: var(--radio);
+    box-shadow: var(--sombra);
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.tarjeta-cabecera {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--fondo);
+    color: var(--indigo);
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.tarjeta-cuerpo { padding: 14px; }
+
+/*
+ * Ítem de lista con dos franjas verticales, como en la app anterior:
+ * a la izquierda el estado del documento, a la derecha el estado de
+ * sincronización. Se leen de un vistazo sin tener que abrir nada.
+ */
+.item {
+    display: flex;
+    background: var(--blanco);
+    border-radius: var(--radio);
+    box-shadow: var(--sombra);
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.item-estado { flex: 0 0 5px; background: var(--texto-suave); }
+.item-estado.verde { background: var(--verde); }
+.item-estado.amarillo { background: var(--amarillo); }
+.item-estado.rojo { background: var(--rojo); }
+.item-estado.cian { background: var(--cian); }
+
+.item-cuerpo {
+    flex: 1 1 auto;
+    padding: 11px 13px;
+    min-width: 0;
+}
+
+.item-sync { flex: 0 0 8px; background: var(--verde); }
+.item-sync.pendiente { background: var(--amarillo); }
+.item-sync.error { background: var(--rojo); }
+
+.item-titulo {
+    font-weight: 700;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.item-linea {
+    font-size: 13px;
+    color: var(--texto-medio);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.item-meta { font-size: 12px; color: var(--texto-suave); }
+
+/* ---------- Mosaico del inicio ---------- */
+
+.mosaico {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.mosaico .teja {
+    background: var(--blanco);
+    border: 0;
+    border-bottom: 5px solid var(--cian);
+    border-radius: var(--radio);
+    box-shadow: var(--sombra);
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 108px;
+    cursor: pointer;
+    color: var(--texto-medio);
+    font-family: inherit;
+}
+
+.mosaico .teja:active { background: var(--indigo-suave); }
+.mosaico .teja.ancha { grid-column: span 2; }
+.mosaico .teja .glifo { font-size: 30px; line-height: 1; }
+.mosaico .teja .rotulo { font-size: 13px; font-weight: 700; text-align: center; }
+.mosaico .teja .dato { font-size: 22px; font-weight: 700; color: var(--indigo); }
+.mosaico .teja:disabled { opacity: .45; cursor: default; border-bottom-color: var(--borde); }
+
+/* ---------- Formularios ---------- */
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--texto-medio);
+    margin: 14px 0 5px;
+}
+
+label:first-child { margin-top: 0; }
+
+input, select, textarea {
+    width: 100%;
+    padding: 11px 12px;
+    font-size: 16px; /* 16px evita que Android haga zoom al enfocar */
+    font-family: inherit;
+    color: var(--texto);
+    background: var(--blanco);
+    border: 1px solid var(--texto-suave);
+    border-radius: 8px;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--cian);
+    box-shadow: 0 0 0 3px rgba(38, 189, 239, .18);
+}
+
+.fila { display: flex; gap: 10px; }
+.fila > * { flex: 1; min-width: 0; }
+.fila > .angosto { flex: 0 0 96px; }
+
+.ayuda {
+    font-size: 12px;
+    color: var(--texto-suave);
+    margin: 5px 0 0;
+    line-height: 1.45;
+}
+
+.interruptor {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--fondo);
+}
+
+.interruptor:last-child { border-bottom: 0; }
+.interruptor span { font-size: 14px; color: var(--texto-medio); }
+.interruptor input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; }
+
+/* ---------- Botones ---------- */
+
+.boton {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    color: var(--blanco);
+    background: var(--indigo);
+    border: 0;
+    border-bottom: 4px solid var(--cian);
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 16px;
+}
+
+.boton:active { background: var(--indigo-claro); }
+.boton:disabled { opacity: .5; cursor: default; }
+
+.boton.secundario {
+    background: var(--blanco);
+    color: var(--indigo);
+    border: 1px solid var(--borde);
+    border-bottom: 4px solid var(--borde);
+}
+
+.boton.peligro { background: var(--rojo); border-bottom-color: #b32a2a; }
+
+/* ---------- Avisos ---------- */
+
+.aviso {
+    padding: 11px 13px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.aviso.error { background: #fdecec; color: #8a1f1f; border-left: 4px solid var(--rojo); }
+.aviso.ok { background: #eafaf0; color: #1a6b38; border-left: 4px solid var(--verde); }
+.aviso.info { background: var(--indigo-suave); color: var(--indigo); border-left: 4px solid var(--cian); }
+
+.etiqueta {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--indigo-suave);
+    color: var(--indigo);
+}
+
+.etiqueta.gris { background: var(--fondo); color: var(--texto-suave); }
+.etiqueta.verde { background: #eafaf0; color: #1a6b38; }
+.etiqueta.roja { background: #fdecec; color: #8a1f1f; }
+
+.vacio {
+    text-align: center;
+    color: var(--texto-suave);
+    font-size: 14px;
+    padding: 48px 24px;
+}
+
+.cargando {
+    text-align: center;
+    color: var(--texto-suave);
+    font-size: 13px;
+    padding: 24px;
+}
+
+/* Franja de "sin conexión", fija bajo la barra superior. */
+.sin-red {
+    background: var(--amarillo);
+    color: #4a3300;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    padding: 5px;
+}
+
+/* ---------- Hoja inferior (formularios sobre la lista) ---------- */
+
+.velo {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    display: flex;
+    align-items: flex-end;
+    z-index: 20;
+}
+
+.hoja {
+    background: var(--blanco);
+    width: 100%;
+    max-height: 92%;
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.hoja-cabecera {
+    padding: 14px 16px;
+    background: var(--indigo);
+    color: var(--blanco);
+    border-bottom: 4px solid var(--cian);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.hoja-cabecera h2 { margin: 0; font-size: 16px; flex: 1; }
+.hoja-cuerpo { padding: 16px; overflow-y: auto; }

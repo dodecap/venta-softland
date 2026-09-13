@@ -1,19 +1,35 @@
-# Variables de entorno y credenciales
+*.log
+.DS_Store
 .env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+Thumbs.db
+
+# Credenciales extra del proyecto
 *.pem
 *.key
+.env.softland
+/database/*.sqlite
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
 
-# Dependencias
-node_modules/
-venv/
-__pycache__/
-*.pyc
-
-# Archivos del sistema/editor
-.DS_Store
-.vscode/
-.idea/
-
-# Logs y temporales
-*.log
-tmp/
+# APKs: artefactos de build y material de referencia, no se versionan
+*.apk
