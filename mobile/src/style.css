@@ -330,6 +330,25 @@ input:focus, select:focus, textarea:focus {
     padding: 5px;
 }
 
+/* Aviso pasajero al pie. Va abajo a propósito: es donde está la vista cuando
+   uno acaba de hacer el gesto de retroceder, y donde llega el pulgar. */
+.brindis {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+    background: var(--indigo);
+    color: var(--blanco);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 20px;
+    border-bottom: 3px solid var(--cian);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
+    z-index: 40;
+    pointer-events: none;
+}
+
 /* ---------- Hoja inferior (formularios sobre la lista) ---------- */
 
 .velo {

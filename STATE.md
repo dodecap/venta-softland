@@ -34,6 +34,8 @@ y folios CAF para factura (33) y nota de crédito (61).
 - [x] Desplegado a `srv`: `composer install`, `APP_KEY` generada, rutas OK.
 - [x] Publicado en Apache bajo `/venta-softland` e instalado con `/setup`;
       maestros de Softland verificados uno a uno contra INNOVAGES.
+- [x] Botón y gesto «atrás» de Android conectados: cierran la capa abierta,
+      si no retroceden de pantalla, y en la raíz piden confirmación para salir.
 
 ## Pendiente / próximos pasos
 - [ ] **Publicar la API en Apache** (ver «Problemas conocidos»).
@@ -75,6 +77,16 @@ y folios CAF para factura (33) y nota de crédito (61).
   `http://192.168.1.55:8086/venta-softland`. Apache escucha en `0.0.0.0:8086`
   y el firewall de Windows está desactivado en los tres perfiles, así que no
   hay nada más que abrir.
+
+- **Los controles siguen arriba a la izquierda.** La flecha de volver está en
+  el peor punto para un pulgar derecho en un teléfono grande. El gesto nativo
+  ya lo alivia, pero la solución visible es bajar los controles: barra de
+  acciones inferior en las cinco pantallas (con el teclado resuelto, que es la
+  parte difícil) y, al abrir la fase 2, barra de pestañas fija tipo Banorte.
+  No se hizo aún: decisión pendiente del usuario.
+- **`enableOnBackInvokedCallback` debe seguir ausente** del `AndroidManifest`.
+  Si se activa el «atrás predictivo» de Android 13, el oyente `backButton` de
+  Capacitor deja de dispararse y la navegación vuelve a romperse.
 
 ## Problemas conocidos / bloqueos
 - **`cwtccos` no sigue el prefijo de tres letras.** Sus columnas son

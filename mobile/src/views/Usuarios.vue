@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
+import { useCapa } from '../nav';
 
 const router = useRouter();
 const usuarios = ref([]);
@@ -15,6 +16,10 @@ const guardando = ref(false);
 
 const editando = ref(null); // null = hoja cerrada
 const form = ref(vacio());
+
+// Con la hoja abierta, el «atrás» de Android la cierra en vez de salir de
+// la pantalla: es lo que hace el resto del teléfono y lo que espera la mano.
+useCapa(computed(() => editando.value !== null), () => { editando.value = null; });
 
 function vacio() {
     return {
