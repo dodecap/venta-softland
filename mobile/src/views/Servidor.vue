@@ -38,6 +38,11 @@ async function probar() {
         setTimeout(() => router.push('/login'), 700);
     } catch (e) {
         error.value = e.message;
+        // Error clásico: escribir solo el host y el puerto, sin la carpeta donde
+        // está instalada la app. Se detecta y se dice, en vez de dejarlo adivinando.
+        if (!new URL(d).pathname.replace(/\/+$/, '')) {
+            error.value += ' Puede que falte la carpeta al final, por ejemplo /venta-softland.';
+        }
     } finally {
         probando.value = false;
     }
