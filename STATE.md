@@ -61,6 +61,14 @@ Falta un paso manual para que la API quede accesible: publicarla en Apache.
   al `index.php` de rinde-caja. El síntoma era un 404 de Laravel en vez de uno
   de Apache, que confunde: parecía un problema de rutas y era de Apache.
 
+- **La IP de `srv` en la LAN es `192.168.1.55`, no `172.30.205.106`.** La
+  segunda es de ZeroTier: la usan las máquinas de desarrollo, pero un teléfono
+  en el WiFi de la oficina no la alcanza y la app dice «no se pudo llegar al
+  servidor». Para los vendedores la dirección es
+  `http://192.168.1.55:8086/venta-softland`. Apache escucha en `0.0.0.0:8086`
+  y el firewall de Windows está desactivado en los tres perfiles, así que no
+  hay nada más que abrir.
+
 ## Problemas conocidos / bloqueos
 - **Falta correr `/setup`.** La API ya responde en
   `http://172.30.205.106:8086/venta-softland`, pero `api/ping` devuelve

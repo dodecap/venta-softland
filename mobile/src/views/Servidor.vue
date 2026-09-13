@@ -30,7 +30,10 @@ async function probar() {
         await db.setServidor(d);
         const r = await api.ping();
         if (!r.configurado) {
-            error.value = 'El servidor responde, pero todavía no está instalado. Abre /setup en el navegador.';
+            // Llega, pero nadie corrió el instalador. Se da la URL completa: el
+            // vendedor no tiene por qué saber armarla, y el administrador la abre y listo.
+            error.value = `El servidor responde, pero todavía no está instalado. `
+                + `El administrador debe abrir ${d}/setup en un navegador.`;
             return;
         }
         direccion.value = d;
@@ -66,7 +69,7 @@ async function probar() {
                     <label for="dir">Dirección</label>
                     <input id="dir" v-model="direccion" type="url" inputmode="url"
                            autocapitalize="off" autocorrect="off" spellcheck="false"
-                           placeholder="http://172.30.205.106:8086/venta-softland"
+                           placeholder="http://192.168.1.55:8086/venta-softland"
                            @keyup.enter="probar">
                     <p class="ayuda">
                         Incluye el puerto si no es el 80. Si la dirección va sin
