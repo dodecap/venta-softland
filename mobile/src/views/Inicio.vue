@@ -23,6 +23,10 @@ const error = ref('');
 
 const esAdmin = computed(() => !!usuario.value?.es_admin);
 
+// Quien puede aprobar: el administrador y los supervisores. A un vendedor la
+// consulta ni se le hace, que responde vacía y gasta una petición por arranque.
+const esJefe = computed(() => ['admin', 'supervisor'].includes(usuario.value?.rol));
+
 /*
  * Accesos del flujo de ventas. Los de fase 2 ya llevan a alguna parte; los que
  * todavía no existen se muestran apagados y con la fase a la vista, para que el
@@ -31,6 +35,8 @@ const esAdmin = computed(() => !!usuario.value?.es_admin);
  *
  * Lo administrativo NO está aquí: vive en Cuenta. El panel es del vendedor.
  */
+const porAprobar = ref(0);
+
 const FLUJO = [
     { icono: 'cotizacion', rotulo: 'Cotizaciones', ruta: '/cotizaciones' },
     { icono: 'notaVenta', rotulo: 'Notas de venta', ruta: '/notas-venta' },
@@ -49,7 +55,23 @@ onMounted(async () => {
     // abrir el buzón, nunca habría aviso de que hay algo que mirar.
     refrescarAvisos();
     if (esAdmin.value) cargarActividad();
+    cargarAprobaciones();
 });
+
+/**
+ * Lo que este usuario tiene que aprobar.
+ *
+ * No es una acción rápida más: las seis de abajo están calibradas para caber en
+ * 360×640 sin desplazar, y una séptima rompería eso. Además esto no es un sitio
+ * al que se va, es algo que hay que resolver, y por eso va arriba y solo cuando
+ * hay algo que resolver.
+ */
+async function cargarAprobaciones() {
+    if (! esJefe.value) return;
+    try {
+        porAprobar.value = (await api.aprobaciones()).aprobaciones.length;
+    } catch { /* sin red el panel sigue sirviendo */ }
+}
 
 /** Últimos correos que salieron. Es la actividad del administrador. */
 async function cargarActividad() {
@@ -188,6 +210,17 @@ function fecha(n) {
                     <div class="rotulo">Cambios por enviar</div>
                 </div>
             </div>
+
+            <!-- Va antes que las acciones porque pide una decisión, no una
+                 consulta: hay una venta detenida esperando a esta persona. -->
+            <button class="pendiente-aprobar" v-if="porAprobar" @click="router.push('/aprobaciones')">
+                <AppIcon name="alerta" :caja="px(40)" :size="px(20)" variant="aviso" />
+                <span class="texto">
+                    <b>{{ porAprobar }} {{ porAprobar === 1 ? 'nota de venta espera' : 'notas de venta esperan' }} tu visto bueno</b>
+                    <small>Pasaron el tope de descuento o de monto de su vendedor</small>
+                </span>
+                <AppIcon name="avanzar" :size="18" color="var(--texto-suave)" />
+            </button>
 
             <Aviso tipo="info" v-if="sinDatos">
                 Todavía no te has traído los datos. Toca el botón de sincronizar,

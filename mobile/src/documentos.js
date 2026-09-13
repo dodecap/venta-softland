@@ -71,11 +71,17 @@ export async function lineasDe(tipo, numero) {
 
     for (const l of filas) {
         const factor = l.equiv || 1;
+        const p = await idb.obtener('productos', l.producto);
+
         l.unitario = (l.precio || 0) * factor;
+        // Cómo se llama la línea. Softland deja `DetProd` vacío casi siempre, y
+        // entonces lo que hay que leer es el nombre del producto: una lista de
+        // códigos de ocho dígitos no se le muestra a un cliente.
+        l.nombre = l.detalle || p?.nombre || l.producto;
         // La moneda del precio original sale de la ficha del producto. Puede no
         // estar — líneas de texto suelto, productos dados de baja — y entonces
         // se muestra el número sin símbolo antes que mentir con un «$».
-        l.moneda_origen = factor === 1 ? null : (await idb.obtener('productos', l.producto))?.moneda ?? '';
+        l.moneda_origen = factor === 1 ? null : p?.moneda ?? '';
     }
 
     return filas;
@@ -98,5 +104,99 @@ export function avanceFacturacion(lineas) {
         facturado,
         pct: Math.round((facturado / pedido) * 100),
         completo: facturado >= pedido,
+    };
+}
+
+/* ------------------------------------------------------------------ escribir */
+
+/**
+ * Los mismos totales que va a calcular el servidor, pero en el teléfono.
+ *
+ * Existe para que el vendedor vea el total mientras teclea, también sin señal.
+ * La aritmética está copiada de `app/Services/Softland/Totales.php`, que a su
+ * vez salió de reproducir 200 cotizaciones reales de INNOVAGES columna por
+ * columna. Si se toca una, hay que tocar la otra.
+ *
+ * Una diferencia a propósito: aquí el precio es el de la **moneda del
+ * documento**, que es como lo escribe el vendedor. El servidor lo devuelve a la
+ * moneda del producto antes de guardarlo, porque es donde lo espera Softland.
+ * Los totales salen iguales; lo que cambia es dónde está el factor.
+ *
+ * @param {Array} lineas  con cantidad, precio, descuento_pct y afecto
+ */
+export function calcularTotales(lineas, descuentoPct = 0, ivaPct = 19) {
+    let bruto = 0;
+    let brutoAfecto = 0;
+    const calculadas = [];
+
+    for (const l of lineas) {
+        const subtotal = redondear(Number(l.cantidad || 0) * Number(l.precio || 0), 2);
+        const descuento = Math.round(subtotal * Number(l.descuento_pct || 0) / 100);
+        const total = redondear(subtotal - descuento, 2);
+
+        calculadas.push({ ...l, subtotal, descuento, total });
+        bruto += total;
+        if (l.afecto) brutoAfecto += total;
+    }
+
+    bruto = redondear(bruto, 2);
+    brutoAfecto = redondear(brutoAfecto, 2);
+
+    const descuentoPie = Math.round(bruto * Number(descuentoPct || 0) / 100);
+    const neto = redondear(bruto - descuentoPie, 2);
+
+    // Lo exento sale por diferencia para que las dos partes sumen exactamente
+    // el neto: repartir los dos por separado hace aparecer un peso de la nada.
+    const afecto = bruto > 0 ? redondear(neto * brutoAfecto / bruto, 2) : 0;
+    const exento = redondear(neto - afecto, 2);
+    const iva = Math.round(afecto * ivaPct / 100);
+
+    return {
+        lineas: calculadas,
+        bruto,
+        subtotal: Math.round(bruto),
+        descuento: descuentoPie,
+        afecto,
+        exento,
+        iva,
+        total: Math.round(bruto) - descuentoPie + iva,
+    };
+}
+
+function redondear(n, decimales) {
+    const f = 10 ** decimales;
+    return Math.round((n + Number.EPSILON) * f) / f;
+}
+
+/**
+ * Lo que se le manda al servidor, sacado del formulario.
+ *
+ * Va aparte del formulario porque el formulario tiene cosas que son para la
+ * pantalla — el nombre del producto, si es afecto — y mandarlas sería decirle
+ * al servidor cosas que él sabe mejor. El IVA de una línea se decide en
+ * Softland, no en un teléfono que puede tener el catálogo de hace una semana.
+ */
+export function cuerpoDe(form) {
+    return {
+        cliente: form.cliente,
+        contacto: form.contacto || null,
+        moneda: form.moneda || '01',
+        lista: form.lista || null,
+        condicion: form.condicion || null,
+        centro_costo: form.centro_costo || null,
+        bodega: form.bodega || null,
+        fecha: form.fecha || null,
+        fecha_entrega: form.fecha_entrega || null,
+        oc: form.oc || null,
+        observacion: form.observacion || null,
+        descuento_pct: Number(form.descuento_pct || 0),
+        lineas: form.lineas.map((l) => ({
+            producto: l.producto,
+            detalle: l.detalle || null,
+            unidad: l.unidad || null,
+            cantidad: Number(l.cantidad || 0),
+            precio: Number(l.precio || 0),
+            descuento_pct: Number(l.descuento_pct || 0),
+        })),
     };
 }

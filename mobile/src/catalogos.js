@@ -19,7 +19,7 @@ import { idb } from './idb';
 
 const CHICOS = [
     'vendedores', 'bodegas', 'listas_precio', 'condiciones_venta', 'monedas',
-    'unidades', 'grupos', 'cargos', 'regiones',
+    'unidades', 'grupos', 'cargos', 'regiones', 'motivos_perdida',
     // Estos cuatro son más gordos (2.009 giros, 937 ciudades, 594 centros de
     // costo, 352 comunas) pero van igual: sin ellos la ficha del cliente
     // muestra «C28 · 08301 · LANGE», que no le dice nada a nadie.

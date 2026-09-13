@@ -25,7 +25,9 @@
  */
 
 const NOMBRE = 'venta-softland';
-const VERSION = 1;
+// La 2 agrega `motivos_perdida`: la migración solo crea los almacenes que
+// falten, así que subir el número es todo lo que hace falta.
+const VERSION = 2;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -44,6 +46,7 @@ export const ALMACENES = {
     grupos: { clave: 'codigo' },
     cargos: { clave: 'codigo', busqueda: ['nombre'] },
     regiones: { clave: 'codigo' },
+    motivos_perdida: { clave: 'codigo' },
     centros_costo: { clave: 'codigo', busqueda: ['codigo', 'nombre'] },
     giros: { clave: 'codigo', busqueda: ['nombre'] },
     comunas: { clave: 'codigo', busqueda: ['nombre'] },

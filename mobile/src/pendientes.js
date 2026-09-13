@@ -52,8 +52,11 @@ export function nuevoUuid() {
  * señal. Se aplana con un viaje por JSON, que además garantiza que lo guardado
  * es exactamente lo que después se puede mandar por la red.
  *
- * @param {string} accion  `cliente.crear` | `cliente.editar`
- * @param {string} clave   Código del cliente: identifica a qué ficha afecta.
+ * @param {string} accion  `cliente.crear` | `cliente.editar` |
+ *                         `cotizacion.crear` | `nota_venta.crear`
+ * @param {string} clave   A qué afecta: el código del cliente, o el
+ *                         `client_uuid` del documento cuando todavía no tiene
+ *                         número de Softland.
  */
 export async function encolar(accion, clave, datos) {
     const item = {
@@ -89,6 +92,14 @@ export async function pendienteDe(clave) {
  */
 export async function descartar(uuid) {
     const item = (await idb.todos('pendientes')).find((p) => p.uuid === uuid);
+
+    // Un documento que no llegó a salir no existe en ninguna parte: se va
+    // entero y no deja rastro. No hay nada que reponer desde el servidor.
+    if (item?.accion === 'cotizacion.crear' || item?.accion === 'nota_venta.crear') {
+        await idb.borrar('pendientes', uuid);
+        await contarPendientes();
+        return;
+    }
 
     if (item?.accion === 'cliente.crear') {
         await idb.borrar('clientes', item.clave);
@@ -175,6 +186,18 @@ export async function enviarPendientes() {
 }
 
 async function enviarUno(item) {
+    // Los documentos son idempotentes por su `client_uuid`: si el primer envío
+    // llegó y se perdió la respuesta, el servidor devuelve el mismo número en
+    // vez de escribir otra cotización. Por eso aquí no hay nada especial que
+    // hacer con un reintento.
+    if (item.accion === 'cotizacion.crear') {
+        return api.crearCotizacion(item.datos);
+    }
+
+    if (item.accion === 'nota_venta.crear') {
+        return api.crearNotaVenta(item.datos);
+    }
+
     if (item.accion === 'cliente.crear') {
         try {
             return await api.crearCliente(item.datos);
@@ -198,6 +221,10 @@ async function enviarUno(item) {
 
 /** La respuesta del servidor manda: pisa la copia optimista del teléfono. */
 async function aplicarRespuesta(item, r) {
+    if (r?.cotizacion || r?.nota_venta) {
+        return guardarDocumento(r);
+    }
+
     if (! r?.cliente) return;
 
     await idb.guardar('clientes', [r.cliente]);
@@ -210,4 +237,26 @@ async function aplicarRespuesta(item, r) {
         await idb.borrar('contactos', [c.cliente, c.nombre]);
     }
     await idb.guardar('contactos', r.contactos ?? []);
+}
+
+/**
+ * Guarda en el teléfono el documento que acaba de escribir el servidor.
+ *
+ * Se reemplazan todas las líneas y no solo las que llegaron: al corregir puede
+ * haber menos que antes, y las que sobran quedarían colgando con su número de
+ * línea viejo, sumando en el total de una pantalla que ya no las muestra.
+ */
+async function guardarDocumento(r) {
+    const esNV = !! r.nota_venta;
+    const doc = r.nota_venta ?? r.cotizacion;
+    const almacen = esNV ? 'notas_venta' : 'cotizaciones';
+    const almacenLineas = esNV ? 'nota_venta_lineas' : 'cotizacion_lineas';
+    const indice = esNV ? 'nota_venta' : 'cotizacion';
+
+    const plano = JSON.parse(JSON.stringify(r));
+    await idb.guardar(almacen, [plano.nota_venta ?? plano.cotizacion]);
+
+    const viejas = await idb.porIndice(almacenLineas, indice, doc.numero);
+    for (const l of viejas) await idb.borrar(almacenLineas, [doc.numero, l.linea]);
+    await idb.guardar(almacenLineas, plano.lineas || []);
 }

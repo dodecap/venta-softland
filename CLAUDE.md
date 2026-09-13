@@ -166,6 +166,27 @@ cd mobile && npm run dev                 # probar la UI en el navegador
 ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan ventas:probe"
 ```
 
+## Escribir en Softland
+
+Desde la fase 3 la app escribe el flujo de venta. Lo que hay que saber antes de
+tocar nada de esto:
+
+- **La aritmética está en un solo sitio**: `app/Services/Softland/Totales.php`.
+  No es una fórmula elegida, es la de Softland reproducida contra 200
+  cotizaciones reales. Cambiar una línea ahí obliga a volver a contrastarla, y
+  su copia para el teléfono (`mobile/src/documentos.js`) tiene que cambiar igual.
+- **El correlativo se calcula.** `CotNum` y `NVNumero` no son IDENTITY y la base
+  no tiene tabla de correlativos. Se toma el máximo bajo `UPDLOCK, HOLDLOCK`
+  dentro de la transacción, con reintento ante choque de clave primaria.
+- **La idempotencia de los documentos va por `client_uuid`**, no por una clave
+  natural: el número lo pone el servidor. El mapa está en
+  `ventas.documento_app`.
+- **El precio viaja en la moneda del documento y se guarda en la del producto.**
+  La conversión ocurre en `Equivalencia.php` y en ningún otro lado.
+- **El teléfono no decide impuestos.** Si un producto es afecto a IVA lo dice el
+  maestro, en el servidor, aunque el teléfono mande otra cosa.
+- **Guardar no es enviar**: el correo al cliente es un camino aparte.
+
 ## Estado actual
-Fases 1 y 2 terminadas. Ver `STATE.md`. El mapa de tablas del flujo de ventas está en
+Fases 1, 2 y 3 terminadas. Ver `STATE.md`. El mapa de tablas del flujo de ventas está en
 `docs/flujo-ventas-softland.md` y el plan por fases en `docs/roadmap.md`.

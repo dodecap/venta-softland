@@ -70,6 +70,13 @@ class Maestros
                 'campos' => ['codigo' => 'CveCod', 'nombre' => 'CveDes', 'dias' => 'CveDias:entero'],
                 'etiqueta' => 'nombre',
             ],
+            'motivos_perdida' => [
+                'titulo' => 'Motivos de pérdida',
+                'tabla' => 'softland.nwperdida',
+                'clave' => ['CodPerd'],
+                'campos' => ['codigo' => 'CodPerd', 'nombre' => 'desPerd'],
+                'etiqueta' => 'nombre',
+            ],
             'monedas' => [
                 'titulo' => 'Monedas',
                 'tabla' => 'softland.cwtmone',
@@ -484,20 +491,27 @@ class Maestros
         ];
     }
 
-    /** Una fila de un maestro, mapeada igual que en la descarga. */
-    public function uno(string $recurso, array $donde): ?array
+    /**
+     * Una fila de un maestro, mapeada igual que en la descarga.
+     *
+     * El contexto va explícito porque los maestros con alcance por vendedor
+     * (cotizaciones, notas de venta y sus detalles) se cierran sin él. Quien
+     * pida una cotización sin decir de parte de quién no recibe nada, que es
+     * lo correcto: el camino que no sabe de permisos falla cerrado.
+     */
+    public function uno(string $recurso, array $donde, array $ctx = []): ?array
     {
         $def = static::recursos()[$recurso];
-        $fila = $this->consulta($def)->where($donde)->first($this->columnas($def));
+        $fila = $this->consulta($def, $ctx)->where($donde)->first($this->columnas($def));
 
         return $fila ? $this->mapear($def, $fila) : null;
     }
 
     /** Varias filas de un maestro, mapeadas igual que en la descarga. */
-    public function varios(string $recurso, array $donde): array
+    public function varios(string $recurso, array $donde, array $ctx = []): array
     {
         $def = static::recursos()[$recurso];
-        $q = $this->consulta($def)->where($donde);
+        $q = $this->consulta($def, $ctx)->where($donde);
         foreach ($def['clave'] as $col) {
             $q->orderBy($col);
         }

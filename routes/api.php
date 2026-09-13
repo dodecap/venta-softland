@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\AvisoController;
 use App\Http\Controllers\Api\CatalogoController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\ConfiguracionController;
+use App\Http\Controllers\Api\CotizacionController;
+use App\Http\Controllers\Api\NotaVentaController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +40,28 @@ Route::middleware('auth.api')->group(function () {
     Route::get('/clientes/{codigo}', [ClienteController::class, 'show']);
     Route::post('/clientes', [ClienteController::class, 'store']);
     Route::put('/clientes/{codigo}', [ClienteController::class, 'update']);
+
+    /*
+     * El flujo de ventas. Las cotizaciones y las notas de venta se leen del
+     * maestro descargado — el teléfono ya las tiene — y se escriben por aquí.
+     *
+     * `client_uuid` viaja en el cuerpo del alta y es lo que hace idempotente el
+     * reenvío: un teléfono que perdió la respuesta reintenta y recibe el mismo
+     * número, no una cotización nueva.
+     */
+    Route::get('/cotizaciones/{numero}', [CotizacionController::class, 'show'])->whereNumber('numero');
+    Route::post('/cotizaciones', [CotizacionController::class, 'store']);
+    Route::put('/cotizaciones/{numero}', [CotizacionController::class, 'update'])->whereNumber('numero');
+    Route::post('/cotizaciones/{numero}/enviar', [CotizacionController::class, 'enviar'])->whereNumber('numero');
+    Route::post('/cotizaciones/{numero}/perder', [CotizacionController::class, 'perder'])->whereNumber('numero');
+    Route::post('/cotizaciones/{numero}/seguimientos', [CotizacionController::class, 'seguimiento'])->whereNumber('numero');
+    Route::post('/cotizaciones/{numero}/nota-venta', [CotizacionController::class, 'convertir'])->whereNumber('numero');
+
+    Route::get('/notas-venta/aprobaciones', [NotaVentaController::class, 'pendientes']);
+    Route::get('/notas-venta/{numero}', [NotaVentaController::class, 'show'])->whereNumber('numero');
+    Route::post('/notas-venta', [NotaVentaController::class, 'store']);
+    Route::put('/notas-venta/{numero}', [NotaVentaController::class, 'update'])->whereNumber('numero');
+    Route::post('/notas-venta/{numero}/aprobacion', [NotaVentaController::class, 'resolver'])->whereNumber('numero');
 
     Route::middleware('rol:admin')->prefix('admin')->group(function () {
         // Usuarios

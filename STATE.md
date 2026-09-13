@@ -7,7 +7,7 @@
 2026-09-13
 
 ## Resumen del estado actual
-**Fases 1 y 2 terminadas.** El servidor (API Laravel) está en
+**Fases 1, 2 y 3 terminadas.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
 existe en INNOVAGES, hay un administrador y las 12 reglas de notificación
@@ -18,6 +18,12 @@ IndexedDB (14.175 registros, menos de 10 s por WiFi) y desde ahí se buscan
 clientes y productos, se leen cotizaciones y notas de venta, y se dan de alta y
 se editan clientes con sus contactos. Lo que se escribe sin red queda en una
 bandeja de salida y sale solo cuando vuelve.
+
+Con la fase 3 la app **escribe el flujo de venta**: se crean y corrigen
+cotizaciones y notas de venta, se les hace seguimiento, se cierran por pérdida,
+se mandan al cliente en PDF y se convierten en nota de venta. Cuando la venta
+pasa el tope del vendedor, espera el visto bueno del jefe — una aprobación que
+Softland no tiene y que aporta la app.
 
 Comprobado contra INNOVAGES con `ventas:probe`: 2.350 cotizaciones, 800 notas
 de venta, 3.824 clientes, 1.229 productos, 21 vendedores, 594 centros de costo
@@ -122,12 +128,54 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       del cliente de prueba. La base quedó con sus 3.373 clientes y 2.816
       contactos originales.
 
+### Fase 3 — cotización y nota de venta
+- [x] **Aritmética de Softland reproducida columna por columna**
+      (`app/Services/Softland/Totales.php`), sacada de recalcular 200
+      cotizaciones reales: subtotal por línea, descuento a peso entero, reparto
+      proporcional del descuento de pie entre lo afecto y lo exento, IVA sobre
+      lo afecto y `CtMonto = CtSubTotal − CtTotalDesc + Σ Impto`. Se comprobó
+      con documentos con y sin exento y con y sin descuento de encabezado.
+- [x] **Correlativo resuelto.** `CotNum` y `NVNumero` **no son IDENTITY** y en
+      toda la base no existe tabla de correlativos: se buscó en `nwparam`,
+      `cwfoliossueltos`, `iw_ultcorrelptovta`, `SO_Numeros` y en todo lo que se
+      llamara «corr», «folio» o «numer». Softland de escritorio lo calcula solo,
+      y la app hace lo mismo: máximo bajo `UPDLOCK, HOLDLOCK` dentro de la
+      transacción, con reintento si la clave primaria choca.
+- [x] **Idempotencia por `client_uuid`** (`ventas.documento_app`): reenviar un
+      documento que ya se escribió devuelve su número, no crea otro. A
+      diferencia del cliente, aquí no hay clave natural con que chocar.
+- [x] La **moneda de la línea** se resuelve en el servidor: el vendedor escribe
+      el precio en la moneda del documento y `Equivalencia.php` lo devuelve a la
+      del producto con la UF del día (`softland.so_UF`).
+- [x] Cotización: alta, corrección, **seguimiento** (`nwtsegui`), **cierre por
+      pérdida** con motivo (`nwperdida`) y **envío al cliente con PDF adjunto**.
+- [x] Nota de venta: alta directa o **por conversión**, dejando la cotización en
+      `V`. Centro de costo obligatorio, como manda `nwparam.CheckExigeCCostoN`.
+- [x] **Aprobación del jefe por topes** (`ventas.aprobacion`), que no existe en
+      Softland: la NV que pasa el tope de descuento o de monto nace en `P` y
+      espera; aprobada pasa a `A` con `nvFeAprob`, rechazada a `C`. Corregirla
+      por debajo del tope retira la solicitud sola.
+- [x] Pantallas: **editor** de documento (una sola para los dos tipos), acciones
+      en la ficha, **Aprobaciones** para el jefe y aviso en el panel.
+- [x] **Se cotiza sin señal**: el teléfono calcula el mismo total que el
+      servidor y lo que se crea sin red va a la bandeja de salida y sale solo.
+      Corregir un documento que ya está en Softland sí exige señal, a propósito.
+- [x] **Mensajes de validación en castellano** (`lang/es/validation.php`): antes
+      el vendedor veía «validation.required».
+- [x] Probado de punta a punta contra INNOVAGES desde la app: alta, corrección,
+      seguimiento, conversión, aprobación, rechazo y alta sin señal con envío al
+      volver la red. La base quedó con sus 2.350 cotizaciones y 800 notas de
+      venta originales; los documentos de prueba se borraron.
+
 ## Pendiente / próximos pasos
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
       admin: el alcance por vendedor está probado contra la base, pero no con
       alguien usando el teléfono.
 - [ ] Configurar el SMTP desde la app y mandar un correo de prueba.
-- [ ] Empezar la fase 3 (cotización y nota de venta). Ver `docs/roadmap.md`.
+- [ ] **Configurar el SMTP y probar el envío de la cotización al cliente.** El
+      correo con PDF está escrito y el PDF se comprobó generado; lo que no se
+      pudo probar es que salga, porque no hay servidor de correo configurado.
+- [ ] Empezar la fase 4 (facturación y DTE). Ver `docs/roadmap.md`.
 - [ ] **Solicitar al SII los folios CAF de boleta electrónica (DTE 39)** — es
       el bloqueo de plazo más largo del proyecto, conviene iniciarlo ya.
 - [ ] Averiguar si la API REST oficial de Softland (`Softland.DteClient`) está
@@ -214,6 +262,26 @@ vendibles, 12 meses de documentos y solo los del vendedor).
   Si se activa el «atrás predictivo» de Android 13, el oyente `backButton` de
   Capacitor deja de dispararse y la navegación vuelve a romperse.
 
+- **El correlativo de los documentos se calcula, porque Softland no lo guarda.**
+  `CotNum` y `NVNumero` no son IDENTITY y no hay tabla de correlativos en toda
+  la base. Se toma el máximo bajo `UPDLOCK, HOLDLOCK` dentro de la transacción y
+  se reintenta si la clave primaria choca — que es lo que pasa si Softland de
+  escritorio graba en el mismo instante, porque él no toma ese candado.
+- **El estado `P` de las cotizaciones era el valor por defecto de la columna.**
+  `CtEstado` tiene `DEFAULT ('P')`: las 189 cotizaciones en `P` son las que se
+  grabaron sin fijar el estado. La app escribe `N` explícito al crear.
+- **El precio se escribe en la moneda del documento y se guarda en la del
+  producto.** El vendedor negocia en pesos aunque el producto esté tarifado en
+  UF; la división por la UF del día pasa en el servidor (`Equivalencia.php`) y
+  en ningún otro lado. El teléfono nunca guarda un factor de cambio.
+- **Guardar no es enviar.** La cotización no le manda correo al cliente al
+  grabarla: el envío es un camino aparte (`POST /cotizaciones/{n}/enviar`) con
+  su propio botón. Una cotización se corrige tres veces antes de mandarla.
+- **La aprobación por topes es de la app, no de Softland.**
+  `nwparam.CheckApruebaNv = N`: el ERP no la pide. Se refleja igual en
+  `nvEstado` y `nvFeAprob`, que son columnas suyas, para que la nota de venta se
+  vea pendiente también desde el escritorio.
+
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
   tiene filas porque el SMTP todavía no está configurado, y el único usuario
@@ -249,17 +317,36 @@ vendibles, 12 meses de documentos y solo los del vendedor).
   13-09-2026 por una prueba de la fase 2. El dato de negocio se restauró (su
   teléfono volvió a quedar vacío, como estaba); lo que no se pudo devolver es
   quién lo había tocado antes, porque la columna se sobrescribe.
+- **Flete y embalaje no se calculan.** Las columnas existen y se escriben en
+  cero: de las 2.350 cotizaciones de INNOVAGES, **ninguna** los usa, así que no
+  hay un solo caso real contra el que comprobar cómo entran en el total. El día
+  que haga falta, hay que sacar la fórmula del Softland de escritorio antes de
+  escribir una línea.
+- **Solo se calcula el IVA.** `NWCtImpto` tiene 4 filas de ILA (impuesto a los
+  líquidos, 8 %) entre 2.051, y en el maestro de productos no hay ninguna
+  columna que diga qué producto lo paga: `iw_tprod` solo tiene el flag
+  `Impuesto`, que es «afecto sí o no». Un documento con un producto afecto a ILA
+  quedaría con el impuesto de menos.
+- **Los descuentos 2 a 5 se escriben en cero.** Existen en las tablas y no los
+  usa ninguna de las 2.350 cotizaciones, ni en la línea ni en el encabezado.
+  Inventar una cascada sin un caso con que comprobarla sería adivinar sobre el
+  precio que se le cobra a un cliente.
+- **La tasa de IVA se copia del último documento de Softland.** No está en
+  ningún maestro: Softland la estampa documento a documento en
+  `NWCtImpto.valpctIni`. Si la base no tuviera ninguno, queda el 19 % de
+  respaldo de `Totales::IVA_POR_DEFECTO`.
+- **El envío de la cotización por correo no se ha podido probar de verdad.** El
+  PDF se generó y se revisó; lo que falta es el SMTP configurado para ver salir
+  el correo con el adjunto.
+- **`datetime` de SQL Server redondea a 3,33 ms.** `now()->endOfDay()` son las
+  23:59:59.999 y el motor las guarda como las 00:00 del día siguiente: la
+  consulta del valor de la UF devolvía el de mañana. El corte va al segundo.
 - **Boleta electrónica sin folios.** No hay CAF para el DTE 39 ni el 41 en
   `dte_siicaf`. El tipo `BE` existe en `cwttdoc`, así que Softland está
   preparado, pero sin folios no se puede emitir.
 - **Mapeo tipo Softland → tipo SII para ventas, sin resolver.** En `cwttdoc`
   los códigos de venta (`EL`, `NL`, `BE`) traen `DTEDocSII` vacío y
   `iw_gsaen.DTE_SiiTDoc` está en 0 en las 209 filas existentes.
-- **Correlativo de `NVNumero`: origen desconocido.** No está en `nwparam` ni
-  aparece una tabla de correlativos de ventas. Hasta aclararlo, cualquier
-  inserción debe tomarlo bajo `UPDLOCK, HOLDLOCK` dentro de una transacción.
-- **Estado `P` de cotización sin explicar**: 189 filas, ninguna con motivo de
-  pérdida ni con nota de venta asociada.
 - **Contraseña de `sa` en texto plano** en `srv:E:\Servicio\Config\Config.js`
   (proyecto heredado, ya en su historial de git). Si se rota la clave, hay que
   acordarse de ese archivo.

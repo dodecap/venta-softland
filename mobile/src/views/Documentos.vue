@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe } from '../catalogos';
 import { TIPOS, estado } from '../documentos';
+import { useAccionCrear } from '../crear';
+import { contarPendientes, porEnviar } from '../pendientes';
 import AppIcon from '../components/AppIcon.vue';
 import Buscador from '../components/Buscador.vue';
 import Vacio from '../components/Vacio.vue';
@@ -25,10 +27,19 @@ const def = computed(() => TIPOS[tipo.value]);
 const busqueda = ref('');
 const filtroEstado = ref('');
 const documentos = ref([]);
+const sinEnviar = ref([]);
+const nombres = ref({});
 const cargando = ref(true);
 
 onMounted(cargar);
 watch([busqueda, filtroEstado, tipo], cargar);
+// La bandeja se vacía sola al volver la red, estando en otra pantalla: sin esto
+// el documento seguiría apareciendo como «sin enviar» después de haber salido.
+watch(porEnviar, cargar);
+
+// El botón flotante es uno solo para toda la app; esta pantalla solo dice qué
+// hace el suyo. Así hereda la posición que el vendedor eligió y el resto.
+useAccionCrear(`Nueva ${def.value.singular.toLowerCase()}`, () => router.push(`${def.value.ruta}/nuevo`));
 
 async function cargar() {
     cargando.value = true;
@@ -39,9 +50,37 @@ async function cargar() {
         });
         // El más nuevo arriba: es el que se está mirando en la reunión.
         documentos.value = filas.sort((a, b) => b.numero - a.numero);
+
+        // Los que todavía no salieron del teléfono no tienen número, así que no
+        // están en el almacén. Van arriba y con la franja ámbar: el vendedor
+        // acaba de escribirlos y tiene que verlos, no suponer que se perdieron.
+        sinEnviar.value = (await contarPendientes())
+            .filter((p) => p.accion === `${tipo.value}.crear`);
+
+        await cargarNombres();
     } finally {
         cargando.value = false;
     }
+}
+
+/**
+ * El nombre del cliente de cada documento.
+ *
+ * Softland guarda el código (`CodAux`) y nada más. Una lista que dice «99999999»
+ * obliga a abrir el documento para saber de quién es, que es justo lo que la
+ * lista tenía que ahorrar.
+ */
+async function cargarNombres() {
+    const codigos = new Set([
+        ...documentos.value.map((d) => d.cliente),
+        ...sinEnviar.value.map((p) => p.datos.cliente),
+    ].filter(Boolean));
+
+    const mapa = {};
+    for (const c of codigos) {
+        mapa[c] = (await idb.obtener('clientes', c))?.nombre || c;
+    }
+    nombres.value = mapa;
 }
 
 /** Solo se ofrecen los estados que de verdad hay: un filtro vacío es ruido. */
@@ -52,7 +91,8 @@ const estadosPresentes = computed(() => {
         .map(([codigo, e]) => ({ codigo, ...e }));
 });
 
-const vacio = computed(() => ! cargando.value && ! documentos.value.length);
+const vacio = computed(() =>
+    ! cargando.value && ! documentos.value.length && ! sinEnviar.value.length);
 </script>
 
 <template>
@@ -79,12 +119,28 @@ const vacio = computed(() => ! cargando.value && ! documentos.value.length);
 
             <Vacio v-else-if="vacio" icono="sinResultados" titulo="Nada con esos criterios" />
 
+            <div class="item" v-for="p in sinEnviar" :key="p.uuid" @click="router.push('/cuenta')">
+                <div class="item-estado cian"></div>
+                <div class="item-cuerpo">
+                    <div class="item-titulo">Sin enviar · {{ nombres[p.datos.cliente] || p.datos.cliente }}</div>
+                    <div class="item-linea">
+                        {{ p.datos.lineas.length }}
+                        {{ p.datos.lineas.length === 1 ? 'línea' : 'líneas' }}
+                    </div>
+                    <div class="item-meta">
+                        <span class="etiqueta gris">{{ p.estado === 'rechazado' ? 'Rechazada' : 'Esperando señal' }}</span>
+                        <span v-if="p.estado === 'rechazado'"> · {{ p.mensaje }}</span>
+                    </div>
+                </div>
+                <div class="item-sync" :class="p.estado === 'rechazado' ? 'error' : 'pendiente'"></div>
+            </div>
+
             <div class="item" v-for="d in documentos" :key="d.numero"
                  @click="router.push(`${def.ruta}/${d.numero}`)">
                 <div class="item-estado" :class="estado(tipo, d.estado).color"></div>
                 <div class="item-cuerpo">
                     <div class="item-titulo">Nº {{ d.numero }} · {{ monto(d.total, d.moneda) }}</div>
-                    <div class="item-linea">{{ d.observacion || d.cliente }}</div>
+                    <div class="item-linea">{{ nombres[d.cliente] || d.cliente }}</div>
                     <div class="item-meta">
                         <span class="etiqueta gris">{{ estado(tipo, d.estado).rotulo }}</span>
                         <span> · {{ fecha(d.fecha) }}</span>

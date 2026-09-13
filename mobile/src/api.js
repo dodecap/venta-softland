@@ -80,6 +80,26 @@ export const api = {
     editarCliente: (codigo, c) =>
         pedir(`/clientes/${encodeURIComponent(codigo)}`, { method: 'PUT', body: c }),
 
+    // ---- Flujo de ventas: cotización y nota de venta ----
+    //
+    // `client_uuid` lo pone el teléfono al guardar, antes de que haya red, y es
+    // lo que hace idempotente el reenvío: si la primera respuesta se perdió, el
+    // reintento devuelve el mismo número en vez de crear otro documento.
+
+    cotizacion: (numero) => pedir(`/cotizaciones/${numero}`),
+    crearCotizacion: (c) => pedir('/cotizaciones', { method: 'POST', body: c }),
+    editarCotizacion: (numero, c) => pedir(`/cotizaciones/${numero}`, { method: 'PUT', body: c }),
+    enviarCotizacion: (numero) => pedir(`/cotizaciones/${numero}/enviar`, { method: 'POST' }),
+    perderCotizacion: (numero, m) => pedir(`/cotizaciones/${numero}/perder`, { method: 'POST', body: m }),
+    seguirCotizacion: (numero, s) => pedir(`/cotizaciones/${numero}/seguimientos`, { method: 'POST', body: s }),
+    convertirCotizacion: (numero, nv) => pedir(`/cotizaciones/${numero}/nota-venta`, { method: 'POST', body: nv }),
+
+    notaVenta: (numero) => pedir(`/notas-venta/${numero}`),
+    crearNotaVenta: (nv) => pedir('/notas-venta', { method: 'POST', body: nv }),
+    editarNotaVenta: (numero, nv) => pedir(`/notas-venta/${numero}`, { method: 'PUT', body: nv }),
+    aprobaciones: () => pedir('/notas-venta/aprobaciones'),
+    resolverAprobacion: (numero, r) => pedir(`/notas-venta/${numero}/aprobacion`, { method: 'POST', body: r }),
+
     // Administración (rol admin)
     usuarios: () => pedir('/admin/usuarios'),
     usuariosOpciones: () => pedir('/admin/usuarios/opciones'),

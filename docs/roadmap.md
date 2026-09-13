@@ -22,7 +22,7 @@ se puede improvisar después.
 - App Android con la paleta Softland: servidor, login, inicio y las pantallas
   de administración.
 
-## Fase 2 — Consulta y catálogos offline
+## Fase 2 — Consulta y catálogos offline ✅ hecha
 
 Que el vendedor pueda **salir a terreno con los datos encima**.
 
@@ -38,13 +38,13 @@ Que el vendedor pueda **salir a terreno con los datos encima**.
 - Consulta de cotizaciones y notas de venta existentes (solo lectura).
 - Alta y edición de clientes y contactos.
 
-## Fase 3 — Cotización y nota de venta
+## Fase 3 — Cotización y nota de venta ✅ hecha
 
 El corazón del negocio.
 
 - Crear y editar cotizaciones (`nwcotiza` + `nwdetcot`), offline incluido.
-- Cálculo de precios por lista, cinco niveles de descuento por línea y por
-  encabezado, flete y embalaje — como los maneja Softland.
+- Precio propuesto por lista de precios, descuento por línea y por encabezado,
+  y los totales calculados exactamente como los calcula Softland.
 - Envío de la cotización al cliente por correo, con PDF.
 - Seguimiento (`nwtsegui`) y cierre por pérdida con motivo (`nwperdida`).
 - Conversión a nota de venta (`nw_nventa` + `nw_detnv`), dejando la cotización
@@ -52,8 +52,15 @@ El corazón del negocio.
 - **Aprobación por jefe** cuando la NV pasa los topes del vendedor. Ojo: esto
   no existe en Softland (`nwparam.CheckApruebaNv = N`), lo aporta la app.
 - Sincronización idempotente por `client_uuid`: reenviar no duplica.
-- **Antes de escribir**: resolver de dónde sale el correlativo de `NVNumero`
-  (ver «Bloqueos» en `docs/flujo-ventas-softland.md`).
+- ~~**Antes de escribir**: resolver de dónde sale el correlativo de
+  `NVNumero`~~. Resuelto: no existe tabla de correlativos en la base y Softland
+  de escritorio lo calcula solo. La app toma el máximo bajo `UPDLOCK, HOLDLOCK`
+  dentro de la transacción y reintenta si la clave primaria choca.
+
+Quedó fuera, con su porqué en `STATE.md`: **flete y embalaje** (ninguna de las
+2.350 cotizaciones los usa), los **descuentos 2 a 5** (tampoco) y los
+**impuestos que no sean el IVA** (no hay de dónde deducir qué producto paga
+ILA).
 
 ## Fase 4 — Facturación y boleta electrónica
 

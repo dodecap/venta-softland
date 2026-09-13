@@ -88,7 +88,7 @@ class AuthController extends Controller
      * productos no caben en una respuesta de login, y sobre todo no se pueden
      * buscar si llegan como un solo bloque.
      */
-    public function bootstrap(Request $request)
+    public function bootstrap(Request $request, \App\Services\Softland\Ventas $ventas)
     {
         $u = $request->attributes->get('usuario');
 
@@ -98,9 +98,32 @@ class AuthController extends Controller
                 'app' => (string) config('app.name'),
                 'base' => SoftlandConfig::load()['database'] ?? null,
                 'rut_emisor' => $this->catalogos->rutEmisor(),
+                // Dos números que el teléfono necesita para calcular un total
+                // sin señal y que no vienen en ningún maestro: la tasa de IVA,
+                // que Softland estampa documento a documento, y el valor de la
+                // UF, que hace falta para proponer el precio de un producto
+                // tarifado en UF dentro de una cotización en pesos. Al escribir,
+                // el servidor los vuelve a calcular con los de hoy: estos son
+                // para que el vendedor vea un total mientras teclea, no para
+                // que el documento se guarde con ellos.
+                'iva_pct' => $ventas->ivaPct(),
+                'uf' => $this->uf(),
             ],
             'sincronizado_at' => now()->toIso8601String(),
         ]);
+    }
+
+    /** Valor de la UF de hoy, o el último que haya. Null si Softland no lo tiene. */
+    private function uf(): ?float
+    {
+        // El corte va al segundo y no con `endOfDay()`: el tipo `datetime` de
+        // SQL Server redondea a 3,33 ms, así que las 23:59:59.999 se convierten
+        // en las 00:00 del día siguiente y la consulta devolvía la UF de mañana.
+        $v = DB::connection('softland')->table('softland.so_UF')
+            ->where('Fecha', '<=', now()->format('Y-m-d').' 23:59:59')
+            ->orderByDesc('Fecha')->value('Valor');
+
+        return $v ? (float) $v : null;
     }
 
     /** Cierra la sesión de ESTE dispositivo (borra su token). */

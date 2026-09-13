@@ -16,6 +16,8 @@ import Cliente from './views/Cliente.vue';
 import Productos from './views/Productos.vue';
 import Documentos from './views/Documentos.vue';
 import Documento from './views/Documento.vue';
+import Editor from './views/Editor.vue';
+import Aprobaciones from './views/Aprobaciones.vue';
 import Usuarios from './views/Usuarios.vue';
 import Configuracion from './views/Configuracion.vue';
 import Reglas from './views/Reglas.vue';
@@ -51,9 +53,18 @@ const router = createRouter({
         { path: '/clientes/:codigo', component: Cliente },
         { path: '/productos', component: Productos },
         { path: '/cotizaciones', component: Documentos, meta: { tipo: 'cotizacion' } },
+        // `nuevo` va antes que `:numero` porque el router toma la primera que
+        // calce, y `:numero` calzaría también con la palabra «nuevo».
+        { path: '/cotizaciones/nuevo', component: Editor, meta: { tipo: 'cotizacion' } },
         { path: '/cotizaciones/:numero', component: Documento, meta: { tipo: 'cotizacion' } },
+        { path: '/cotizaciones/:numero/editar', component: Editor, meta: { tipo: 'cotizacion' } },
         { path: '/notas-venta', component: Documentos, meta: { tipo: 'nota_venta' } },
+        { path: '/notas-venta/nuevo', component: Editor, meta: { tipo: 'nota_venta' } },
         { path: '/notas-venta/:numero', component: Documento, meta: { tipo: 'nota_venta' } },
+        { path: '/notas-venta/:numero/editar', component: Editor, meta: { tipo: 'nota_venta' } },
+        // Lo que el jefe tiene que resolver. No es una pestaña: se entra desde
+        // el panel y desde el aviso que llega por correo.
+        { path: '/aprobaciones', component: Aprobaciones },
 
         { path: '/usuarios', component: Usuarios, meta: { admin: true } },
         { path: '/configuracion', component: Configuracion, meta: { admin: true } },

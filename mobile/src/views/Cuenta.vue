@@ -6,6 +6,7 @@ import { db } from '../db';
 import { olvidarAvisos } from '../avisos';
 import { cambiarDensidad, densidad, ETIQUETAS } from '../densidad';
 import { conectado } from '../red';
+import { abrirSoporte, NUMERO_VISIBLE } from '../soporte';
 import { cargarCatalogos } from '../catalogos';
 import { contarRegistros, inventarioLocal, progreso, sincronizando, sincronizar as sincronizarMaestros } from '../sync';
 import { contarPendientes, descartar, enviarPendientes, porEnviar } from '../pendientes';
@@ -111,6 +112,14 @@ async function reintentarPendientes() {
     else if (r.fallidos) error.value = 'Softland rechazó los cambios; míralos en la ficha del cliente.';
 }
 
+/** Qué dice la fila de la bandeja. Cada operación se nombra por lo que es. */
+function rotuloPendiente(p) {
+    if (p.accion === 'cotizacion.crear') return `Nueva cotización de ${p.datos.cliente}`;
+    if (p.accion === 'nota_venta.crear') return `Nueva nota de venta de ${p.datos.cliente}`;
+    if (p.accion === 'cliente.crear') return `Nuevo cliente ${p.datos.nombre}`;
+    return `Cambios en ${p.datos.nombre || p.clave}`;
+}
+
 async function descartarPendiente(p) {
     if (! confirm('¿Descartar este cambio sin enviar? Se pierde lo que se escribió.')) return;
     await descartar(p.uuid);
@@ -126,6 +135,11 @@ async function volverADescargar() {
 const maestros = computed(() => Object.values(inventarioLocal.value)
     .filter((m) => m.local > 0)
     .sort((a, b) => b.local - a.local));
+
+/** Chat de WhatsApp con soporte, con quién escribe ya puesto en el mensaje. */
+function contactarSoporte() {
+    abrirSoporte({ usuario: usuario.value, servidor: servidor.value, version });
+}
 
 async function salir() {
     if (!confirm('¿Cerrar sesión? Los datos descargados se borran del teléfono y hay que volver a entrar.')) return;
@@ -174,7 +188,7 @@ async function salir() {
                 <div class="ajustes">
                     <FilaAjuste v-for="p in pendientes" :key="p.uuid"
                                 :icono="p.estado === 'rechazado' ? 'error' : 'subir'"
-                                :rotulo="p.accion === 'cliente.crear' ? `Nuevo cliente ${p.datos.nombre}` : `Cambios en ${p.datos.nombre || p.clave}`"
+                                :rotulo="rotuloPendiente(p)"
                                 :detalle="p.estado === 'rechazado' ? p.mensaje : 'Esperando señal'"
                                 :peligro="p.estado === 'rechazado'">
                         <template #control>
@@ -241,6 +255,13 @@ async function salir() {
                         </div>
                     </template>
                 </FilaAjuste>
+            </div>
+
+            <div class="seccion"><h2>Ayuda</h2></div>
+            <div class="ajustes">
+                <FilaAjuste icono="soporte" rotulo="Escribir a soporte"
+                            :detalle="`WhatsApp ${NUMERO_VISIBLE}`" lleva
+                            @click="contactarSoporte" />
             </div>
 
             <template v-if="esAdmin">

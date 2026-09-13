@@ -27,6 +27,7 @@ class Notificador
      * @param  Usuario|null  $dueno  Vendedor del documento (destinatario "dueño").
      * @param  string|null  $emailCliente  Correo del contacto del cliente, si aplica.
      * @param  Usuario|null  $actor  Quién provocó el evento (para la bitácora).
+     * @param  array<int, array{nombre: string, contenido: string, mime: string}>  $adjuntos
      */
     public function disparar(
         string $evento,
@@ -34,6 +35,7 @@ class Notificador
         ?Usuario $dueno = null,
         ?string $emailCliente = null,
         ?Usuario $actor = null,
+        array $adjuntos = [],
     ): ?Notificacion {
         if (! Eventos::existe($evento)) {
             return null;
@@ -60,10 +62,16 @@ class Notificador
 
         try {
             $html = $this->plantilla($mensaje['asunto'], $mensaje['cuerpo_html']);
-            Mail::html($html, function ($m) use ($destinos, $mensaje) {
+            Mail::html($html, function ($m) use ($destinos, $mensaje, $adjuntos) {
                 $m->to($destinos[0])->subject($mensaje['asunto']);
                 foreach (array_slice($destinos, 1) as $extra) {
                     $m->cc($extra);
+                }
+                // El PDF de la cotización va adjunto, no enlazado: el cliente lo
+                // reenvía a su jefe y tiene que llegarle el documento, no un
+                // enlace a un servidor que solo se ve desde la oficina.
+                foreach ($adjuntos as $a) {
+                    $m->attachData($a['contenido'], $a['nombre'], ['mime' => $a['mime']]);
                 }
             });
             $log->forceFill(['estado' => 'enviada', 'enviada_at' => now()])->save();

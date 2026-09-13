@@ -12,7 +12,7 @@ trap 'rm -rf "$TMP"' EXIT
 # bootstrap/cache se genera en el servidor: contiene el manifiesto de paquetes
 # de Composer, que solo existe donde corre Composer.
 tar -C "$R" -cf "$TMP/deploy.tar" --exclude='bootstrap/cache' \
-  app bootstrap config database resources routes public \
+  app bootstrap config database lang resources routes public \
   artisan composer.json composer.lock phpunit.xml tests
 
 scp -q "$TMP/deploy.tar" "$SRV:C:/Users/ddecap/deploy-ventas.tar"

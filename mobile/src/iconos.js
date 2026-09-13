@@ -21,7 +21,7 @@ import {
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
     CloudDownload, CloudUpload, CreditCard, Database, FileText, Inbox, Info, LayoutDashboard,
     LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
-    Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
+    LifeBuoy, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
     Smartphone, Trash2, TriangleAlert, Type, UserCog, UserPlus, Users, WifiOff, X,
 } from 'lucide-vue-next';
 
@@ -76,6 +76,9 @@ export const ICONOS = {
     dispositivo: { glifo: Smartphone, variante: 'admin' },
     tamanoTexto: { glifo: Type, variante: 'admin' },
     datos: { glifo: Database, variante: 'admin' },
+    // Soporte no es administración: lo usa el vendedor, no el admin. Va con
+    // el ámbar de los avisos porque es «algo pasó y necesito que me miren».
+    soporte: { glifo: LifeBuoy, variante: 'aviso' },
 
     // ---- Controles de interfaz ----
     crear: { glifo: Plus },

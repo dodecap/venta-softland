@@ -1184,3 +1184,165 @@ select.filtro-grupo { margin-bottom: 12px; }
 .contacto .fila + .fila { margin-top: 8px; }
 .contacto input { margin-bottom: 0; }
 .contacto .icono-barra { flex: 0 0 40px; color: var(--rojo); }
+
+/* ---------------------------------------------------------- editor de documento
+
+   Una línea de cotización tiene cuatro datos que se tocan (producto, cantidad,
+   precio, descuento) y no caben en una fila de 360 px sin achicar los campos
+   por debajo de los 16 px, que es donde Android empieza a hacer zoom al
+   enfocar. Por eso la línea es una tarjeta: arriba qué producto es, en medio
+   los tres números y abajo el total, que es lo que el vendedor mira. */
+
+.campo-boton {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    text-align: left;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--texto);
+    background: var(--blanco);
+    border: 1px solid var(--texto-suave);
+    border-radius: 8px;
+}
+
+.campo-boton b { display: block; font-weight: 600; }
+.campo-boton small { display: block; font-size: 12px; color: var(--texto-medio); }
+.campo-boton .hueco { color: var(--texto-medio); }
+
+.linea-doc {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: calc(11px * var(--d)) calc(12px * var(--d));
+    margin-bottom: calc(9px * var(--d));
+}
+
+.linea-cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.linea-campos {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.linea-campos label {
+    display: block;
+    margin: 0;
+}
+
+.linea-campos label span {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--texto-medio);
+}
+
+/* 12 px arriba y abajo, no 9: con 16 px de letra son los 44 px de área
+   pulsable, que no se achican en ninguna escala. */
+.linea-campos input { padding: 12px 8px; text-align: right; }
+
+.linea-total {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid var(--borde);
+    font-size: calc(13px * var(--d));
+    font-weight: 600;
+    color: var(--indigo);
+    text-align: right;
+}
+
+/* Dos decisiones opuestas, una al lado de la otra. Van del mismo tamaño a
+   propósito: aprobar no es más importante que rechazar, y un botón grande
+   junto a uno chico empuja el dedo hacia el grande. */
+.acciones {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.acciones .boton {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+/* Acciones de un documento: una tira de pastillas que se desplaza de lado.
+
+   No van como botones apilados porque son tres o cuatro y empujarían el detalle
+   —que es lo que se le muestra al cliente— por debajo del borde de la pantalla.
+   La que cierra el trato va marcada; las demás, calladas. */
+.acciones-doc {
+    display: flex;
+    gap: calc(8px * var(--d));
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: calc(12px * var(--d));
+    scrollbar-width: none;
+}
+
+.acciones-doc::-webkit-scrollbar { display: none; }
+
+.chip-accion {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 calc(13px * var(--d));
+    font-family: inherit;
+    font-size: calc(13px * var(--d));
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--indigo);
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 22px;
+    cursor: pointer;
+}
+
+.chip-accion.fuerte {
+    color: var(--blanco);
+    background: var(--indigo);
+    border-color: var(--indigo);
+    border-bottom: 3px solid var(--cian);
+}
+
+.chip-accion:disabled { opacity: .45; cursor: default; }
+
+/* Aviso de que hay ventas detenidas esperando al jefe. Es una fila pulsable,
+   no una tarjeta: lo que se espera de ella es que se toque. */
+.pendiente-aprobar {
+    display: flex;
+    align-items: center;
+    gap: calc(11px * var(--d));
+    width: 100%;
+    min-height: 44px;
+    padding: calc(11px * var(--d)) calc(13px * var(--d));
+    margin-bottom: calc(14px * var(--d));
+    text-align: left;
+    font-family: inherit;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-left: 4px solid var(--amarillo);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.pendiente-aprobar .texto { flex: 1; min-width: 0; }
+.pendiente-aprobar b { display: block; font-size: calc(14px * var(--d)); color: var(--texto); }
+.pendiente-aprobar small { display: block; margin-top: 2px; font-size: 12px; color: var(--texto-medio); }
