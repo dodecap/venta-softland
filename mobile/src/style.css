@@ -1457,3 +1457,196 @@ select.filtro-grupo { margin-bottom: 12px; }
 
 .boton-texto.peligro { color: var(--ic-peligro-fg); }
 .boton-texto:disabled { opacity: .5; cursor: default; }
+
+/* ============================================================ panel comercial
+ *
+ * Lo que el vendedor ve al abrir: un número grande, el embudo y poco más. Los
+ * tamaños están calibrados para --d: 1 sobre 360 px, como el resto.
+ */
+
+/* Ámbito y período. Va pegado arriba porque cambia todo lo de abajo. */
+.mandos {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.ambitos {
+    display: flex;
+    background: var(--indigo-suave);
+    border-radius: 999px;
+    padding: 3px;
+    flex: 1;
+    min-width: 0;
+}
+.ambitos button {
+    flex: 1;
+    min-height: 38px;
+    border: 0;
+    background: transparent;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--indigo);
+    padding: 0 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ambitos button.activo {
+    background: var(--blanco);
+    box-shadow: var(--sombra-suave);
+}
+
+.elige-periodo {
+    /* Sin el conmutador de ámbito al lado, el período se va a la derecha: es
+       un control, no un título, y a la izquierda parecería un encabezado. */
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--borde);
+    border-radius: 999px;
+    background: var(--blanco);
+    color: var(--texto-medio);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.opcion-periodo {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: 0 14px;
+    margin-bottom: 8px;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    background: var(--blanco);
+    text-align: left;
+    font-size: 15px;
+    color: var(--texto);
+}
+.opcion-periodo small { color: var(--texto-suave); font-size: 12px; }
+.opcion-periodo.activo {
+    border-color: var(--indigo);
+    /* El subrayado cian: la regla visual de la app para lo pulsable activo. */
+    box-shadow: inset 0 -4px 0 var(--cian);
+    font-weight: 600;
+}
+
+/* El KPI protagonista. Un solo número grande; todo lo demás es contexto suyo. */
+.protagonista {
+    margin-top: 14px;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-left: 3px solid var(--ic-venta-fg);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-suave);
+    padding: calc(16px * var(--d));
+}
+.protagonista .rotulo {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: var(--texto-suave);
+}
+.protagonista .monto {
+    font-size: calc(34px * var(--d));
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    color: var(--indigo);
+    margin-top: calc(4px * var(--d));
+    /* Los montos se leen en columna con los del embudo; las cifras de ancho
+       fijo evitan que el número baile al cambiar de período. */
+    font-variant-numeric: tabular-nums;
+}
+.protagonista .pie {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: calc(8px * var(--d));
+}
+.protagonista .cuantos { font-size: 12px; color: var(--texto-suave); margin-top: 4px; }
+.protagonista .contra { font-size: 12px; color: var(--texto-suave); }
+
+/* La tendencia lleva siempre flecha, no sólo color: a pleno sol y para quien
+   no distingue rojo de verde, el color por sí solo no es una señal. */
+.tendencia {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+}
+.tendencia.sube { color: #1b7a37; background: rgba(46, 201, 92, .14); }
+.tendencia.baja { color: #a92323; background: rgba(225, 56, 56, .12); }
+.tendencia.igual { color: var(--texto-medio); background: var(--fondo); }
+
+/* El embudo. Tres etapas y las flechas entre ellas, que son iconos: una
+   flecha tipográfica se dibuja distinta en cada teléfono. */
+.embudo {
+    display: flex;
+    align-items: center;
+    gap: calc(4px * var(--d));
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-suave);
+    padding: calc(14px * var(--d)) calc(8px * var(--d));
+}
+.embudo .flecha { flex: 0 0 auto; }
+.embudo .etapa {
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+}
+.embudo .etapa .rotulo {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--texto-suave);
+}
+.embudo .etapa .monto {
+    font-size: calc(15px * var(--d));
+    font-weight: 700;
+    color: var(--texto);
+    letter-spacing: -.3px;
+    font-variant-numeric: tabular-nums;
+    margin-top: calc(3px * var(--d));
+    white-space: nowrap;
+}
+.embudo .etapa .cuantos { font-size: 11px; color: var(--texto-suave); margin-top: 2px; }
+/* Apagada no es «cero»: es «esto todavía no está en el teléfono». */
+.embudo .etapa.apagada .monto { color: var(--texto-suave); font-weight: 600; }
+.embudo .etapa.apagada .cuantos { font-size: 10px; }
+
+.embudo-pie {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--texto-medio);
+    padding: 8px 4px 0;
+}
+.embudo-pie b { color: var(--texto); }
+
+/* Lo técnico, que antes eran tres tarjetas, reducido a una línea al pie. */
+.pie-estado {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--texto-suave);
+    padding: 18px 0 4px;
+}

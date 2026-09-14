@@ -17,13 +17,14 @@
  * agrégalo abajo con la variante que le corresponda por función.
  */
 import {
-    Ban, Bell, BellOff, Boxes, Building2, ChartNoAxesCombined, CheckCheck, ChevronLeft,
+    Ban, Bell, BellOff, Boxes, Building2, CalendarDays, ChartNoAxesCombined, CheckCheck, ChevronLeft,
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
     CloudDownload, CloudUpload, CreditCard, Database, FileDown, FileText, Image, Inbox, Info,
     LayoutDashboard,
     LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
     LifeBuoy, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
-    Share2, Smartphone, Trash2, TriangleAlert, Type, UserCog, UserPlus, Users, WifiOff, X,
+    Share2, Smartphone, Minus, Trash2, TrendingDown, TrendingUp, TriangleAlert, Type,
+    UserCog, UserPlus, Users, UsersRound, WifiOff, X,
 } from 'lucide-vue-next';
 
 /*
@@ -57,6 +58,21 @@ export const ICONOS = {
     // ---- Dinero ----
     cobranza: { glifo: CreditCard, variante: 'dinero' },
     estadistica: { glifo: ChartNoAxesCombined, variante: 'dinero' },
+
+    /*
+     * El panel comercial. `sube` y `baja` no son adorno: son la señal de la
+     * comparación con el período anterior, y van siempre, porque el color por
+     * sí solo no se ve a pleno sol ni lo distingue todo el mundo.
+     *
+     * Y ojo con `baja`: es 'peligro' por el color, no por el juicio. Que la
+     * venta baje es una alarma; que baje el tiempo de cierre es una buena
+     * noticia, y esa lectura la pone la pantalla, no el icono.
+     */
+    sube: { glifo: TrendingUp, variante: 'dinero' },
+    baja: { glifo: TrendingDown, variante: 'peligro' },
+    sinCambio: { glifo: Minus, variante: 'neutro' },
+    periodo: { glifo: CalendarDays, variante: 'admin' },
+    equipo: { glifo: UsersRound, variante: 'admin' },
 
     // ---- Avisos ----
     notificacion: { glifo: Bell, variante: 'aviso' },

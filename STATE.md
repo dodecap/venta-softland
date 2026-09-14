@@ -435,6 +435,24 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       porcentuales, y el «sin dato» que no se confunde con `$0`. La flecha no
       va en el texto: va la dirección y la dibuja `<AppIcon>`. 47
       comprobaciones en `npm run pruebas`, sin dependencias nuevas.
+- [x] **Paso 1 — el motor** (`mobile/src/panel/`): `periodo.js` (hoy · semana ·
+      mes · trimestre · año, con su período anterior del mismo largo) y
+      `metricas.js`, funciones puras sin una sola lectura dentro: reciben
+      arreglos y devuelven cotizado, vendido, conversión de cohorte, mediana
+      de cierre, ticket, pérdidas y la antigüedad de lo pendiente. Quien va a
+      IndexedDB es `datos.js`. 98 comprobaciones en `npm run pruebas`.
+- [x] **Paso 2 — el panel**: encabezado con **ámbito** (Yo · Equipo/Empresa,
+      sólo cuando hay diferencia entre los dos) y **período**, KPI protagonista
+      con la variación contra el período anterior, y **embudo comercial** de
+      tres etapas. La tercera, «Facturado», está declarada y apagada con
+      «No sincronizado»: un embudo que termina en vendido haría creer que ahí
+      se acaba el negocio. Los tres KPI técnicos salieron del panel —ya
+      estaban en Cuenta— y quedó una línea al pie: «Actualizado hoy 05:20».
+      Todo se calcula **en el teléfono**, sin una petición.
+      Comprobado contra el ERP: 2026 · empresa da 134 cotizaciones y 34 notas
+      de venta por $79,3 MM, y el ámbito «Yo» del vendedor 2 da 126 y 6. Sin
+      desplazamiento horizontal en 360×640 en las tres escalas de interfaz, con
+      montos de hasta `$1.250 MM`.
 - [x] Diagnosticado por qué «Actividad reciente» se ve vacía: lee los correos
       enviados y `ventas.notificacion` tiene 0 filas. La fuente buena es la
       bitácora de Softland — `nw_lognwcotiza` (15.795 filas) y

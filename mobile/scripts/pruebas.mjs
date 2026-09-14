@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import {
     dinero, dineroExacto, leyenda, variacion, puntos, porcentaje, dias, hayDato, SIN_DATO,
 } from '../src/dinero.js';
+import { rango, anterior, largoEnDias, dia } from '../src/panel/periodo.js';
+import { calcular, pendientes } from '../src/panel/metricas.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -72,5 +74,108 @@ es(dias(null), SIN_DATO, 'días sin dato');
 es(hayDato(0), true, 'cero sí es dato');
 es(hayDato(null), false, 'null no');
 es(hayDato('abc'), false, 'texto no numérico no');
+
+
+// ============================================================ período
+
+// Un lunes: 2026-09-14. Se fija la referencia para que la prueba no dependa
+// del día en que se corra.
+const LUN = new Date(2026, 8, 14);
+const DOM = new Date(2026, 8, 20);
+
+es(rango('hoy', LUN).desde, '2026-09-14', 'hoy empieza hoy');
+es(rango('hoy', LUN).hasta, '2026-09-14', 'hoy termina hoy');
+es(rango('semana', LUN).desde, '2026-09-14', 'la semana empieza el lunes');
+es(rango('semana', LUN).hasta, '2026-09-20', 'y termina el domingo');
+es(rango('semana', DOM).desde, '2026-09-14', 'el domingo pertenece a su semana, no a la siguiente');
+es(rango('mes', LUN).desde, '2026-09-01', 'el mes empieza el día 1');
+es(rango('mes', LUN).hasta, '2026-09-30', 'septiembre tiene 30');
+es(rango('mes', new Date(2024, 1, 5)).hasta, '2024-02-29', 'febrero bisiesto');
+es(rango('trimestre', LUN).desde, '2026-07-01', 'trimestre 3 empieza en julio');
+es(rango('trimestre', LUN).hasta, '2026-09-30', 'y termina en septiembre');
+es(rango('trimestre', LUN).etiqueta, 'Trim. 3 · 2026', 'etiqueta del trimestre');
+es(rango('ano', LUN).desde, '2026-01-01', 'el año empieza el 1 de enero');
+es(rango('ano', LUN).hasta, '2026-12-31', 'y termina el 31 de diciembre');
+es(rango('lo-que-sea', LUN).id, 'mes', 'lo desconocido cae en mes');
+
+es(anterior(rango('mes', LUN), LUN).desde, '2026-08-01', 'mes anterior completo');
+es(anterior(rango('mes', LUN), LUN).hasta, '2026-08-31', 'agosto entero, no 30 días atrás');
+es(anterior(rango('mes', new Date(2026, 0, 15)), new Date(2026, 0, 15)).desde, '2025-12-01', 'enero mira a diciembre del año pasado');
+es(anterior(rango('trimestre', LUN), LUN).desde, '2026-04-01', 'trimestre anterior');
+es(anterior(rango('ano', LUN), LUN).desde, '2025-01-01', 'año anterior');
+es(anterior(rango('semana', LUN), LUN).desde, '2026-09-07', 'semana anterior');
+es(anterior(rango('hoy', LUN), LUN).desde, '2026-09-13', 'ayer');
+
+es(largoEnDias(rango('mes', LUN)), 30, 'septiembre son 30 días');
+es(largoEnDias(rango('ano', LUN)), 365, '2026 no es bisiesto');
+es(dia(new Date(2026, 0, 5)), '2026-01-05', 'fecha local, sin pasar por UTC');
+
+// ============================================================ métricas
+
+const R = rango('mes', LUN);
+
+const COT = [
+    { numero: 1, vendedor: '2', estado: 'P', fecha: '2026-09-02T00:00:00', total: 1000000 },
+    { numero: 2, vendedor: '2', estado: 'V', fecha: '2026-09-05T00:00:00', total: 2000000 },
+    { numero: 3, vendedor: '2', estado: 'R', fecha: '2026-09-08T00:00:00', total: 500000 },
+    { numero: 4, vendedor: '2', estado: 'N', fecha: '2026-09-09T00:00:00', total: 9999999 },
+    { numero: 5, vendedor: '19', estado: 'V', fecha: '2026-09-10T00:00:00', total: 4000000 },
+    { numero: 6, vendedor: '2', estado: 'P', fecha: '2026-08-20T00:00:00', total: 7000000 },
+    { numero: 7, vendedor: '2', estado: 'A', fecha: '2026-09-11T00:00:00', total: 100000 },
+];
+const NV = [
+    { numero: 900, cotizacion: 2, vendedor: '2', estado: 'A', fecha: '2026-09-09T00:00:00', total: 2000000 },
+    { numero: 901, cotizacion: 5, vendedor: '19', estado: 'A', fecha: '2026-09-12T00:00:00', total: 4000000 },
+    { numero: 902, cotizacion: 0, vendedor: '2', estado: 'N', fecha: '2026-09-12T00:00:00', total: 8888888 },
+    { numero: 903, cotizacion: 0, vendedor: '2', estado: 'A', fecha: '2026-08-03T00:00:00', total: 3000000 },
+];
+
+const todos = calcular({ cotizaciones: COT, notas: NV, rango: R });
+es(todos.cotizado.n, 5, 'cotizado del mes: sin la anulada y sin la de agosto');
+es(todos.cotizado.monto, 7600000, 'monto cotizado, la perdida incluida');
+es(todos.vendido.n, 2, 'vendido del mes: sin la anulada y sin la de agosto');
+es(todos.vendido.monto, 6000000, 'monto vendido');
+es(todos.perdidas.n, 1, 'una perdida');
+es(Math.round(todos.conversion.pct), 40, 'conversión: 2 de 5');
+es(todos.ticket, 3000000, 'ticket promedio');
+
+const mio = calcular({ cotizaciones: COT, notas: NV, rango: R, vendedores: ['2'] });
+es(mio.cotizado.n, 4, 'ámbito yo: sin las del vendedor 19');
+es(mio.vendido.monto, 2000000, 'ámbito yo: una sola nota de venta');
+es(Math.round(mio.conversion.pct), 25, 'conversión del ámbito yo: 1 de 4');
+
+// cierre: cot 2 (05-09) → NV 900 (09-09) = 4 días; cot 5 (10-09) → NV 901 (12-09) = 2
+es(todos.cierre, 3, 'cierre: mediana de 4 y 2');
+es(todos.cierre_n, 2, 'sólo las notas con cotización bajada');
+
+const vacio = calcular({ cotizaciones: [], notas: [], rango: R });
+es(vacio.conversion, null, 'sin cotizaciones no hay conversión, no 0 %');
+es(vacio.ticket, null, 'sin notas no hay ticket, no $0');
+es(vacio.cierre, null, 'sin cierres no hay mediana');
+es(vacio.cotizado.monto, 0, 'pero el monto sí es cero: cero es un dato');
+
+// una NV fechada antes que su cotización no se corrige: se descarta
+const alReves = calcular({
+    cotizaciones: [{ numero: 1, estado: 'P', fecha: '2026-09-20T00:00:00', total: 1 }],
+    notas: [{ numero: 9, cotizacion: 1, estado: 'A', fecha: '2026-09-05T00:00:00', total: 1 }],
+    rango: R,
+});
+es(alReves.cierre, null, 'días negativos fuera');
+
+// ---- pendientes
+const P = pendientes({ cotizaciones: COT, hoy: '2026-09-14', vigencia: 30, avisoDias: 7 });
+es(P.total.n, 2, 'dos pendientes, de cualquier mes');
+es(P.total.monto, 8000000, 'y su monto');
+es(P.reciente.n, 0, 'ninguna de menos de 7 días');
+es(P.mes.n, 2, 'las dos están entre 8 y 30 días');
+es(P.viejas.n, 0, 'ninguna de más de 90');
+es(P.por_vencer.n, 1, 'la del 20-08 vence en 5 días');
+es(P.vencidas.n, 0, 'ninguna vencida todavía');
+es(pendientes({ cotizaciones: COT, hoy: '2026-09-14', vendedores: ['19'] }).total.n, 0,
+   'el vendedor 19 no tiene pendientes');
+
+const Pviejo = pendientes({ cotizaciones: COT, hoy: '2026-12-31', vigencia: 30 });
+es(Pviejo.viejas.n, 2, 'en diciembre las dos pasan de 90 días');
+es(Pviejo.vencidas.n, 2, 'y las dos están vencidas');
 
 console.log(`OK — ${hechas} comprobaciones`);

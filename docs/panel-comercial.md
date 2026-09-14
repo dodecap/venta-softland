@@ -1,9 +1,13 @@
 # Panel de control comercial — auditoría y plan
 
-> Primera entrega de la fase «panel». **No hay nada implementado todavía**
-> salvo lo que se dice en el paso 0. Todo lo de aquí está contrastado contra
+> Primera entrega de la fase «panel». Todo lo de aquí está contrastado contra
 > la base `INNOVAGES` el 2026-09-14; cada cifra sale de una consulta, no de
 > una estimación.
+>
+> **Pasos 1 y 2 hechos** (§16): el motor de métricas con sus pruebas, y el
+> panel con ámbito, período, KPI protagonista y embudo. Comprobado contra el
+> ERP: el año 2026 del ámbito empresa da 134 cotizaciones y 34 notas de venta
+> por $79,3 MM, exactamente lo que devuelve SQL Server.
 
 ## 0. La conclusión, antes del detalle
 
@@ -301,8 +305,13 @@ calcula `metricas.js` **en el teléfono**, sobre IndexedDB. Razones:
    Si algún día son 10.000, el corte sigue siendo 12 meses.
 
 El período y el ámbito viajan sólo al servidor; el cálculo local usa los mismos
-límites, calculados con `periodo.js` a partir de **la fecha del servidor** que
-ya guarda la sincronización, no del reloj del aparato.
+límites, calculados con `periodo.js`.
+
+El calendario del período es **el del teléfono**. Las fechas de los documentos
+son del servidor —ésas no se discuten—, pero «este mes» es el mes del vendedor,
+que es quien mira la pantalla. Hoy no se guarda el reloj del servidor en ninguna
+parte: `db.setSincronizado()` anota la hora del aparato. Si alguna vez hace
+falta, el endpoint del panel devuelve `servidor_ahora` y de ahí sale el desfase.
 
 ---
 
@@ -565,8 +574,8 @@ Cada paso deja la app funcionando y demostrable. Nada de esto toca las fases
 
 | Paso | Qué | Riesgo |
 |---|---|---|
-| **1** | `dinero.js` + `periodo.js` + `metricas.js`, con pruebas. Sin UI. | nulo: código nuevo, nadie lo llama todavía |
-| **2** | Encabezado con ámbito y período. KPI protagonista «Mi venta» + embudo hasta NV, **todo offline**. Los tres KPI técnicos se van a Cuenta y queda la línea «Actualizado 16:15». | medio: cambia lo primero que ve el vendedor |
+| ~~**1**~~ | ~~`dinero.js` + `periodo.js` + `metricas.js`, con pruebas. Sin UI.~~ **Hecho**, 98 comprobaciones en `npm run pruebas`. | nulo: código nuevo, nadie lo llama todavía |
+| ~~**2**~~ | ~~Encabezado con ámbito y período. KPI protagonista + embudo hasta NV, todo offline. Los tres KPI técnicos se van a Cuenta.~~ **Hecho.** | medio: cambia lo primero que ve el vendedor |
 | **3** | «Requiere tu atención» con drill-down a las listas ya existentes, filtradas. | bajo |
 | **4** | «Mi rendimiento» (conversión, cierre, ticket) con comparación al período anterior. | bajo |
 | **5** | Actividad reciente de verdad: `GET /api/panel/actividad` sobre `nw_lognwcotiza` + `nw_lognwnventa`. **Arregla lo que hoy está vacío.** | bajo |

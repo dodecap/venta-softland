@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { db } from '../db';
@@ -9,6 +9,10 @@ import { px } from '../densidad';
 import { conectado } from '../red';
 import { contarRegistros, progreso, sincronizando, sincronizar, cancelarSincronizacion } from '../sync';
 import { enviarPendientes, contarPendientes, porEnviar } from '../pendientes';
+import { dinero, porcentaje, variacion, SIN_DATO } from '../dinero';
+import { PERIODOS, POR_DEFECTO, anterior, dia, rango } from '../panel/periodo';
+import { panel } from '../panel/datos';
+import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import Vacio from '../components/Vacio.vue';
@@ -46,10 +50,91 @@ const FLUJO = [
     { icono: 'cobranza', rotulo: 'Cobranza', fase: 'Fase 5' },
 ];
 
+/* ------------------------------------------------------------------ ámbito
+ *
+ * Dos ámbitos como mucho, y sólo cuando hay diferencia entre ellos. Un
+ * vendedor ve lo suyo y no hay nada que elegir; un jefe con código de vendedor
+ * elige entre lo suyo y lo de todos; un administrador sin código de vendedor
+ * sólo puede ver el total, porque «lo mío» para él está vacío.
+ *
+ * «Todos» es todo lo que el servidor dejó bajar a este teléfono, que ya viene
+ * acotado por el alcance del usuario. El filtro de aquí acota dentro de eso;
+ * no abre nada que el servidor no haya dado.
+ */
+const ambito = ref('yo');
+
+const ambitos = computed(() => {
+    const suyo = usuario.value?.ven_cod;
+    const lista = [];
+
+    if (suyo) lista.push({ id: 'yo', rotulo: 'Yo' });
+    if (esJefe.value) lista.push({ id: 'todos', rotulo: esAdmin.value ? 'Empresa' : 'Equipo' });
+
+    return lista;
+});
+
+const vendedores = computed(() => (ambito.value === 'yo' ? [String(usuario.value?.ven_cod || '')] : null));
+
+const tituloVenta = computed(() => {
+    if (ambito.value === 'yo') return 'Mi venta';
+
+    return esAdmin.value ? 'Venta de la empresa' : 'Venta del equipo';
+});
+
+/* ----------------------------------------------------------------- período */
+const periodo = ref(POR_DEFECTO);
+const eligiendoPeriodo = ref(false);
+useCapa(eligiendoPeriodo, () => { eligiendoPeriodo.value = false; });
+
+const rangoActual = computed(() => rango(periodo.value));
+const rangoPrevio = computed(() => anterior(rangoActual.value));
+
+/* ------------------------------------------------------------- los números */
+const m = ref(null);
+
+/**
+ * Se calcula en el teléfono, con lo que ya bajó la sincronización. Por eso no
+ * hay estado «cargando» que tape el panel: son dos lecturas de IndexedDB sobre
+ * un par de cientos de filas.
+ */
+async function calcularPanel() {
+    m.value = await panel({
+        rango: rangoActual.value,
+        comparar: rangoPrevio.value,
+        vendedores: vendedores.value,
+        hoy: dia(new Date()),
+    });
+}
+
+watch([periodo, ambito], calcularPanel);
+
+const venta = computed(() => m.value?.actual.vendido ?? null);
+
+const variacionVenta = computed(() => variacion(m.value?.actual.vendido.monto, m.value?.anterior?.vendido.monto));
+
+const iconoTendencia = (v) => (v.direccion === 'sube' ? 'sube' : v.direccion === 'baja' ? 'baja' : 'sinCambio');
+
+/**
+ * Las tres etapas del embudo. La tercera está declarada y apagada a propósito:
+ * las facturas todavía no se sincronizan al teléfono, y un embudo que termina
+ * en «vendido» sin decir nada haría creer que ahí se acaba el negocio.
+ */
+const embudo = computed(() => {
+    if (! m.value) return [];
+
+    return [
+        { id: 'cotizado', rotulo: 'Cotizado', ...m.value.actual.cotizado },
+        { id: 'vendido', rotulo: 'Vendido', ...m.value.actual.vendido },
+        { id: 'facturado', rotulo: 'Facturado', sinFuente: 'No sincronizado' },
+    ];
+});
+
 onMounted(async () => {
     usuario.value = await db.getUsuario();
     sincronizado.value = await db.getSincronizado();
     registros.value = await contarRegistros();
+    ambito.value = ambitos.value[0]?.id ?? 'todos';
+    await calcularPanel();
     await contarPendientes();
     // El punto rojo de la barra inferior sale de aquí: si se pidiera recién al
     // abrir el buzón, nunca habría aviso de que hay algo que mirar.
@@ -102,6 +187,7 @@ async function sincronizarTodo() {
         await cargarCatalogos();
         registros.value = await contarRegistros();
         sincronizado.value = await db.getSincronizado();
+        await calcularPanel();
 
         aviso.value = r.errores.length
             ? `Se actualizó casi todo, pero ${r.errores[0]}`
@@ -183,33 +269,72 @@ function fecha(n) {
                 </div>
             </div>
 
-            <div class="seccion">
-                <h2>Panel de control</h2>
-                <span class="sub">Estado de tus datos</span>
+            <!-- Ámbito y período: lo primero, porque cambia todo lo de abajo. -->
+            <div class="mandos">
+                <div class="ambitos" v-if="ambitos.length > 1">
+                    <button v-for="a in ambitos" :key="a.id"
+                            :class="{ activo: ambito === a.id }" @click="ambito = a.id">{{ a.rotulo }}</button>
+                </div>
+                <!-- Con un solo ámbito no hay nada que elegir y tampoco nada
+                     que rotular: el KPI de abajo ya dice de quién es la venta. -->
+
+                <button class="elige-periodo" @click="eligiendoPeriodo = true">
+                    <AppIcon name="periodo" :size="15" color="currentColor" />
+                    {{ rangoActual.etiqueta }}
+                    <AppIcon name="desplegar" :size="15" color="currentColor" />
+                </button>
             </div>
 
-            <div class="kpis">
-                <div class="kpi" :class="conectado ? 'dinero' : 'aviso'">
-                    <AppIcon :name="conectado ? 'alDia' : 'sinRed'" :caja="px(36)" :size="px(18)" />
-                    <div class="dato corto">{{ conectado ? 'En línea' : 'Sin señal' }}</div>
-                    <div class="rotulo">{{ conectado ? 'Todo se envía al momento' : 'Se guarda en el teléfono' }}</div>
+            <Aviso tipo="info" v-if="sinDatos">
+                Todavía no te has traído los datos. Toca el botón de sincronizar,
+                arriba a la derecha, antes de salir a terreno.
+            </Aviso>
+
+            <template v-else-if="m">
+                <!-- El KPI protagonista. Un solo número grande: lo que lleva
+                     vendido en el período que está mirando. -->
+                <div class="protagonista">
+                    <div class="rotulo">{{ tituloVenta }}</div>
+                    <div class="monto">{{ dinero(venta.monto) }}</div>
+                    <div class="pie">
+                        <span class="tendencia" :class="variacionVenta.direccion" v-if="variacionVenta">
+                            <AppIcon :name="iconoTendencia(variacionVenta)" :size="14" color="currentColor" />
+                            {{ variacionVenta.texto }}
+                        </span>
+                        <span class="contra" v-if="variacionVenta">vs. {{ rangoPrevio.etiqueta.toLowerCase() }}</span>
+                        <span class="contra" v-else>sin período anterior con que comparar</span>
+                    </div>
+                    <div class="cuantos">
+                        {{ venta.n }} {{ venta.n === 1 ? 'nota de venta' : 'notas de venta' }}
+                    </div>
                 </div>
-                <div class="kpi venta">
-                    <AppIcon name="sincronizar" :caja="px(36)" :size="px(18)" variant="venta" />
-                    <div class="dato corto">{{ cuando }}</div>
-                    <div class="rotulo">Última sincronización</div>
+
+                <div class="seccion">
+                    <h2>Embudo comercial</h2>
+                    <span class="sub">{{ rangoActual.etiqueta }}</span>
                 </div>
-                <div class="kpi catalogo">
-                    <AppIcon name="inventario" :caja="px(36)" :size="px(18)" />
-                    <div class="dato">{{ registros.toLocaleString('es-CL') }}</div>
-                    <div class="rotulo">Registros en el teléfono</div>
+
+                <div class="embudo">
+                    <template v-for="(e, i) in embudo" :key="e.id">
+                        <AppIcon v-if="i" name="avanzar" :size="14" color="var(--borde)" class="flecha" />
+                        <div class="etapa" :class="{ apagada: e.sinFuente }">
+                            <div class="rotulo">{{ e.rotulo }}</div>
+                            <div class="monto">{{ e.sinFuente ? SIN_DATO : dinero(e.monto) }}</div>
+                            <div class="cuantos">{{ e.sinFuente || e.n }}</div>
+                        </div>
+                    </template>
                 </div>
-                <div class="kpi aviso" v-if="porEnviar">
-                    <AppIcon name="subir" :caja="px(36)" :size="px(18)" variant="aviso" />
-                    <div class="dato">{{ porEnviar }}</div>
-                    <div class="rotulo">Cambios por enviar</div>
+
+                <div class="embudo-pie" v-if="m.actual.conversion">
+                    Conversión <b>{{ porcentaje(m.actual.conversion.pct) }}</b> —
+                    {{ m.actual.conversion.n }} de {{ m.actual.conversion.base }}
+                    {{ m.actual.conversion.base === 1 ? 'cotización llegó' : 'cotizaciones llegaron' }}
+                    a nota de venta.
                 </div>
-            </div>
+                <div class="embudo-pie" v-else>
+                    Sin cotizaciones en el período: no hay conversión que medir.
+                </div>
+            </template>
 
             <!-- Va antes que las acciones porque pide una decisión, no una
                  consulta: hay una venta detenida esperando a esta persona. -->
@@ -221,11 +346,6 @@ function fecha(n) {
                 </span>
                 <AppIcon name="avanzar" :size="18" color="var(--texto-suave)" />
             </button>
-
-            <Aviso tipo="info" v-if="sinDatos">
-                Todavía no te has traído los datos. Toca el botón de sincronizar,
-                arriba a la derecha, antes de salir a terreno.
-            </Aviso>
 
             <div class="seccion">
                 <h2>Acciones rápidas</h2>
@@ -262,6 +382,34 @@ function fecha(n) {
                     </div>
                 </div>
             </template>
+
+            <!-- Lo técnico, que antes ocupaba tres KPI, reducido a una línea.
+                 El detalle completo vive en Cuenta. -->
+            <div class="pie-estado">
+                <AppIcon :name="conectado ? 'alDia' : 'sinRed'" :size="13" color="currentColor" />
+                Actualizado {{ cuando.toLowerCase() }}
+                <template v-if="porEnviar"> · {{ porEnviar }} por enviar</template>
+            </div>
+        </div>
+
+        <!-- Período -->
+        <div class="velo" v-if="eligiendoPeriodo" @click.self="eligiendoPeriodo = false">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Período</h2>
+                    <button class="icono-barra" @click="eligiendoPeriodo = false">
+                        <AppIcon name="cerrar" :size="21" />
+                    </button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <button class="opcion-periodo" v-for="p in PERIODOS" :key="p.id"
+                            :class="{ activo: periodo === p.id }"
+                            @click="periodo = p.id; eligiendoPeriodo = false">
+                        <span>{{ p.rotulo }}</span>
+                        <small>{{ rango(p.id).etiqueta }}</small>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </template>
