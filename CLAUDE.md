@@ -187,6 +187,34 @@ tocar nada de esto:
   maestro, en el servidor, aunque el teléfono mande otra cosa.
 - **Guardar no es enviar**: el correo al cliente es un camino aparte.
 
+## El papel que ve el cliente
+
+La cotización y la nota de venta salen en PDF por un **motor de documentos**
+(`app/Services/Documentos/`, plantillas en `resources/views/documentos/`). Lo
+que hay que saber antes de tocar nada de esto:
+
+- **Un tipo documental es un dato, no una plantilla.** `TipoDocumento` declara
+  título y bloques; el motor recorre los bloques. Agregar un documento es
+  agregar un `case`, no copiar una plantilla.
+- **El PDF se dibuja en el servidor, siempre.** El número lo asigna el servidor:
+  un documento creado sin señal todavía no lo tiene. El teléfono guarda los
+  bytes que le llegaron (`mobile/src/pdf.js`) y los abre sin señal, pero nunca
+  dibuja.
+- **La identidad de la empresa hereda de `softland.soempre`** y se corrige en
+  `ventas.config`, clave `identidad`. Campo vacío = manda Softland. Nada de
+  `if empresa == INNOVAGES` en ninguna parte.
+- **El logo se guarda decodificado y vuelto a codificar**, en
+  `storage/app/private/identidad`. Comprobar la extensión no protege de nada.
+- **Lo entregado al cliente no se toca.** `ventas.documento_emision` guarda cada
+  versión; corregir un documento ya enviado crea la siguiente. La huella es del
+  HTML, no del PDF: dompdf le estampa la fecha dentro al archivo.
+- **La letra no se achica para que quepa.** Si hay sesenta líneas, hay tres
+  páginas.
+- **`wa.me` sólo transporta texto.** El PDF sale por la hoja de compartir de
+  Android, no por un enlace: la dirección del servidor no existe fuera de la
+  oficina.
+
 ## Estado actual
-Fases 1, 2 y 3 terminadas. Ver `STATE.md`. El mapa de tablas del flujo de ventas está en
-`docs/flujo-ventas-softland.md` y el plan por fases en `docs/roadmap.md`.
+Fases 1, 2 y 3 terminadas, más el motor de documentos. Ver `STATE.md`. El mapa de tablas del flujo de ventas está en
+`docs/flujo-ventas-softland.md`, el motor de documentos en
+`docs/motor-documentos.md` y el plan por fases en `docs/roadmap.md`.

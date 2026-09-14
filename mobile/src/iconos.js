@@ -19,10 +19,11 @@
 import {
     Bell, BellOff, Boxes, Building2, ChartNoAxesCombined, CheckCheck, ChevronLeft,
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
-    CloudDownload, CloudUpload, CreditCard, Database, FileText, Inbox, Info, LayoutDashboard,
+    CloudDownload, CloudUpload, CreditCard, Database, FileDown, FileText, Image, Inbox, Info,
+    LayoutDashboard,
     LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
     LifeBuoy, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
-    Smartphone, Trash2, TriangleAlert, Type, UserCog, UserPlus, Users, WifiOff, X,
+    Share2, Smartphone, Trash2, TriangleAlert, Type, UserCog, UserPlus, Users, WifiOff, X,
 } from 'lucide-vue-next';
 
 /*
@@ -43,6 +44,7 @@ export const ICONOS = {
     cotizacion: { glifo: FileText, variante: 'venta' },
     notaVenta: { glifo: ClipboardList, variante: 'venta' },
     factura: { glifo: ReceiptText, variante: 'venta' },
+    pdf: { glifo: FileDown, variante: 'venta' },
     venta: { glifo: ShoppingCart, variante: 'venta' },
 
     // ---- Catálogos ----
@@ -79,6 +81,10 @@ export const ICONOS = {
     // Soporte no es administración: lo usa el vendedor, no el admin. Va con
     // el ámbar de los avisos porque es «algo pasó y necesito que me miren».
     soporte: { glifo: LifeBuoy, variante: 'aviso' },
+    // Compartir, no «WhatsApp»: lo que se abre es la hoja del sistema, y ahí el
+    // vendedor elige — WhatsApp, correo, la impresora o lo que tenga instalado.
+    compartir: { glifo: Share2, variante: 'venta' },
+    logo: { glifo: Image, variante: 'admin' },
 
     // ---- Controles de interfaz ----
     crear: { glifo: Plus },

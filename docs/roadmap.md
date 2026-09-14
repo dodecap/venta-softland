@@ -62,6 +62,22 @@ Quedó fuera, con su porqué en `STATE.md`: **flete y embalaje** (ninguna de las
 **impuestos que no sean el IVA** (no hay de dónde deducir qué producto paga
 ILA).
 
+## Fase 3.5 — El papel ✅ hecha
+
+Lo que el cliente ve. Va antes de la fase 4 porque la factura y la boleta se
+dibujan con el mismo motor, y llegar ahí con el motor ya probado ahorra
+rehacerlo. Detalle en `docs/motor-documentos.md`.
+
+- **Motor de documentos**: el tipo documental es un `case` de enum que declara
+  título y bloques, no una plantilla propia. Los siete tipos futuros ya están
+  declarados.
+- **Identidad corporativa configurable**, heredada de `softland.soempre` y
+  corregible desde la app: logo, datos, color, condiciones, pie.
+- **PDF A4 multipágina** con cabecera y pie repetidos y paginado correcto.
+- **Snapshot versionado**: lo entregado al cliente no cambia solo.
+- **Tres caminos al cliente**: verlo, correo con PDF adjunto, WhatsApp por la
+  hoja de compartir de Android.
+
 ## Fase 4 — Facturación y boleta electrónica
 
 - Generar el documento de venta (`iw_gsaen` + `iw_gmovi`) desde la NV,
@@ -69,7 +85,10 @@ ILA).
 - Emisión del DTE: `dte_doccab` + `dte_docdet` + `dte_docref`, consumo de folio
   desde `dte_siicaf`, firma y envío al SII, seguimiento por `TrackID`.
 - Nota de crédito (DTE 61) referenciando el documento original.
-- Envío del documento al cliente por correo.
+- Envío del documento al cliente por correo. El motor de documentos ya sirve
+  para dibujar la representación impresa; lo que falta ahí es el **timbre
+  PDF417**, que sale del XML firmado. El PDF se dibuja a partir del DTE ya
+  emitido, nunca al revés.
 
 **Bloqueos de esta fase, a destrabar ya:**
 
@@ -86,6 +105,10 @@ ILA).
 ## Fase 5 — Terreno
 
 - Impresión por Bluetooth del comprobante.
-- Envío del documento por WhatsApp.
+- ~~Envío del documento por WhatsApp~~. Hecho en la fase 3.5, por la hoja de
+  compartir de Android: `wa.me` sólo lleva texto, así que el archivo lo entrega
+  el sistema y el vendedor elige el chat. Mandarlo **desde el servidor** exige
+  WhatsApp Business Cloud API — cuenta de empresa verificada, número dedicado,
+  plantillas aprobadas y pago por conversación; es decisión de negocio.
 - Cobranza: pagos y saldo del cliente.
 - Panel del supervisor: avance por vendedor.

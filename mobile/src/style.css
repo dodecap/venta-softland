@@ -1346,3 +1346,82 @@ select.filtro-grupo { margin-bottom: 12px; }
 .pendiente-aprobar .texto { flex: 1; min-width: 0; }
 .pendiente-aprobar b { display: block; font-size: calc(14px * var(--d)); color: var(--texto); }
 .pendiente-aprobar small { display: block; margin-top: 2px; font-size: 12px; color: var(--texto-medio); }
+
+/* ---------- Identidad corporativa ---------- */
+
+/*
+ * La vista previa del logo va sobre un tablero de cuadros: un PNG con
+ * transparencia sobre fondo blanco se ve idéntico a uno con fondo blanco
+ * recortado, y ahí es donde el administrador tiene que poder notar la
+ * diferencia — en el papel no habrá vuelta atrás.
+ */
+.logo-vista {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(88px * var(--d));
+    padding: 12px;
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    background-color: #fff;
+    background-image:
+        linear-gradient(45deg, #eceaf3 25%, transparent 25%, transparent 75%, #eceaf3 75%),
+        linear-gradient(45deg, #eceaf3 25%, transparent 25%, transparent 75%, #eceaf3 75%);
+    background-size: 14px 14px;
+    background-position: 0 0, 7px 7px;
+}
+
+.logo-vista img { max-width: 100%; max-height: calc(72px * var(--d)); }
+
+.logo-vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+    color: var(--gris);
+    font-size: 12px;      /* piso de lectura: no escala */
+    max-width: 24em;
+}
+
+/*
+ * El `<input type="file">` de Android no se puede estilar, así que se esconde
+ * dentro de la etiqueta y lo que se ve es la etiqueta. Los 44 px de área
+ * pulsable los pone el `min-height`, igual que en los chips.
+ */
+.boton-archivo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    margin-top: 12px;
+    padding: 0 calc(16px * var(--d));
+    font-size: calc(14px * var(--d));
+    font-weight: 600;
+    color: var(--indigo);
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-bottom: 3px solid var(--cian);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.boton-archivo input { display: none; }
+
+.boton-texto {
+    display: block;
+    min-height: 44px;
+    width: 100%;
+    margin-top: 8px;
+    font-family: inherit;
+    font-size: calc(13px * var(--d));
+    font-weight: 600;
+    color: var(--indigo);
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.boton-texto.peligro { color: var(--ic-peligro-fg); }
+.boton-texto:disabled { opacity: .5; cursor: default; }

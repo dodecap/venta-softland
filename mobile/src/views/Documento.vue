@@ -7,6 +7,7 @@ import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
 import { TIPOS, estado, lineasDe, avanceFacturacion } from '../documentos';
 import { conectado } from '../red';
+import { compartirPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
@@ -35,6 +36,9 @@ const error = ref('');
 const aviso = ref('');
 const trabajando = ref(false);
 
+// Si el PDF ya está en el teléfono, verlo y mandarlo funcionan sin señal.
+const papelGuardado = ref(null);
+
 // Las hojas de cerrar por pérdida y de anotar un seguimiento.
 const perdiendo = ref(false);
 const siguiendo = ref(false);
@@ -56,6 +60,7 @@ async function cargar() {
         doc.value = await idb.obtener(def.value.almacen, numero.value);
         lineas.value = doc.value ? await lineasDe(tipo.value, numero.value) : [];
         cliente.value = doc.value ? await idb.obtener('clientes', doc.value.cliente) : null;
+        papelGuardado.value = doc.value ? await pdfGuardado(tipo.value, numero.value) : null;
         await refrescarDelServidor();
     } finally {
         cargando.value = false;
@@ -97,17 +102,68 @@ async function perder() {
 }
 
 /**
- * Manda la cotización al cliente con el PDF adjunto.
+ * Manda el documento al correo del cliente, con el PDF adjunto.
  *
- * Va aparte de guardar a propósito: una cotización se corrige tres veces antes
- * de mandarla, y un correo por cada guardado sería una plaga para el cliente.
+ * Va aparte de guardar a propósito: un documento se corrige tres veces antes de
+ * mandarlo, y un correo por cada guardado sería una plaga para el cliente.
  */
-async function enviar() {
-    if (! confirm('¿Enviar esta cotización al correo del cliente?')) return;
+async function enviarPorCorreo() {
+    if (! confirm(`¿Enviar ${esCotizacion.value ? 'esta cotización' : 'esta nota de venta'} al correo del cliente?`)) return;
     await conServidor(async () => {
-        const r = await api.enviarCotizacion(numero.value);
+        const r = esCotizacion.value
+            ? await api.enviarCotizacion(numero.value)
+            : await api.enviarNotaVenta(numero.value);
         aviso.value = r.message;
+        papelGuardado.value = await pdfGuardado(tipo.value, numero.value);
     });
+}
+
+/** Abre el PDF con el visor del teléfono. Con copia guardada, sin señal también. */
+async function verPapel() {
+    error.value = '';
+    trabajando.value = true;
+    try {
+        await verPdf(tipo.value, numero.value);
+        papelGuardado.value = await pdfGuardado(tipo.value, numero.value);
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        trabajando.value = false;
+    }
+}
+
+/**
+ * Manda el documento por WhatsApp.
+ *
+ * Son dos pasos y es culpa de WhatsApp, no de la app: un enlace `wa.me` sólo
+ * lleva texto, así que el archivo se entrega por la hoja de compartir de
+ * Android y ahí el vendedor elige el chat. El mensaje ya va escrito.
+ */
+async function compartirPapel() {
+    error.value = '';
+    trabajando.value = true;
+    try {
+        const r = await compartirPdf(tipo.value, numero.value, {
+            cliente: cliente.value?.nombre,
+            total: doc.value?.total,
+            moneda: simbolo(doc.value?.moneda),
+        });
+        papelGuardado.value = await pdfGuardado(tipo.value, numero.value);
+
+        // El servidor no ve salir esto: el acuse es lo que deja la emisión
+        // marcada como entregada, y con eso una corrección posterior genera una
+        // versión nueva en vez de pisar la que tiene el cliente.
+        if (r.compartido && conectado.value) {
+            try {
+                await api.marcarCompartido(tipo.value, numero.value, 'whatsapp');
+            } catch { /* el acuse no puede tumbar un envío que ya salió */ }
+        }
+        aviso.value = r.compartido ? 'Documento entregado a la app que elegiste.' : 'Documento descargado.';
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        trabajando.value = false;
+    }
 }
 
 async function anotarSeguimiento() {
@@ -226,14 +282,31 @@ function cantidad(n) {
                 <!-- Lo que se puede hacer con este documento, y solo lo que se
                      puede: un botón que va a responder «ya no se puede» es peor
                      que no tener el botón. -->
+                <!-- El papel. Va en su propia fila y siempre visible: ver o
+                     mandar el documento no depende de que todavía se pueda
+                     corregir, y con el PDF ya guardado tampoco de la señal. -->
+                <div class="acciones-doc">
+                    <button class="chip-accion" :disabled="trabajando || (! conectado && ! papelGuardado)"
+                            @click="verPapel">
+                        <AppIcon name="pdf" :size="17" color="currentColor" /> Ver el documento
+                    </button>
+                    <button class="chip-accion" :disabled="trabajando || (! conectado && ! papelGuardado)"
+                            @click="compartirPapel">
+                        <AppIcon name="compartir" :size="17" color="currentColor" /> Enviar por WhatsApp
+                    </button>
+                    <button class="chip-accion" :disabled="! conectado || trabajando"
+                            @click="enviarPorCorreo">
+                        <AppIcon name="correo" :size="17" color="currentColor" /> Enviar por correo
+                    </button>
+                </div>
+                <p class="ayuda" v-if="! conectado && ! papelGuardado">
+                    El documento se dibuja en el servidor. Ábrelo una vez con señal y después queda en el teléfono.
+                </p>
+
                 <div class="acciones-doc" v-if="editable || puedeConvertir">
                     <button class="chip-accion" v-if="editable"
                             @click="router.push(`${def.ruta}/${numero}/editar`)">
                         <AppIcon name="configuracion" :size="17" color="currentColor" /> Corregir
-                    </button>
-                    <button class="chip-accion" v-if="esCotizacion" :disabled="! conectado || trabajando"
-                            @click="enviar">
-                        <AppIcon name="correo" :size="17" color="currentColor" /> Enviar al cliente
                     </button>
                     <button class="chip-accion" v-if="esCotizacion" :disabled="! conectado"
                             @click="siguiendo = true">

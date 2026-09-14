@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CatalogoController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\ConfiguracionController;
 use App\Http\Controllers\Api\CotizacionController;
+use App\Http\Controllers\Api\IdentidadController;
 use App\Http\Controllers\Api\NotaVentaController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
@@ -49,6 +50,12 @@ Route::middleware('auth.api')->group(function () {
      * reenvío: un teléfono que perdió la respuesta reintenta y recibe el mismo
      * número, no una cotización nueva.
      */
+    // La identidad corporativa la usa cualquiera — es la marca de sus propios
+    // documentos — pero sólo el admin la cambia. Por eso el logo se lee aquí y
+    // se escribe bajo /admin.
+    Route::get('/identidad', [IdentidadController::class, 'index']);
+    Route::get('/identidad/logo', [IdentidadController::class, 'logo']);
+
     Route::get('/cotizaciones/{numero}', [CotizacionController::class, 'show'])->whereNumber('numero');
     Route::post('/cotizaciones', [CotizacionController::class, 'store']);
     Route::put('/cotizaciones/{numero}', [CotizacionController::class, 'update'])->whereNumber('numero');
@@ -56,12 +63,20 @@ Route::middleware('auth.api')->group(function () {
     Route::post('/cotizaciones/{numero}/perder', [CotizacionController::class, 'perder'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/seguimientos', [CotizacionController::class, 'seguimiento'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/nota-venta', [CotizacionController::class, 'convertir'])->whereNumber('numero');
+    // El papel. `pdf` lo dibuja y lo guarda como emisión; `compartido` deja
+    // constancia de que salió por un camino que el servidor no controla — la
+    // hoja de compartir de Android, WhatsApp, una impresora.
+    Route::get('/cotizaciones/{numero}/pdf', [CotizacionController::class, 'pdf'])->whereNumber('numero');
+    Route::post('/cotizaciones/{numero}/compartido', [CotizacionController::class, 'compartido'])->whereNumber('numero');
 
     Route::get('/notas-venta/aprobaciones', [NotaVentaController::class, 'pendientes']);
     Route::get('/notas-venta/{numero}', [NotaVentaController::class, 'show'])->whereNumber('numero');
     Route::post('/notas-venta', [NotaVentaController::class, 'store']);
     Route::put('/notas-venta/{numero}', [NotaVentaController::class, 'update'])->whereNumber('numero');
     Route::post('/notas-venta/{numero}/aprobacion', [NotaVentaController::class, 'resolver'])->whereNumber('numero');
+    Route::post('/notas-venta/{numero}/enviar', [NotaVentaController::class, 'enviar'])->whereNumber('numero');
+    Route::get('/notas-venta/{numero}/pdf', [NotaVentaController::class, 'pdf'])->whereNumber('numero');
+    Route::post('/notas-venta/{numero}/compartido', [NotaVentaController::class, 'compartido'])->whereNumber('numero');
 
     Route::middleware('rol:admin')->prefix('admin')->group(function () {
         // Usuarios
@@ -78,6 +93,12 @@ Route::middleware('auth.api')->group(function () {
         Route::put('/configuracion/conexion', [ConfiguracionController::class, 'guardarConexion']);
         Route::put('/configuracion/correo', [ConfiguracionController::class, 'guardarCorreo']);
         Route::post('/configuracion/correo/probar', [ConfiguracionController::class, 'probarCorreo']);
+
+        // Identidad corporativa: datos de la empresa, logo y condiciones que
+        // salen impresos en cotizaciones, notas de venta y lo que venga después.
+        Route::put('/identidad', [IdentidadController::class, 'guardar']);
+        Route::post('/identidad/logo', [IdentidadController::class, 'subirLogo']);
+        Route::delete('/identidad/logo', [IdentidadController::class, 'borrarLogo']);
 
         // Notificaciones
         Route::get('/notificaciones', [ConfiguracionController::class, 'notificaciones']);

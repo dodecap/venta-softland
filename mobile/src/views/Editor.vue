@@ -8,6 +8,7 @@ import { monto, nombre as nombreDe } from '../catalogos';
 import { calcularTotales, cuerpoDe, TIPOS } from '../documentos';
 import { conectado } from '../red';
 import { encolar, nuevoUuid } from '../pendientes';
+import { olvidarPdf } from '../pdf';
 import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
@@ -284,6 +285,10 @@ async function guardar() {
                 ? await api.editarNotaVenta(numero.value, cuerpo)
                 : await api.editarCotizacion(numero.value, cuerpo);
             await guardarLocal(r);
+            // El PDF que hubiera en el teléfono ya no es este documento. Se
+            // borra para que la próxima vez se baje el corregido: enseñarle al
+            // cliente el papel viejo es peor que no tener papel.
+            await olvidarPdf(tipo.value, numero.value);
             router.replace(`${def.value.ruta}/${numero.value}`);
             return;
         }

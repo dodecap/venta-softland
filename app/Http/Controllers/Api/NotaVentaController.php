@@ -39,6 +39,52 @@ class NotaVentaController extends DocumentoController
     /** Estados en que una NV todavía se puede corregir. */
     private const EDITABLES = ['N', 'P', ''];
 
+    // ------------------------------------------------ lo que pide la base
+
+    protected function documentoDe(int $numero): ?array
+    {
+        return $this->maestros->uno('notas_venta', ['NVNumero' => $numero], self::YA_COMPROBADO);
+    }
+
+    protected function lineasDocumento(int $numero): array
+    {
+        return $this->maestros->varios('nota_venta_lineas', ['NVNumero' => $numero], self::YA_COMPROBADO);
+    }
+
+    protected function vendedorDelDocumento(int $numero): ?string
+    {
+        return $this->cabecera($numero)?->VenCod;
+    }
+
+    protected function noEncontrado(): string
+    {
+        return 'Esa nota de venta no existe o no es tuya.';
+    }
+
+    protected function eventoEnvio(): string
+    {
+        return Eventos::NV_ENVIADA;
+    }
+
+    /**
+     * Una NV que todavía espera el visto bueno del jefe sale marcada.
+     *
+     * Se puede imprimir — a veces hay que mostrarla — pero no idéntica a una
+     * aprobada: dejar que salgan iguales es preparar el día en que alguien
+     * despache contra un documento que nadie autorizó. La marca desaparece sola
+     * cuando `nvEstado` pasa a `A`.
+     */
+    protected function contextoDocumento(array $doc, array $lineas): array
+    {
+        $ctx = parent::contextoDocumento($doc, $lineas);
+
+        if (trim((string) ($doc['estado'] ?? '')) === 'P') {
+            $ctx['sello'] = 'Pendiente de aprobación — no válida para despacho';
+        }
+
+        return $ctx;
+    }
+
     public function show(Request $request, int $numero)
     {
         $doc = $this->maestros->uno('notas_venta', ['NVNumero' => $numero], self::YA_COMPROBADO);
@@ -282,8 +328,8 @@ class NotaVentaController extends DocumentoController
     private function respuesta(int $numero): array
     {
         return [
-            'nota_venta' => $this->maestros->uno('notas_venta', ['NVNumero' => $numero], self::YA_COMPROBADO),
-            'lineas' => $this->maestros->varios('nota_venta_lineas', ['NVNumero' => $numero], self::YA_COMPROBADO),
+            'nota_venta' => $this->documentoDe($numero),
+            'lineas' => $this->lineasDocumento($numero),
             'aprobacion' => $this->aprobacionDe($numero),
         ];
     }
@@ -294,8 +340,8 @@ class NotaVentaController extends DocumentoController
             $notificador,
             $evento,
             'Nota de venta '.$numero,
-            $this->maestros->uno('notas_venta', ['NVNumero' => $numero], self::YA_COMPROBADO) ?? [],
-            $this->maestros->varios('nota_venta_lineas', ['NVNumero' => $numero], self::YA_COMPROBADO),
+            $this->documentoDe($numero) ?? [],
+            $this->lineasDocumento($numero),
             $u,
         );
     }

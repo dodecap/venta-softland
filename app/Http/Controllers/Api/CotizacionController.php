@@ -25,18 +25,47 @@ class CotizacionController extends DocumentoController
     /** Los estados en que todavía se puede editar. */
     private const EDITABLES = ['N', 'P', ''];
 
+    // ------------------------------------------------ lo que pide la base
+
+    protected function documentoDe(int $numero): ?array
+    {
+        return $this->maestros->uno('cotizaciones', ['CotNum' => $numero], self::YA_COMPROBADO);
+    }
+
+    protected function lineasDocumento(int $numero): array
+    {
+        return $this->maestros->varios('cotizacion_lineas', ['CotNum' => $numero], self::YA_COMPROBADO);
+    }
+
+    protected function vendedorDelDocumento(int $numero): ?string
+    {
+        return $this->cabecera($numero)?->VenCod;
+    }
+
+    protected function noEncontrado(): string
+    {
+        return 'Esa cotización no existe o no es tuya.';
+    }
+
+    protected function eventoEnvio(): string
+    {
+        return Eventos::COTIZACION_ENVIADA;
+    }
+
     public function show(Request $request, int $numero)
     {
-        $doc = $this->maestros->uno('cotizaciones', ['CotNum' => $numero], self::YA_COMPROBADO);
+        $doc = $this->documentoDe($numero);
 
         if (! $doc || ! $this->alcanza($request, $doc['vendedor'])) {
-            return response()->json(['message' => 'Esa cotización no existe o no es tuya.'], 404);
+            return response()->json(['message' => $this->noEncontrado()], 404);
         }
 
         return response()->json([
             'cotizacion' => $doc,
-            'lineas' => $this->maestros->varios('cotizacion_lineas', ['CotNum' => $numero], self::YA_COMPROBADO),
+            'lineas' => $this->lineasDocumento($numero),
             'seguimientos' => $this->seguimientosDe($numero),
+            'emisiones' => app(\App\Services\Documentos\Emision::class)
+                ->historial($this->tipoDoc(), $numero),
         ]);
     }
 
@@ -80,38 +109,6 @@ class CotizacionController extends DocumentoController
         $this->escribir(fn () => $this->ventas->actualizarCotizacion($numero, $data, $u));
 
         return response()->json($this->respuesta($numero));
-    }
-
-    /**
-     * Manda la cotización al cliente, con el PDF adjunto.
-     *
-     * Es una acción deliberada del vendedor, no un efecto de guardar: por eso
-     * tiene su propio camino y su propio botón. El PDF va adjunto y no
-     * enlazado — un enlace a la dirección interna del servidor no se abre desde
-     * fuera de la oficina, y el cliente está fuera de la oficina.
-     */
-    public function enviar(Request $request, int $numero, Notificador $notificador)
-    {
-        $u = $this->usuario($request);
-        $actual = $this->cabecera($numero);
-
-        if (! $actual || ! $this->alcanza($request, $actual->VenCod)) {
-            return response()->json(['message' => 'Esa cotización no existe o no es tuya.'], 404);
-        }
-
-        $cliente = $this->maestros->uno('clientes', ['CodAux' => trim((string) $actual->CodAux)]);
-        if (empty($cliente['email'])) {
-            return response()->json([
-                'message' => 'Ese cliente no tiene correo. Agrégalo en su ficha y vuelve a intentar.',
-            ], 422);
-        }
-
-        $this->avisar($notificador, Eventos::COTIZACION_ENVIADA, $numero, $u, conPdf: true);
-
-        return response()->json([
-            'enviada_a' => $cliente['email'],
-            'message' => 'Cotización enviada a '.$cliente['email'].'.',
-        ]);
     }
 
     /** Cierre por pérdida, con el motivo del maestro `softland.nwperdida`. */
@@ -215,8 +212,8 @@ class CotizacionController extends DocumentoController
     private function respuesta(int $numero): array
     {
         return [
-            'cotizacion' => $this->maestros->uno('cotizaciones', ['CotNum' => $numero], self::YA_COMPROBADO),
-            'lineas' => $this->maestros->varios('cotizacion_lineas', ['CotNum' => $numero], self::YA_COMPROBADO),
+            'cotizacion' => $this->documentoDe($numero),
+            'lineas' => $this->lineasDocumento($numero),
         ];
     }
 
@@ -227,8 +224,8 @@ class CotizacionController extends DocumentoController
             $notificador,
             $evento,
             'Cotización '.$numero,
-            $this->maestros->uno('cotizaciones', ['CotNum' => $numero], self::YA_COMPROBADO) ?? [],
-            $this->maestros->varios('cotizacion_lineas', ['CotNum' => $numero], self::YA_COMPROBADO),
+            $this->documentoDe($numero) ?? [],
+            $this->lineasDocumento($numero),
             $u,
             $conPdf,
         );

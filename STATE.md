@@ -7,7 +7,7 @@
 2026-09-13
 
 ## Resumen del estado actual
-**Fases 1, 2 y 3 terminadas.** El servidor (API Laravel) está en
+**Fases 1, 2 y 3 terminadas, más el motor de documentos comerciales.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
 existe en INNOVAGES, hay un administrador y las 12 reglas de notificación
@@ -24,6 +24,13 @@ cotizaciones y notas de venta, se les hace seguimiento, se cierran por pérdida,
 se mandan al cliente en PDF y se convierten en nota de venta. Cuando la venta
 pasa el tope del vendedor, espera el visto bueno del jefe — una aprobación que
 Softland no tiene y que aporta la app.
+
+Desde el motor de documentos, la cotización y la nota de venta salen en **PDF
+A4 con la identidad de la empresa**: logo configurable, datos heredados de
+Softland y corregibles, multipágina de verdad, y tres caminos para llegarle al
+cliente — verlo, mandarlo por correo con el PDF adjunto o entregarlo por
+WhatsApp con la hoja de compartir de Android. Lo emitido queda congelado y
+versionado. Ver `docs/motor-documentos.md`.
 
 Comprobado contra INNOVAGES con `ventas:probe`: 2.350 cotizaciones, 800 notas
 de venta, 3.824 clientes, 1.229 productos, 21 vendedores, 594 centros de costo
@@ -167,6 +174,39 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       volver la red. La base quedó con sus 2.350 cotizaciones y 800 notas de
       venta originales; los documentos de prueba se borraron.
 
+### Motor de documentos comerciales
+- [x] **Un solo motor para todos los tipos** (`app/Services/Documentos/`): el
+      tipo documental es un `case` de enum que declara título y bloques, no una
+      plantilla propia. Factura, boleta, guía, nota de crédito, orden de
+      servicio y comprobante de cobranza ya están declarados; sus bloques
+      legales llegan con la fase 4.
+- [x] **Identidad corporativa configurable** (`ventas.config` clave
+      `identidad`): razón social, RUT, giro, dirección, comuna, fono, correo,
+      web, color, condiciones comerciales, datos bancarios, pie, vigencia de la
+      cotización y modelo de negocio. Cada campo **hereda de `soempre`** y el
+      override es opcional, así que una instalación nueva funciona sin
+      configurar nada.
+- [x] **Logo subible desde la app**, con la validación que sirve: se decodifica
+      la imagen y se guarda **otra**, generada a partir de sus píxeles. Vive en
+      `storage/app/private/identidad`, fuera de git y fuera de `public/`.
+- [x] **PDF A4 multipágina**: cabecera y pie fijos, `<thead>` repetido, ninguna
+      fila partida, totales que no se quedan solos y «Página 1 de 3» correcto.
+      Probado con una cotización de 28 líneas (tres páginas).
+- [x] **Columnas que se adaptan**: la de conversión aparece sola cuando alguna
+      línea viene en otra moneda que el documento; el código y la unidad se van
+      cuando la empresa vende servicios.
+- [x] **Snapshot versionado** (`ventas.documento_emision`): lo entregado no se
+      toca; corregirlo crea la versión siguiente. Si el documento no cambió, no
+      hay versión nueva.
+- [x] **Envío de la nota de venta al cliente**, que antes sólo tenía la
+      cotización, con su evento propio (`nv_enviada`).
+- [x] **PDF en el teléfono** (`mobile/src/pdf.js`): se guarda lo que bajó y se
+      abre y se comparte sin señal. Tope de 50 documentos por uso.
+- [x] **Envío por WhatsApp** con la hoja de compartir de Android
+      (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
+- [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
+      tablero de cuadros para que se note la transparencia.
+
 ## Pendiente / próximos pasos
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
       admin: el alcance por vendedor está probado contra la base, pero no con
@@ -175,6 +215,13 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Configurar el SMTP y probar el envío de la cotización al cliente.** El
       correo con PDF está escrito y el PDF se comprobó generado; lo que no se
       pudo probar es que salga, porque no hay servidor de correo configurado.
+- [ ] **Completar la identidad de INNOVAGES desde la app**: el logo ya está
+      cargado, pero la dirección comercial, las condiciones de pago y los datos
+      bancarios siguen heredando de `soempre`. Son datos del negocio: los tiene
+      que escribir quien los sepa, no yo.
+- [ ] **Cargar cargo y teléfono de los vendedores** (`ventas.usuario.cargo` y
+      `.fono`, columnas nuevas): la firma del PDF sale sin ellos hasta que se
+      llenen.
 - [ ] Empezar la fase 4 (facturación y DTE). Ver `docs/roadmap.md`.
 - [ ] **Solicitar al SII los folios CAF de boleta electrónica (DTE 39)** — es
       el bloqueo de plazo más largo del proyecto, conviene iniciarlo ya.
@@ -282,6 +329,34 @@ vendibles, 12 meses de documentos y solo los del vendedor).
   `nvEstado` y `nvFeAprob`, que son columnas suyas, para que la nota de venta se
   vea pendiente también desde el escritorio.
 
+- **El tipo de documento es un dato, no una plantilla.** Siete tipos comparten
+  el noventa por ciento del papel; duplicar la plantilla por cada uno es
+  garantizar que un día la dirección de la empresa salga distinta en la factura
+  y en la guía.
+- **El PDF se dibuja en el servidor y el teléfono lo archiva.** El número del
+  documento lo pone el servidor: una cotización sin señal todavía no lo tiene, y
+  un PDF que dice «Cotización N° —» es un borrador, no un documento comercial.
+  Dibujarlo en el teléfono obligaría además a mantener una segunda plantilla en
+  JavaScript, que es el problema que `Totales.php` ya obliga a vigilar a mano.
+- **Softland propone y la configuración dispone.** Casi toda la ficha de la
+  empresa está en `soempre` y se hereda; el override existe porque las dos
+  direcciones son verdad — el ERP guarda la tributaria y el documento muestra la
+  comercial.
+- **El logo se guarda decodificado y vuelto a codificar.** Comprobar extensión o
+  MIME no protege de nada: lo que se almacena es un PNG nuevo dibujado con los
+  píxeles del original, así que nada escondido en los metadatos sobrevive.
+- **La huella del snapshot es del HTML, no del PDF.** Dompdf estampa la fecha de
+  creación dentro del archivo: dos PDF del mismo documento tienen bytes
+  distintos, y un hash de los bytes nunca coincidiría consigo mismo.
+- **El paginado se escribe después de `render()`.** Dentro del HTML sólo se
+  puede con un bloque `<script type="text/php">`, que corre mientras dompdf
+  maqueta y todavía no sabe cuántas páginas van a salir: el resultado era
+  «Página 1 de 1» en un documento de dos, y sólo en la primera hoja.
+- **`wa.me` sólo transporta texto.** No hay forma de adjuntar un archivo por un
+  enlace de WhatsApp. El PDF va por la hoja de compartir del sistema, donde el
+  vendedor elige el chat. Y un enlace al PDF del servidor no sirve:
+  `192.168.1.55:8086` no existe fuera de la oficina.
+
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
   tiene filas porque el SMTP todavía no está configurado, y el único usuario
@@ -341,6 +416,18 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - **`datetime` de SQL Server redondea a 3,33 ms.** `now()->endOfDay()` son las
   23:59:59.999 y el motor las guarda como las 00:00 del día siguiente: la
   consulta del valor de la UF devolvía el de mañana. El corte va al segundo.
+- **La firma del PDF sale sin cargo ni teléfono.** Las columnas existen
+  (`ventas.usuario.cargo` y `.fono`) y la plantilla las dibuja si están, pero
+  ningún usuario las tiene cargadas todavía.
+- **`soempre` de INNOVAGES trae el domicilio tributario, no el comercial.** El
+  PDF que usaban los vendedores decía «Avda. Los Carreras 1865, Concepción» y el
+  ERP dice «Ensenada 2332, Los Ángeles». Hasta que alguien escriba el override
+  en la pantalla de Identidad, el pie del documento muestra el del ERP.
+- **Una línea con el producto comodín `*` se dibuja como comentario**: sin
+  código, sin unidad y sin precios. Mostrarle «$ 0» la disfrazaba de artículo
+  gratis, que es lo único que un cliente no debería poder leer en una
+  cotización. Si alguna vez `*` se usa para vender algo de verdad, esto hay que
+  revisarlo.
 - **Boleta electrónica sin folios.** No hay CAF para el DTE 39 ni el 41 en
   `dte_siicaf`. El tipo `BE` existe en `cwttdoc`, así que Softland está
   preparado, pero sin folios no se puede emitir.

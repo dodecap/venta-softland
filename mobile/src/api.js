@@ -48,6 +48,78 @@ async function pedir(ruta, { method = 'GET', body = null, auth = true } = {}) {
     return json;
 }
 
+/**
+ * Descarga un PDF. Va aparte de `pedir` porque la respuesta no es JSON: son
+ * bytes, y hay que leerlos como `ArrayBuffer` o se corrompen al pasar por
+ * texto. La versión viaja en una cabecera para saber si lo guardado sigue
+ * valiendo sin volver a bajar 60 KB.
+ */
+async function pedirPdf(ruta) {
+    const servidor = await db.getServidor();
+    if (!servidor) throw new ErrorApi('Falta configurar la dirección del servidor.', 0);
+
+    const t = await db.getToken();
+
+    let res;
+    try {
+        res = await fetch(servidor + '/api' + ruta, {
+            headers: { Accept: 'application/pdf', ...(t ? { Authorization: 'Bearer ' + t } : {}) },
+        });
+    } catch {
+        throw new ErrorApi('No se pudo llegar al servidor. Revisa la conexión.', 0);
+    }
+
+    if (!res.ok) {
+        let json = null;
+        try { json = await res.json(); } catch { /* sin cuerpo */ }
+        throw new ErrorApi(json?.message || `Error ${res.status}`, res.status, json);
+    }
+
+    return {
+        bytes: await res.arrayBuffer(),
+        version: Number(res.headers.get('X-Documento-Version') || 1),
+        hash: res.headers.get('X-Documento-Hash') || '',
+    };
+}
+
+/**
+ * Sube un archivo. No pasa por `pedir` porque el cuerpo es multipart: la
+ * cabecera `Content-Type` la tiene que poner el navegador, con el `boundary`
+ * que él elige, y fijarla a mano rompe la subida en silencio.
+ */
+async function subir(ruta, campo, archivo) {
+    const servidor = await db.getServidor();
+    if (!servidor) throw new ErrorApi('Falta configurar la dirección del servidor.', 0);
+
+    const cuerpo = new FormData();
+    cuerpo.append(campo, archivo);
+
+    const t = await db.getToken();
+
+    let res;
+    try {
+        res = await fetch(servidor + '/api' + ruta, {
+            method: 'POST',
+            headers: { Accept: 'application/json', ...(t ? { Authorization: 'Bearer ' + t } : {}) },
+            body: cuerpo,
+        });
+    } catch {
+        throw new ErrorApi('No se pudo llegar al servidor. Revisa la conexión.', 0);
+    }
+
+    let json = null;
+    try { json = await res.json(); } catch { /* sin cuerpo */ }
+
+    if (!res.ok) {
+        throw new ErrorApi(
+            json?.message || (json?.errors ? Object.values(json.errors)[0][0] : `Error ${res.status}`),
+            res.status,
+            json,
+        );
+    }
+    return json;
+}
+
 export const api = {
     ping: () => pedir('/ping', { auth: false }),
     login: (usuario, password, dispositivo) =>
@@ -94,7 +166,24 @@ export const api = {
     seguirCotizacion: (numero, s) => pedir(`/cotizaciones/${numero}/seguimientos`, { method: 'POST', body: s }),
     convertirCotizacion: (numero, nv) => pedir(`/cotizaciones/${numero}/nota-venta`, { method: 'POST', body: nv }),
 
+    // El papel. `compartido` es el acuse de que el documento salió por un
+    // camino que el servidor no ve — WhatsApp, la impresora, el visor —, y
+    // sirve para que la emisión guardada quede marcada como entregada.
+    pdfCotizacion: (numero) => pedirPdf(`/cotizaciones/${numero}/pdf`),
+    pdfNotaVenta: (numero) => pedirPdf(`/notas-venta/${numero}/pdf`),
+    marcarCompartido: (tipo, numero, canal) => pedir(
+        `/${tipo === 'cotizacion' ? 'cotizaciones' : 'notas-venta'}/${numero}/compartido`,
+        { method: 'POST', body: { canal } },
+    ),
+
+    // Identidad corporativa: la lee cualquiera, la cambia el admin.
+    identidad: () => pedir('/identidad'),
+    guardarIdentidad: (i) => pedir('/admin/identidad', { method: 'PUT', body: i }),
+    borrarLogo: () => pedir('/admin/identidad/logo', { method: 'DELETE' }),
+    subirLogo: (archivo) => subir('/admin/identidad/logo', 'logo', archivo),
+
     notaVenta: (numero) => pedir(`/notas-venta/${numero}`),
+    enviarNotaVenta: (numero) => pedir(`/notas-venta/${numero}/enviar`, { method: 'POST' }),
     crearNotaVenta: (nv) => pedir('/notas-venta', { method: 'POST', body: nv }),
     editarNotaVenta: (numero, nv) => pedir(`/notas-venta/${numero}`, { method: 'PUT', body: nv }),
     aprobaciones: () => pedir('/notas-venta/aprobaciones'),

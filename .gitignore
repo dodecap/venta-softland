@@ -33,3 +33,16 @@ Thumbs.db
 
 # APKs: artefactos de build y material de referencia, no se versionan
 *.apk
+
+# Material que entra al proyecto pero no es código.
+#
+# El logo es el archivo que el administrador sube desde la app; vive fuera de
+# git, en storage/app/private/identidad. Tenerlo también versionado
+# invitaría justo a lo que el motor de documentos evita: un `if empresa ==
+# INNOVAGES` con la ruta del archivo dentro.
+#
+# El PDF de referencia lleva datos de un cliente real — RUT, nombre, teléfono y
+# correo de una persona — y no tiene por qué quedar en el historial del
+# repositorio para siempre.
+/*.png
+/*.pdf

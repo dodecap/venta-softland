@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Usuario;
+use App\Services\Documentos\Emision;
+use App\Services\Documentos\TipoDocumento;
 use App\Services\Notificaciones\Notificador;
-use App\Services\Softland\Catalogos;
-use App\Services\Softland\DocumentoPdf;
 use App\Services\Softland\Maestros;
 use App\Services\Softland\Ventas;
 use Illuminate\Http\Request;
@@ -18,8 +18,9 @@ use Illuminate\Support\Facades\DB;
  * vendedor.
  *
  * Aquí vive la validación del cuerpo, la comprobación de que los códigos
- * existen y la regla de quién puede tocar qué. Lo que cambia de una a otra
- * — tablas, columnas, estados — está en cada controlador.
+ * existen, la regla de quién puede tocar qué, y — desde el motor de documentos
+ * — el PDF y el envío al cliente. Lo que cambia de una a otra — tablas,
+ * columnas, estados — está en cada controlador.
  */
 abstract class DocumentoController extends Controller
 {
@@ -36,13 +37,33 @@ abstract class DocumentoController extends Controller
      */
     protected const YA_COMPROBADO = ['vendedores' => null];
 
-    /** `cotizacion` o `nota_venta`, como los nombra el maestro y la app. */
+    /** `cotizaciones` o `notas_venta`, como los nombra el maestro. */
     abstract protected function recurso(): string;
+
+    /** La cabecera del documento tal como la sirve el maestro, o null si no está. */
+    abstract protected function documentoDe(int $numero): ?array;
+
+    /** Las líneas del documento, tal como las sirve el maestro. */
+    abstract protected function lineasDocumento(int $numero): array;
+
+    /** El vendedor a cuyo nombre está el documento, para comprobar el alcance. */
+    abstract protected function vendedorDelDocumento(int $numero): ?string;
+
+    /** Qué se le dice a quien pide un documento que no existe o no es suyo. */
+    abstract protected function noEncontrado(): string;
+
+    /** El evento de notificación que corresponde a mandárselo al cliente. */
+    abstract protected function eventoEnvio(): string;
 
     /** ¿El centro de costo es obligatorio? En la NV sí (`nwparam.CheckExigeCCostoN = S`). */
     protected function exigeCentroCosto(): bool
     {
         return false;
+    }
+
+    protected function tipoDoc(): TipoDocumento
+    {
+        return TipoDocumento::desdeRecurso($this->recurso());
     }
 
     protected function usuario(Request $request): Usuario
@@ -116,19 +137,6 @@ abstract class DocumentoController extends Controller
         }
     }
 
-    /** Razón social, giro, dirección y teléfono de quien emite. */
-    private function emisor($conn): array
-    {
-        $e = $conn->table('softland.soempre')->first(['NomB', 'Giro', 'Dire', 'Fono']);
-
-        return [
-            'nombre' => trim((string) ($e->NomB ?? '')) ?: (string) config('app.name'),
-            'giro' => trim((string) ($e->Giro ?? '')),
-            'direccion' => trim((string) ($e->Dire ?? '')),
-            'fono' => trim((string) ($e->Fono ?? '')),
-        ];
-    }
-
     protected function rechazar(array $errores): never
     {
         abort(response()->json([
@@ -175,15 +183,129 @@ abstract class DocumentoController extends Controller
         return $visibles === null || in_array(trim((string) $venCod), $visibles, true);
     }
 
+    // -------------------------------------------------------------- el papel
+
+    /**
+     * El PDF del documento.
+     *
+     * Se dibuja en el servidor, siempre. El teléfono guarda los bytes que le
+     * llegan y los vuelve a abrir sin señal, pero nunca dibuja: el número del
+     * documento lo asigna el servidor, y un PDF que dice «Cotización N° —» no
+     * es un documento comercial.
+     *
+     * Sale como `application/pdf` en crudo — no en JSON con base64 — para que
+     * el teléfono lo guarde tal cual y la hoja de compartir de Android lo
+     * reconozca sin traducir nada.
+     */
+    public function pdf(Request $request, int $numero, Emision $emision)
+    {
+        $u = $this->usuario($request);
+
+        if (! $this->alcanza($request, $this->vendedorDelDocumento($numero))) {
+            return response()->json(['message' => $this->noEncontrado()], 404);
+        }
+
+        $doc = $this->documentoDe($numero);
+        if (! $doc) {
+            return response()->json(['message' => $this->noEncontrado()], 404);
+        }
+
+        $r = $emision->emitir(
+            $this->tipoDoc(),
+            $numero,
+            $this->contextoDocumento($doc, $this->lineasDocumento($numero)),
+            $u,
+        );
+
+        return response($r['pdf'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$this->tipoDoc()->archivo($numero).'"',
+            // Para que el teléfono sepa si lo que tiene guardado sigue vigente
+            // sin volver a bajar 60 KB.
+            'X-Documento-Version' => (string) $r['version'],
+            'X-Documento-Hash' => $r['hash'],
+        ]);
+    }
+
+    /**
+     * Manda el documento al cliente por correo, con el PDF adjunto.
+     *
+     * Es una acción deliberada del vendedor, no un efecto de guardar: por eso
+     * tiene su propio camino y su propio botón. Un documento se corrige tres
+     * veces antes de mandarlo, y un correo por cada guardado sería una plaga.
+     *
+     * El PDF va adjunto y no enlazado — un enlace a la dirección interna del
+     * servidor no se abre desde fuera de la oficina, y el cliente está fuera de
+     * la oficina.
+     */
+    public function enviar(Request $request, int $numero, Notificador $notificador, Emision $emision)
+    {
+        $u = $this->usuario($request);
+
+        if (! $this->alcanza($request, $this->vendedorDelDocumento($numero))) {
+            return response()->json(['message' => $this->noEncontrado()], 404);
+        }
+
+        $doc = $this->documentoDe($numero);
+        if (! $doc) {
+            return response()->json(['message' => $this->noEncontrado()], 404);
+        }
+
+        $cliente = $this->maestros->uno('clientes', ['CodAux' => $doc['cliente'] ?? '']) ?? [];
+        if (empty($cliente['email'])) {
+            return response()->json([
+                'message' => 'Ese cliente no tiene correo. Agrégalo en su ficha y vuelve a intentar.',
+            ], 422);
+        }
+
+        $this->avisarDocumento(
+            $notificador,
+            $this->eventoEnvio(),
+            $this->tipoDoc()->titulo().' '.$numero,
+            $doc,
+            $this->lineasDocumento($numero),
+            $u,
+            conPdf: true,
+        );
+
+        $emision->marcarEnviado($this->tipoDoc(), $numero, 'correo');
+
+        return response()->json([
+            'enviada_a' => $cliente['email'],
+            'message' => $this->tipoDoc()->titulo().' enviada a '.$cliente['email'].'.',
+        ]);
+    }
+
+    /**
+     * Deja constancia de que el documento salió por un camino que el servidor no
+     * controla: la hoja de compartir de Android, WhatsApp, una impresora.
+     *
+     * Importa por el snapshot: a partir de aquí esa versión del PDF es la que
+     * tiene el cliente, y corregir el documento genera la siguiente en vez de
+     * pisarla.
+     */
+    public function compartido(Request $request, int $numero, Emision $emision)
+    {
+        if (! $this->alcanza($request, $this->vendedorDelDocumento($numero))) {
+            return response()->json(['message' => $this->noEncontrado()], 404);
+        }
+
+        $canal = $request->input('canal');
+        $canal = in_array($canal, ['whatsapp', 'descarga', 'impresion'], true) ? $canal : 'descarga';
+
+        $emision->marcarEnviado($this->tipoDoc(), $numero, $canal);
+
+        return response()->json(['ok' => true]);
+    }
+
     // ----------------------------------------------------------------- correo
 
     /**
      * Arma y manda el correo de un documento.
      *
-     * Todo lo que el correo necesita y el documento no trae — el nombre del
-     * cliente, el nombre de cada producto, el símbolo de la moneda — se resuelve
-     * aquí. En la plantilla no se consulta nada: una vista que hace consultas es
-     * una vista que se cae distinto en cada correo.
+     * El PDF, cuando va, se pide al motor a través de la emisión: así el archivo
+     * que recibe el cliente queda guardado con su hash y su fecha, y no hay dos
+     * caminos distintos para dibujar el mismo papel.
      */
     protected function avisarDocumento(
         Notificador $notificador,
@@ -194,14 +316,15 @@ abstract class DocumentoController extends Controller
         Usuario $u,
         bool $conPdf = false,
     ): void {
-        $ctx = $this->contextoCorreo($doc, $lineas);
+        $ctx = $this->contextoDocumento($doc, $lineas);
+        $numero = (int) ($doc['numero'] ?? 0);
 
         $adjuntos = [];
-        if ($conPdf) {
-            $pdf = app(DocumentoPdf::class);
+        if ($conPdf && $numero > 0) {
+            $r = app(Emision::class)->emitir($this->tipoDoc(), $numero, $ctx, $u);
             $adjuntos[] = [
-                'nombre' => $pdf->nombre($this->recurso(), (int) ($doc['numero'] ?? 0)),
-                'contenido' => $pdf->generar($titulo, $doc, $ctx['cliente'], $lineas, $ctx),
+                'nombre' => $this->tipoDoc()->archivo($numero),
+                'contenido' => $r['pdf'],
                 'mime' => 'application/pdf',
             ];
         }
@@ -224,15 +347,22 @@ abstract class DocumentoController extends Controller
         );
     }
 
+    // --------------------------------------------------------------- contexto
+
     /**
-     * Todo lo que el correo y el PDF necesitan y el documento no trae: el
-     * nombre del cliente, el de cada producto, el del vendedor, el símbolo de
-     * la moneda. Se resuelve aquí de una vez y las plantillas no consultan
-     * nada — una vista que hace consultas se cae distinto en cada correo.
+     * Todo lo que el papel y el correo necesitan y el documento no trae.
+     *
+     * Se resuelve aquí de una vez y las plantillas no consultan nada: una vista
+     * que hace consultas se cae distinto en cada correo, y el snapshot de la
+     * emisión guarda exactamente esto — si faltara un dato, faltaría también en
+     * el archivo histórico.
      */
-    protected function contextoCorreo(array $doc, array $lineas): array
+    protected function contextoDocumento(array $doc, array $lineas): array
     {
         $conn = DB::connection('softland');
+        $t = fn ($v) => trim((string) ($v ?? ''));
+
+        $cliente = $this->maestros->uno('clientes', ['CodAux' => $doc['cliente'] ?? '']) ?? [];
 
         $nombres = $conn->table('softland.iw_tprod')
             ->whereIn('CodProd', array_column($lineas, 'producto'))
@@ -243,20 +373,174 @@ abstract class DocumentoController extends Controller
             ->where('CodMon', $doc['moneda'] ?? '01')->first(['SimMon', 'DesMon']);
 
         return [
-            'cliente' => $this->maestros->uno('clientes', ['CodAux' => $doc['cliente'] ?? '']) ?? [],
+            'documento' => $doc,
+            'lineas' => $lineas,
+            'cliente' => $cliente,
             'nombres' => $nombres,
-            'moneda_simbolo' => trim((string) ($moneda->SimMon ?? '')) ?: '$',
-            'moneda_nombre' => trim((string) ($moneda->DesMon ?? '')) ?: 'pesos chilenos',
-            'vendedor' => trim((string) $conn->table('softland.cwtvend')
-                ->where('VenCod', $doc['vendedor'] ?? '')->value('VenDes')),
-            'condicion' => trim((string) $conn->table('softland.cwtconv')
+            'moneda_simbolo' => $t($moneda->SimMon ?? '') ?: '$',
+            'moneda_nombre' => $t($moneda->DesMon ?? '') ?: 'pesos chilenos',
+            // La comuna y la ciudad del cliente son códigos, no nombres. Sin
+            // traducirlos el documento diría «Dirección: Ongolmo 2155, 081».
+            // `GirAux` es un código (`ADI`), no el giro escrito. Sin traducirlo
+            // el documento diría «Giro: ADI», que no le dice nada al cliente.
+            'giro_cliente' => $t($conn->table('softland.cwtgiro')
+                ->where('GirCod', $cliente['giro'] ?? '')->value('GirDes')),
+            'comuna_cliente' => $t($conn->table('softland.cwtcomu')
+                ->where('ComCod', $cliente['comuna'] ?? '')->value('ComDes')),
+            'ciudad_cliente' => $t($conn->table('softland.cwtciud')
+                ->where('CiuCod', $cliente['ciudad'] ?? '')->value('CiuDes')),
+            'contacto' => $this->contactoDe($doc),
+            'vendedor' => $this->vendedorFicha($doc['vendedor'] ?? ''),
+            'condicion' => $t($conn->table('softland.cwtconv')
                 ->where('CveCod', $doc['condicion'] ?? '')->value('CveDes')),
-            // La ficha de la empresa emisora, para la cabecera del PDF. En
-            // `soempre` la razón social es `NomB`, no `NomEmp`: conviene mirar
-            // `sys.columns` antes de dar por buena cualquier columna de Softland.
-            'empresa' => $this->emisor($conn),
-            'rut_emisor' => app(Catalogos::class)->rutEmisor(),
+            'bodega' => $t($conn->table('softland.iw_tbode')
+                ->where('CodBode', $doc['bodega'] ?? '')->value('DesBode')),
+            'centro_costo' => $t($conn->table('softland.cwtccos')
+                ->where('CodiCC', $doc['centro_costo'] ?? '')->value('DescCC')),
+            'impuestos' => $this->impuestosDe((int) ($doc['numero'] ?? 0)),
+            'uf' => $this->ufDe($doc['fecha'] ?? null),
+            'moneda_producto' => $this->monedaDeLasLineas($lineas),
         ];
+    }
+
+    /**
+     * El fono y el correo de la persona a la que va dirigido.
+     *
+     * En Softland el documento guarda el **nombre** del contacto (`NomCon`), no
+     * un id: la clave de `cwtaxco` es cliente + nombre. Por eso la búsqueda va
+     * por los dos.
+     */
+    private function contactoDe(array $doc): array
+    {
+        $nombre = trim((string) ($doc['contacto'] ?? ''));
+        if ($nombre === '') {
+            return [];
+        }
+
+        $c = DB::connection('softland')->table('softland.cwtaxco')
+            ->where('CodAuc', $doc['cliente'] ?? '')
+            ->where('NomCon', $nombre)
+            ->first(['FonCon', 'Email']);
+
+        return [
+            'nombre' => $nombre,
+            'fono' => trim((string) ($c->FonCon ?? '')),
+            'email' => trim((string) ($c->Email ?? '')),
+        ];
+    }
+
+    /**
+     * Quién firma.
+     *
+     * El nombre y el correo salen de `cwtvend`, que es lo que Softland tiene.
+     * El cargo y el teléfono salen de `ventas.usuario`: `cwtvend` sólo guarda
+     * código, nombre, tipo, correo y usuario, así que no hay de dónde sacarlos
+     * del ERP. Nada de esto se escribe a mano en la plantilla.
+     */
+    private function vendedorFicha(string $venCod): array
+    {
+        $venCod = trim($venCod);
+        if ($venCod === '') {
+            return [];
+        }
+
+        $v = DB::connection('softland')->table('softland.cwtvend')
+            ->where('VenCod', $venCod)->first(['VenDes', 'EMail']);
+
+        $u = Usuario::where('ven_cod', $venCod)->first();
+
+        return [
+            'nombre' => trim((string) ($v->VenDes ?? '')) ?: ($u->nombre ?? ''),
+            'cargo' => trim((string) ($u->cargo ?? '')),
+            'fono' => trim((string) ($u->fono ?? '')),
+            'email' => trim((string) ($v->EMail ?? '')) ?: trim((string) ($u->email ?? '')),
+        ];
+    }
+
+    /**
+     * Los impuestos tal como los estampó el documento, no recalculados.
+     *
+     * Softland guarda la tasa documento a documento en `valpctIni` y no en
+     * ningún maestro: leerla de aquí es la única forma de que un documento de
+     * hace tres años se reimprima con el IVA que tenía entonces. Y como es una
+     * lista, el día que se calcule el ILA entra como una fila más sin tocar ni
+     * la plantilla ni esto.
+     */
+    private function impuestosDe(int $numero): array
+    {
+        if ($numero <= 0) {
+            return [];
+        }
+
+        [$tabla, $columna] = $this->tipoDoc() === TipoDocumento::NOTA_VENTA
+            ? ['softland.NW_Impto', 'nvNumero']
+            : ['softland.NWCtImpto', 'CotNum'];
+
+        return DB::connection('softland')->table($tabla)
+            ->where($columna, $numero)
+            ->get(['codimpto', 'valpctIni', 'Impto'])
+            ->map(function ($i) {
+                $codigo = trim((string) $i->codimpto);
+                $pct = (float) $i->valpctIni;
+
+                return [
+                    'nombre' => $pct > 0
+                        ? $codigo.' '.rtrim(rtrim(number_format($pct, 1, ',', '.'), '0'), ',').' %'
+                        : $codigo,
+                    'monto' => (float) $i->Impto,
+                ];
+            })->all();
+    }
+
+    /**
+     * El valor de la UF del día del documento, para las condiciones.
+     *
+     * El corte va al segundo y no con `endOfDay()`: `datetime` de SQL Server
+     * redondea a 3,33 ms, y las 23:59:59.999 se guardan como las 00:00 del día
+     * siguiente — la consulta devolvía el valor de mañana.
+     */
+    private function ufDe(?string $fecha): ?float
+    {
+        $dia = $fecha ? substr($fecha, 0, 10) : now()->format('Y-m-d');
+
+        $v = DB::connection('softland')->table('softland.so_UF')
+            ->where('Fecha', '<=', $dia.' 23:59:59')
+            ->orderByDesc('Fecha')
+            ->value('Valor');
+
+        return $v ? (float) $v : null;
+    }
+
+    /**
+     * En qué moneda están tarifadas las líneas que no van en la del documento.
+     *
+     * Es el rótulo de la columna de conversión del detalle: «Valor UF» y no
+     * «Valor 02». Si las líneas mezclan monedas — no ocurre en INNOVAGES — se
+     * cae a un rótulo neutro antes que mentir con una.
+     */
+    private function monedaDeLasLineas(array $lineas): string
+    {
+        // Sólo las líneas que de verdad se convierten. Una línea de comentario
+        // — el producto comodín `*` de Softland — viene con `equiv = 1` y su
+        // moneda no dice nada del documento: contarla dejaba el rótulo en
+        // «Valor origen» aunque todo lo demás estuviera en UF.
+        $convertidas = array_column(array_filter(
+            $lineas,
+            fn ($l) => abs(((float) ($l['equiv'] ?? 1)) - 1) > 0.000001,
+        ), 'producto');
+
+        $codigos = DB::connection('softland')->table('softland.iw_tprod')
+            ->whereIn('CodProd', $convertidas)
+            ->pluck('CodMonPVta')->map(fn ($m) => trim((string) $m))->unique()->values();
+
+        if ($codigos->count() !== 1) {
+            return 'origen';
+        }
+
+        $nombre = DB::connection('softland')->table('softland.cwtmone')
+            ->where('CodMon', $codigos[0])->value('SimMon');
+
+        return trim((string) $nombre) ?: 'origen';
     }
 
     /** Traduce la excepción de un producto o una moneda imposible en un 422 legible. */

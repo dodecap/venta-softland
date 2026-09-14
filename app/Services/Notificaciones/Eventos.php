@@ -22,6 +22,8 @@ class Eventos
 
     public const NV_CREADA = 'nv_creada';
 
+    public const NV_ENVIADA = 'nv_enviada';
+
     public const NV_REQUIERE_APROBACION = 'nv_requiere_aprobacion';
 
     public const NV_APROBADA = 'nv_aprobada';
@@ -74,6 +76,12 @@ class Eventos
                 'descripcion' => 'Se generó una nota de venta en Softland.',
                 'fase' => 3,
                 'defaults' => ['avisar_dueno' => true, 'avisar_jefe' => false, 'avisar_cliente' => false, 'roles' => 'facturacion'],
+            ],
+            self::NV_ENVIADA => [
+                'label' => 'Nota de venta enviada',
+                'descripcion' => 'El vendedor le manda la nota de venta al cliente, con el PDF adjunto.',
+                'fase' => 3,
+                'defaults' => ['avisar_dueno' => true, 'avisar_jefe' => false, 'avisar_cliente' => true, 'roles' => null],
             ],
             self::NV_REQUIERE_APROBACION => [
                 'label' => 'Nota de venta requiere aprobación',

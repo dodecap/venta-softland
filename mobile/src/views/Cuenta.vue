@@ -40,6 +40,7 @@ const esAdmin = computed(() => !!usuario.value?.es_admin);
 const ADMIN = [
     { icono: 'usuario', rotulo: 'Usuarios', detalle: 'Altas, roles y topes', ruta: '/usuarios' },
     { icono: 'configuracion', rotulo: 'Configuración', detalle: 'Conexión a Softland y correo saliente', ruta: '/configuracion' },
+    { icono: 'empresa', rotulo: 'Identidad', detalle: 'Logo y datos que salen en los documentos', ruta: '/identidad' },
     { icono: 'reglaAviso', rotulo: 'Reglas de aviso', detalle: 'Qué correo sale y a quién', ruta: '/reglas' },
     { icono: 'correoEnviado', rotulo: 'Correos enviados', detalle: 'Bitácora completa del servidor', ruta: '/bitacora' },
 ];

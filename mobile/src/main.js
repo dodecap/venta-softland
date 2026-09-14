@@ -20,6 +20,7 @@ import Editor from './views/Editor.vue';
 import Aprobaciones from './views/Aprobaciones.vue';
 import Usuarios from './views/Usuarios.vue';
 import Configuracion from './views/Configuracion.vue';
+import Identidad from './views/Identidad.vue';
 import Reglas from './views/Reglas.vue';
 import Bitacora from './views/Bitacora.vue';
 
@@ -68,6 +69,7 @@ const router = createRouter({
 
         { path: '/usuarios', component: Usuarios, meta: { admin: true } },
         { path: '/configuracion', component: Configuracion, meta: { admin: true } },
+        { path: '/identidad', component: Identidad, meta: { admin: true } },
         { path: '/reglas', component: Reglas, meta: { admin: true } },
         { path: '/bitacora', component: Bitacora, meta: { admin: true } },
         // La pantalla se llamaba «notificaciones» cuando era la única que

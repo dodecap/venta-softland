@@ -25,9 +25,10 @@
  */
 
 const NOMBRE = 'venta-softland';
-// La 2 agrega `motivos_perdida`: la migración solo crea los almacenes que
-// falten, así que subir el número es todo lo que hace falta.
-const VERSION = 2;
+// La 2 agrega `motivos_perdida` y la 3 el almacén de PDF: la migración solo
+// crea los almacenes que falten, así que subir el número es todo lo que hace
+// falta.
+const VERSION = 3;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -68,6 +69,15 @@ export const ALMACENES = {
         indices: { grupo: 'grupo' },
     },
     precios: { clave: ['lista', 'producto'], indices: { producto: 'producto' } },
+
+    /*
+     * Los PDF ya emitidos, para poder abrirlos y mandarlos sin señal.
+     *
+     * No es un maestro y no entra en la sincronización: bajar 2.350 documentos
+     * a un teléfono no tiene sentido. Cae aquí el que se abrió o se mandó, y
+     * `pdf.js` se queda con los últimos 50 por uso.
+     */
+    pdfs: { clave: 'clave', indices: { tipo: 'tipo' } },
 
     cotizaciones: {
         clave: 'numero',
