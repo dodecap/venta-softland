@@ -258,6 +258,8 @@ class NotaVentaController extends DocumentoController
         $pendiente = DB::connection('softland')->table('ventas.aprobacion')
             ->where('nv_numero', $numero)->where('estado', 'pendiente')->first();
 
+        $pendiente ??= $this->aprobacionManual($numero, $u);
+
         if (! $pendiente) {
             return response()->json(['message' => 'Esa nota de venta no tiene una aprobación pendiente.'], 404);
         }
@@ -367,6 +369,64 @@ class NotaVentaController extends DocumentoController
         ]);
 
         $this->avisar($notificador, Eventos::NV_REQUIERE_APROBACION, $numero, $u);
+    }
+
+    /**
+     * Aprobación de una nota de venta que quedó en `P` sin pasar por el tope
+     * de la app — las anteriores a esta app, escritas en `P` desde Softland
+     * de escritorio, por ejemplo. `ventas.aprobacion` no tiene fila para
+     * ellas, así que un admin no tenía cómo soltarlas y se quedaban
+     * pendientes para siempre. Se crea la fila recién aquí, ya resuelta al
+     * vuelo por `resolver()`: así no se pierde el registro de quién la aprobó.
+     *
+     * `solicitante_id` no admite nulo y no hay quién pidió nada: se usa el
+     * usuario de la app del vendedor de la nota si existe, o quien la
+     * resuelve si no — mejor que inventar un solicitante que no existió.
+     */
+    private function aprobacionManual(int $numero, Usuario $u): ?object
+    {
+        $doc = $this->cabecera($numero);
+
+        if (! $doc || trim((string) $doc->nvEstado) !== 'P' || ! $this->puedeAprobarSinSolicitud($u, $doc->VenCod)) {
+            return null;
+        }
+
+        $solicitante = Usuario::on('softland')->where('ven_cod', $doc->VenCod)->first();
+
+        $id = DB::connection('softland')->table('ventas.aprobacion')->insertGetId([
+            'nv_numero' => $numero,
+            'solicitante_id' => $solicitante->id ?? $u->id,
+            'jefe_id' => $u->id,
+            'estado' => 'pendiente',
+            'motivo' => 'Pendiente sin solicitud de la app: anterior a la aprobación por tope, o puesta en P desde Softland.',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return DB::connection('softland')->table('ventas.aprobacion')->find($id);
+    }
+
+    /**
+     * Sin una solicitud de por medio, sólo un admin o el supervisor de ese
+     * vendedor —no el vendedor mismo— puede soltarla. Es la misma restricción
+     * de siempre, sólo que aquí no hay `jefe_id` asignado de antes que la
+     * imponga solo.
+     */
+    private function puedeAprobarSinSolicitud(Usuario $u, ?string $venCod): bool
+    {
+        if ($u->esRol('admin')) {
+            return true;
+        }
+
+        if (! $u->esRol('supervisor')) {
+            return false;
+        }
+
+        $codigos = Usuario::on($u->getConnectionName())
+            ->whereIn('id', $u->subordinadosIds())
+            ->pluck('ven_cod')->filter()->all();
+
+        return in_array($venCod, $codigos, true);
     }
 
     private function aprobacionDe(int $numero): ?array

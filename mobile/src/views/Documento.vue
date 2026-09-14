@@ -163,15 +163,38 @@ const editable = computed(() => {
 const puedeConvertir = computed(() => esCotizacion.value && editable.value);
 
 /**
- * El switch de aprobar sólo lo ve el jefe asignado —o un admin—, nunca el
- * vendedor que la escribió. Si lo viera cualquiera, el tope por vendedor que
- * pone la app dejaría de servir de nada: cualquiera se soltaría el freno solo.
+ * El switch de aprobar sólo lo ve quien puede soltarla, nunca el vendedor que
+ * la escribió. Si lo viera cualquiera, el tope por vendedor que pone la app
+ * dejaría de servir de nada: cualquiera se soltaría el freno solo.
+ *
+ * Dos caminos, porque una nota de venta en `P` puede llegar ahí de dos formas
+ * distintas:
+ *
+ * - **Con solicitud**: pasó el tope, `ventas.aprobacion` tiene una fila con
+ *   `jefe_id` ya asignado por la app. Sólo ese jefe —o un admin— puede
+ *   resolverla.
+ * - **Sin solicitud**: quedó en `P` desde Softland de escritorio o de antes de
+ *   que existiera esta app —16 notas de 2020 en INNOVAGES, ninguna con fila en
+ *   `ventas.aprobacion`—. No hay `jefe_id` que la reparta sola, así que decide
+ *   el organigrama: un admin, o el supervisor de ese vendedor puntual
+ *   (`subordinados_ven_cod`, que llega en el usuario y no incluye al
+ *   vendedor mismo).
+ *
  * Es la misma regla que ya exige `resolver()` en el servidor; esto sólo evita
  * mostrar un botón que el servidor de todos modos va a rechazar con 403.
  */
-const puedeAprobar = computed(() => aprobacion.value?.estado === 'pendiente'
-    && !! usuario.value
-    && (usuario.value.es_admin || usuario.value.id === aprobacion.value.jefe_id));
+const puedeAprobar = computed(() => {
+    if (esCotizacion.value || ! usuario.value) return false;
+    if ((doc.value?.estado || '').trim().toUpperCase() !== 'P') return false;
+    if (usuario.value.es_admin) return true;
+
+    if (aprobacion.value?.estado === 'pendiente') {
+        return usuario.value.id === aprobacion.value.jefe_id;
+    }
+
+    return usuario.value.rol === 'supervisor'
+        && (usuario.value.subordinados_ven_cod || []).includes(doc.value?.vendedor);
+});
 
 /**
  * Anular deja el documento donde está, con su número, fuera de juego. Sólo
@@ -574,12 +597,22 @@ function cantidad(n) {
 
                 <!-- La aprobación del jefe no existe en Softland: la pone la app
                      cuando la venta pasa el tope del vendedor. -->
-                <div class="tarjeta" v-if="aprobacion">
+                <!-- Sin fila en `ventas.aprobacion` no hay estado ni motivo que
+                     mostrar — pasa con las notas que quedaron en `P` desde
+                     Softland de escritorio, de antes de esta app—, pero si de
+                     todos modos se puede aprobar, la tarjeta aparece igual: un
+                     admin no tiene por qué saber que el motivo técnico es
+                     «no hay solicitud registrada». -->
+                <div class="tarjeta" v-if="aprobacion || puedeAprobar">
                     <div class="tarjeta-cabecera">Aprobación</div>
-                    <div class="tarjeta-cuerpo datos">
+                    <div class="tarjeta-cuerpo datos" v-if="aprobacion">
                         <div><span>Estado</span><b>{{ aprobacion.estado }}</b></div>
                         <div><span>Motivo</span><b>{{ aprobacion.motivo }}</b></div>
                         <div v-if="aprobacion.comentario"><span>Comentario</span><b>{{ aprobacion.comentario }}</b></div>
+                    </div>
+                    <div class="tarjeta-cuerpo datos" v-else>
+                        <div><span>Estado</span><b>Pendiente</b></div>
+                        <div><span>Motivo</span><b>Sin solicitud registrada en la app</b></div>
                     </div>
                     <template v-if="puedeAprobar">
                         <div class="switch-fila">

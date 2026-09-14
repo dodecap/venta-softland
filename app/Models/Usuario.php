@@ -140,6 +140,19 @@ class Usuario extends Model
             'tope_descuento_pct' => (float) $this->tope_descuento_pct,
             'tope_monto_nv' => (float) $this->tope_monto_nv,
             'es_admin' => $this->esRol('admin'),
+            // Para que el teléfono sepa a quién mostrarle el switch de
+            // aprobar una nota de venta que quedó pendiente sin pasar por el
+            // tope (sin fila en `ventas.aprobacion`, así que sin `jefe_id`
+            // asignado que lo decida solo). Ojo: no lleva el propio `ven_cod`
+            // del supervisor — para eso está `vendedoresVisibles()` — porque
+            // aquí la pregunta es «¿puede aprobarle a otro?», no «¿puede ver
+            // lo suyo?».
+            'subordinados_ven_cod' => $this->esRol('supervisor')
+                ? array_values(array_unique(array_filter(static::on($this->getConnectionName())
+                    ->whereIn('id', $this->subordinadosIds())
+                    ->pluck('ven_cod')
+                    ->all())))
+                : [],
         ];
     }
 }

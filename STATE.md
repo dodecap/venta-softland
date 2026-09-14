@@ -759,7 +759,28 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       absoluto — sólo la tarjeta de sólo lectura. Sin poder probarlo con el
       backend real desde aquí, contra `ventas.aprobacion` de verdad.
 
-## Problemas conocidos / bloqueos
+### Aprobar notas de venta pendientes que llegaron sin pasar por la app
+- [x] **`ventas.aprobacion` está vacía en INNOVAGES — 0 filas — y hay 16 notas
+      de venta en `P`, todas de 2020.** Se descubrió porque el switch de la
+      0.8.0 no aparecía ni para admin: exigía una fila de `ventas.aprobacion`
+      que resolver, y esas 16 no tienen ninguna — quedaron en `P` desde
+      Softland de escritorio, de antes de que existiera esta app o su
+      mecanismo de tope. `resolver()` ahora crea la fila al vuelo
+      (`aprobacionManual()`) cuando no hay una pendiente, sólo si quien pide
+      es admin o el supervisor de ese vendedor puntual
+      (`puedeAprobarSinSolicitud()`, por `subordinadosIds()` — nunca el
+      vendedor mismo). `solicitante_id` no admite nulo y no hay quién pidió
+      nada: se usa el usuario de la app del vendedor de la nota si existe, si
+      no quien la resuelve. En el teléfono, `Usuario::payload()` manda ahora
+      `subordinados_ven_cod` —sin el propio código, que es para
+      «¿puede ver lo suyo?», no para «¿puede aprobarle a otro?»— y
+      `puedeAprobar` en `Documento.vue` decide por dos caminos: con
+      `jefe_id` asignado (el camino de siempre, por tope) o sin él, mirando el
+      organigrama. Probado en el navegador con las tres combinaciones: admin
+      ve el switch, supervisor con ese vendedor en su equipo también,
+      supervisor sin él no ve ni la tarjeta. Sin poder probarlo contra
+      `ventas.aprobacion` real ni tocar las 16 notas de 2020 —eso queda para
+      que lo decida quien tiene el rol, no para probarlo desde aquí.
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
   tiene filas porque el SMTP todavía no está configurado, y el único usuario
   creado no tiene correo. La consulta está probada de punta a punta contra

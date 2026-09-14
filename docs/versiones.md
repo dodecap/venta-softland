@@ -42,6 +42,22 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.9.0 — Aprobar notas de venta pendientes que llegaron sin pasar por la app
+*2026-09-14*
+
+- **El switch de la 0.8.0 no alcanzaba a las notas de venta reales.**
+  `ventas.aprobacion` está vacía en INNOVAGES — 0 filas — y sin embargo hay 16
+  notas de venta en `P`, todas de 2020: quedaron así desde Softland de
+  escritorio, de antes de que existiera esta app. El switch sólo sabía
+  resolver una fila que ya existiera, así que ni admin ni supervisor podían
+  tocarlas. Ahora `resolver()` crea la fila al vuelo cuando no hay una —ya
+  resuelta, sin perder el registro de quién la soltó— si quien pide es admin,
+  o supervisor de ese vendedor puntual. Sin `jefe_id` asignado de antes que
+  reparta el permiso solo, decide el organigrama: `Usuario::payload()` ahora
+  manda `subordinados_ven_cod`, y el teléfono compara contra el vendedor de la
+  nota. La tarjeta de Aprobación aparece igual aunque no haya fila que
+  mostrar, con un texto genérico en vez del motivo técnico.
+
 ### 0.8.0 — Aprobar la nota de venta desde su propia ficha
 *2026-09-14*
 
