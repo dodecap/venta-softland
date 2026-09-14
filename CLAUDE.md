@@ -194,6 +194,9 @@ tocar nada de esto:
   uno así, el servidor devuelve 422.
 - **Quien crea el documento va en `UsuarioGeneraDocto`**, y `Usuario` se deja
   vacío. Es al revés de lo que parece, y es como lo escribe el ERP.
+- **Borrar la nota de venta deshace la conversión.** La cotización vuelve a
+  `P`. `V` no es un desenlace suyo: significa «tiene nota de venta», y si la
+  nota se va y la cotización se queda en `V`, aparece vendida sin estarlo.
 - **Anular y eliminar no son lo mismo.** Anular es `N` y conserva el número;
   eliminar borra la fila y **devuelve el número al pozo**, porque el correlativo
   es `MAX + 1`. Lo entregado al cliente se anula, nunca se borra.
@@ -232,7 +235,22 @@ que hay que saber antes de tocar nada de esto:
   Android, no por un enlace: la dirección del servidor no existe fuera de la
   oficina.
 
+## El panel de control
+
+El panel comercial se está rediseñando. Lo que hay que saber antes de tocar
+nada de esto está en `docs/panel-comercial.md`: qué KPI tienen fuente real, qué
+se calcula en el teléfono y qué necesita servidor, y las once inconsistencias
+de Softland que cambian las fórmulas. Tres que se olvidan:
+
+- **No hay metas en Softland.** Ninguna tabla. La meta es un dato de la app, y
+  sin fila de meta el widget no aparece — no hay meta por defecto.
+- **Aquí se factura por suscripción**: una nota de venta genera varias facturas
+  a lo largo de meses. No se calcula «conversión NV → factura» en documentos.
+- **El formato del dinero no toca el cálculo.** `mobile/src/dinero.js` recibe
+  un número y devuelve un texto. `npm run pruebas` lo comprueba.
+
 ## Estado actual
 Fases 1, 2 y 3 terminadas, más el motor de documentos. Ver `STATE.md`. El mapa de tablas del flujo de ventas está en
 `docs/flujo-ventas-softland.md`, el motor de documentos en
-`docs/motor-documentos.md` y el plan por fases en `docs/roadmap.md`.
+`docs/motor-documentos.md`, la auditoría del panel comercial en
+`docs/panel-comercial.md` y el plan por fases en `docs/roadmap.md`.

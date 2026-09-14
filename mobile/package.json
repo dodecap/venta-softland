@@ -8,7 +8,8 @@
     "build": "node scripts/sin-emojis.mjs && vite build",
     "preview": "vite preview",
     "cap:sync": "cap sync",
-    "iconos": "node scripts/sin-emojis.mjs"
+    "iconos": "node scripts/sin-emojis.mjs",
+    "pruebas": "node scripts/pruebas.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.1.2",

@@ -73,9 +73,9 @@ class NotaVentaController extends DocumentoController
         $this->ventas->anularNotaVenta($numero, $u);
     }
 
-    protected function eliminarDeSoftland(int $numero): void
+    protected function eliminarDeSoftland(int $numero, Usuario $u): ?int
     {
-        $this->ventas->eliminarNotaVenta($numero);
+        return $this->ventas->eliminarNotaVenta($numero, $u);
     }
 
     protected function impedimentosParaEliminar(int $numero): array

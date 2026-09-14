@@ -260,13 +260,48 @@ class Ventas
      * Lo único que Softland no puede saber es la aprobación por topes, que es
      * nuestra y vive en `ventas.aprobacion`.
      */
-    public function eliminarNotaVenta(int $numero): void
+    public function eliminarNotaVenta(int $numero, Usuario $u): ?int
     {
-        $this->conn()->transaction(function () use ($numero) {
+        return $this->conn()->transaction(function () use ($numero, $u) {
+            $cot = $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)->value('CotNum');
+
             $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)->delete();
             $this->conn()->table('ventas.aprobacion')->where('nv_numero', $numero)->delete();
             $this->olvidar('nota_venta', $numero);
+
+            return $this->devolverCotizacion($cot ? (int) $cot : null, $u);
         });
+    }
+
+    /**
+     * La cotización de la que salía esa nota de venta vuelve a pendiente.
+     *
+     * `V` no es un desenlace suyo: quiere decir «tiene nota de venta», y la
+     * base lo usa así — las 678 cotizaciones en `V` de INNOVAGES son
+     * exactamente las 678 que tienen una. Si la nota de venta se borra y la
+     * cotización se queda en `V`, miente: aparece vendida, no se puede volver
+     * a convertir y no se puede corregir.
+     *
+     * Sólo se devuelve la que está en `V`. Una perdida (`R`) o anulada (`N`)
+     * tuvo su propio desenlace, y ése no lo decide el borrado de otro
+     * documento. Y sólo si no le queda otra nota de venta apuntando: Softland
+     * admite dos, aunque la app nunca las cree.
+     */
+    private function devolverCotizacion(?int $cot, Usuario $u): ?int
+    {
+        if (! $cot) {
+            return null;
+        }
+
+        if ($this->conn()->table('softland.nw_nventa')->where('CotNum', $cot)->exists()) {
+            return null;
+        }
+
+        $tocadas = $this->conn()->table('softland.nwcotiza')
+            ->where('CotNum', $cot)->where('CtEstado', 'V')
+            ->update(['CtEstado' => 'P'] + $this->auditoria($u, false));
+
+        return $tocadas ? $cot : null;
     }
 
     /**

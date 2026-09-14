@@ -221,10 +221,17 @@ async function eliminar() {
     impedimentos.value = [];
 
     try {
-        if (esCotizacion.value) {
-            await api.eliminarCotizacion(numero.value);
-        } else {
-            await api.eliminarNotaVenta(numero.value);
+        const r = esCotizacion.value
+            ? await api.eliminarCotizacion(numero.value)
+            : await api.eliminarNotaVenta(numero.value);
+
+        // Borrar la nota de venta deshace la conversión: la cotización de la
+        // que salía vuelve a pendiente en Softland, y la copia del teléfono
+        // tiene que enterarse o seguirá diciendo «en nota de venta» —
+        // sin botones, y sin la nota de venta a la que llevaba.
+        if (r?.cotizacion_liberada) {
+            const cot = await idb.obtener('cotizaciones', r.cotizacion_liberada);
+            if (cot) await idb.guardar('cotizaciones', [{ ...cot, estado: 'P' }]);
         }
 
         // Del teléfono también: la ficha, sus líneas y el PDF guardado. Si no,

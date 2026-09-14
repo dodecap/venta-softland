@@ -414,6 +414,33 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       columnas de creación se escribían también al actualizar, así que cada
       corrección le ponía `FechaHoraCreacion` de hoy y reasignaba el autor.
 
+### Borrar una nota de venta deshace la conversión
+- [x] Eliminar la NV **devuelve su cotización a pendiente**. `V` no es un
+      desenlace de la cotización: quiere decir «tiene nota de venta». Si la NV
+      desaparece y la cotización se queda en `V`, miente — aparece vendida, no
+      se puede corregir y no se puede volver a convertir. Sólo se devuelve la
+      que está en `V` y sólo si no le queda otra NV apuntando; una perdida o
+      anulada tuvo su propio desenlace. El servidor responde
+      `cotizacion_liberada` y el teléfono corrige su copia en IndexedDB.
+      Probado de punta a punta: cotizar → convertir (`V`) → borrar NV → `P`.
+
+### Panel de control comercial — auditoría
+- [x] **`docs/panel-comercial.md`**: auditoría del panel actual, inventario de
+      datos, 24 KPI clasificados por fuente, disponibilidad offline, ámbito y
+      fase, fórmulas exactas, arquitectura de widgets, endpoint, wireframes de
+      YO / EQUIPO / EMPRESA, once inconsistencias encontradas en Softland y un
+      plan de diez pasos. Todo contrastado contra INNOVAGES el 2026-09-14.
+- [x] **`mobile/src/dinero.js`** (paso 1 del plan): `$84.500` · `$850 mil` ·
+      `$12,6 MM` · `$1.250 MM`, variación en porcentaje y en puntos
+      porcentuales, y el «sin dato» que no se confunde con `$0`. La flecha no
+      va en el texto: va la dirección y la dibuja `<AppIcon>`. 47
+      comprobaciones en `npm run pruebas`, sin dependencias nuevas.
+- [x] Diagnosticado por qué «Actividad reciente» se ve vacía: lee los correos
+      enviados y `ventas.notificacion` tiene 0 filas. La fuente buena es la
+      bitácora de Softland — `nw_lognwcotiza` (15.795 filas) y
+      `nw_lognwnventa` (3.139) — con eventos ya redactados: «Estado En Nota de
+      Venta», «Estado Perdida», «Elimina». Es el paso 5 del plan.
+
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
   tiene filas porque el SMTP todavía no está configurado, y el único usuario
@@ -449,14 +476,30 @@ vendibles, 12 meses de documentos y solo los del vendedor).
   13-09-2026 por una prueba de la fase 2. El dato de negocio se restauró (su
   teléfono volvió a quedar vacío, como estaba); lo que no se pudo devolver es
   quién lo había tocado antes, porque la columna se sobrescribe.
-- **Quedan dos documentos de prueba en INNOVAGES**: la cotización 8553 y las
-  notas de venta 2064 y 2065. La **2064 es la del contraste**: se dejó con el
-  vendedor en nulo a propósito, para comprobar en el ERP que es eso lo que la
-  saca de las ventanas de búsqueda. Las demás se borraron con la función nueva.
+- **Queda un documento de prueba en INNOVAGES**: la cotización 8553. Las notas
+  de venta 2064 y 2065 ya no están (el máximo es 2063), así que la comprobación
+  del vendedor en nulo en las ventanas de búsqueda del ERP quedó sin hacer.
 - **La emisión de la cotización 8553 quedó marcada como entregada por WhatsApp**
   (13-09 23:23). Es de las pruebas de la sesión anterior, no salió nada de
   verdad, pero mientras esté ahí esa cotización no se puede eliminar desde la
   app — sólo anular.
+- **INNOVAGES factura por suscripción, no por nota de venta.** La NV 2003 tiene
+  10 facturas entre 2025-09 y 2026-03. Cualquier «conversión NV → factura»
+  contada en documentos daría más de 100 %. El panel mide monto facturado del
+  período, no conversión. Ver `docs/panel-comercial.md` §15.
+- **`nvCantFact`, `nvCantDesp` y los cuatro flags `nvEst*` están en cero** en
+  las 2.242 líneas y las 800 cabeceras. Las columnas existen, tienen el nombre
+  correcto y nadie las llena: un KPI construido sobre ellas daría cero para
+  siempre sin dar error.
+- **No existe ninguna tabla de metas de venta en Softland.** `ND_Presupuesto`
+  tiene 36 filas todas en cero y `WG_Presup` es presupuesto contable. La meta
+  tiene que ser un dato de la app (`ventas.meta`, todavía sin crear).
+- **La cobranza no tiene fuente utilizable.** `xwcobranza` está vacía y
+  `cwmovim` tiene movimientos de 9 clientes. Es fase 5 de verdad, no un widget
+  que falte encender.
+- **Hay un solo vendedor activo** (`VenCod` 2, con 173 de las 185 cotizaciones
+  de 12 meses). El ámbito EQUIPO se construye igual, pero aquí muestra una fila
+  con dato y tres vacías.
 - **La bitácora de Softland nombra al creador, no a quien borró.** El trigger
   `Elimina` copia `UsuarioGeneraDocto` de la fila que desaparece. Si alguna vez
   hace falta saber quién apretó el botón, hay que anotarlo aparte en `ventas`.

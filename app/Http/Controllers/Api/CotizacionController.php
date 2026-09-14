@@ -59,9 +59,11 @@ class CotizacionController extends DocumentoController
         $this->ventas->anularCotizacion($numero, $u);
     }
 
-    protected function eliminarDeSoftland(int $numero): void
+    protected function eliminarDeSoftland(int $numero, Usuario $u): ?int
     {
         $this->ventas->eliminarCotizacion($numero);
+
+        return null;
     }
 
     protected function impedimentosParaEliminar(int $numero): array

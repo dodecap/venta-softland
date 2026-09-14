@@ -210,8 +210,13 @@ abstract class DocumentoController extends Controller
     /** Anula el documento en Softland: `N`, que allá quiere decir «nula». */
     abstract protected function anularEnSoftland(int $numero, Usuario $u): void;
 
-    /** Lo borra de Softland de verdad, y con eso su número vuelve al pozo. */
-    abstract protected function eliminarDeSoftland(int $numero): void;
+    /**
+     * Lo borra de Softland de verdad, y con eso su número vuelve al pozo.
+     *
+     * Devuelve el número de la cotización que quedó libre, si borrar esto
+     * deshizo una conversión. El teléfono la necesita para corregir su copia.
+     */
+    abstract protected function eliminarDeSoftland(int $numero, Usuario $u): ?int;
 
     /** Por qué este documento no se puede eliminar. Vacío = se puede. */
     abstract protected function impedimentosParaEliminar(int $numero): array;
@@ -271,6 +276,7 @@ abstract class DocumentoController extends Controller
      */
     public function destroy(Request $request, int $numero, Emision $emision)
     {
+        $u = $this->usuario($request);
         $doc = $this->documentoDe($numero);
 
         if (! $doc || ! $this->alcanza($request, $this->vendedorDelDocumento($numero))) {
@@ -288,9 +294,11 @@ abstract class DocumentoController extends Controller
         }
 
         $emision->borrar($this->tipoDoc(), $numero);
-        $this->eliminarDeSoftland($numero);
+        $liberada = $this->eliminarDeSoftland($numero, $u);
 
-        return response()->json(['eliminado' => $numero]);
+        return response()->json(
+            ['eliminado' => $numero] + ($liberada ? ['cotizacion_liberada' => $liberada] : [])
+        );
     }
 
     // -------------------------------------------------------------- el papel
