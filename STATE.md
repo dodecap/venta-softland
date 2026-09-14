@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-14 — versión **0.6.3**
+2026-09-14 — versión **0.7.0**
 
 ## Resumen del estado actual
-**Versión 0.6.3. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -666,6 +666,44 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] **Duplicar también funciona con esas.** Volver a cotizarle a un cliente
       lo de 2024 es el caso bueno de la copia. Probado: la 8000 se abre como
       cotización nueva con su cliente, su línea y sus $300.196 exentos.
+
+### Búsqueda instantánea, centro de costo buscable y el panel que se pone al día solo
+- [x] **El buscador de cliente y de producto se congelaba a medio escribir.**
+      `Editor.vue` abre la ficha con una carga inicial sin filtro (los primeros
+      30) y, aparte, una búsqueda por cada letra. Si el vendedor escribía
+      rápido, la búsqueda tecleada podía resolver antes que esa carga inicial
+      —las dos escriben al mismo `ref`— y cuando la inicial llegaba después la
+      pisaba, dejando la lista mostrando clientes sin relación con lo escrito,
+      sin aviso ni el «Ningún cliente con eso» que debería aparecer.
+      Reproducido escribiendo «netdomain» y viendo cuatro clientes al azar
+      quedarse pegados un minuto. Cada búsqueda lleva ahora un número de
+      turno y sólo se pinta la más reciente pedida, gane quien gane la
+      carrera. Mismo resguardo en las listas de Clientes y Productos.
+- [x] **Centro de costo se busca como un cliente.** Eran 594 en un `<select>`
+      nativo — el mismo problema que resolvió `Selector.vue` para los giros,
+      pero que no alcanza cuando hay menos de 40 opciones bajo el filtro y el
+      campo se queda en un `<select>` pelado. Ahora es una ficha con buscador
+      arriba y tarjetas tocables abajo, calcada de cliente y producto. Como es
+      un maestro chico —vive entero en memoria vía `cargarCatalogos()`— el
+      filtro es sincrónico, sin pasar por IndexedDB ni arrastrar la condición
+      de carrera de arriba.
+- [x] **El panel recuerda el período y el ámbito.** `periodo` y `ambito` nacían
+      siempre en «mes» y en «yo» en cada visita a Inicio, sin mirar lo que el
+      vendedor había dejado elegido. Se guardan ahora en Preferences
+      (`panel_periodo`, `panel_ambito`) — del aparato, no de la sesión, como la
+      densidad — y se validan contra las opciones vigentes al leerlos: un
+      ámbito guardado que ya no aplica (el jefe dejó de serlo) cae al de
+      siempre en vez de dejar el panel sin nada elegido.
+- [x] **Al volver del segundo plano, sincroniza sola.** Un teléfono que queda
+      abierto sin cerrarse mientras se trabaja desde el escritorio no se
+      enteraba de los cambios hasta que alguien tocaba sincronizar a mano.
+      `App.vue` escucha `appStateChange` de `@capacitor/app` —ya estaba entre
+      las dependencias, no hizo falta agregar nada— y dispara la misma
+      sincronización incremental de siempre cuando Android trae la app de
+      vuelta a primer plano, con un plazo de 5 minutos para no repetirla a
+      cada rato ni pisarse con la que ya arrancó el login. Comprobado en el
+      navegador simulando `visibilitychange`: la sincronización se dispara al
+      volver y el plazo la frena si se repite antes de los 5 minutos.
 
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no

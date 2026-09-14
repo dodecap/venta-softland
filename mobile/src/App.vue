@@ -3,8 +3,10 @@ import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { App as AppNativa } from '@capacitor/app';
 import { cerrarCapaSuperior } from './nav';
+import { db } from './db';
 import { conectado } from './red';
 import { contarPendientes, enviarPendientes, porEnviar } from './pendientes';
+import { sincronizar } from './sync';
 import AppIcon from './components/AppIcon.vue';
 import BarraInferior from './components/BarraInferior.vue';
 import BotonCrear from './components/BotonCrear.vue';
@@ -69,10 +71,39 @@ watch(conectado, (hayRed) => {
     if (hayRed && porEnviar.value) enviarPendientes();
 });
 
+/*
+ * Al volver del segundo plano, se pone al día sola.
+ *
+ * Es lo que pidió resolver esto: el vendedor deja el teléfono una hora, en el
+ * escritorio se crean cotizaciones, y al volver la app seguía mostrando lo de
+ * antes porque nada la avisaba. No hace falta abrir un canal push para
+ * arreglarlo — basta con que, cada vez que Android trae la app de vuelta a
+ * primer plano, se dispare la misma sincronización incremental de siempre.
+ * El aviso lo pone `sync.js` (`corridas`): el panel se repinta solo en cuanto
+ * termina, sin que el vendedor haga nada.
+ *
+ * El plazo evita machacar a cada rato a quien cambia de app cada diez
+ * segundos — y de paso evita pisarse con la que ya arrancó el login.
+ */
+const REANUDAR_TRAS = 5 * 60 * 1000;
+
+async function alReanudar() {
+    if (! conectado.value) return;
+    if (! (await db.getToken())) return;
+
+    const ultima = await db.getSincronizado();
+    if (ultima && Date.now() - new Date(ultima).getTime() < REANUDAR_TRAS) return;
+
+    sincronizar().catch(() => { /* sin señal se reintenta la próxima vez */ });
+}
+
 onMounted(async () => {
     contarPendientes();
     try {
         oyentes.push(await AppNativa.addListener('backButton', atras));
+        oyentes.push(await AppNativa.addListener('appStateChange', ({ isActive }) => {
+            if (isActive) alReanudar();
+        }));
     } catch {
         // Fuera de Android no hay botón físico que escuchar.
     }

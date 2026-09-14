@@ -42,6 +42,33 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.7.0 — Búsqueda instantánea, centro de costo buscable, el panel recuerda lo elegido y se pone al día solo
+*2026-09-14*
+
+- **El buscador de cliente y de producto ya no se congela a medias.** La
+  ficha se abre con una carga inicial sin filtro y, si el vendedor escribe
+  rápido, la búsqueda tecleada podía terminar antes que esa carga: la
+  inicial llegaba después y pisaba el resultado, dejando la lista mostrando
+  clientes sin relación con lo escrito, sin aviso ni error. Ahora cada
+  búsqueda lleva un número de turno y sólo se pinta la más reciente pedida,
+  gane quien gane la carrera. Mismo arreglo en las listas de Clientes y
+  Productos.
+- **Centro de costo se busca como un cliente.** Eran 594 en un `<select>`
+  nativo de Android — el mismo problema que ya tenían los giros y que
+  `Selector.vue` no resuelve del todo si hay menos de 40 opciones detrás del
+  filtro. Ahora es una ficha con buscador arriba y tarjetas tocables abajo,
+  igual que cliente y producto.
+- **El panel recuerda el período y el ámbito elegidos.** Nacía siempre en
+  «mes» y en «yo», sin importar lo que el vendedor hubiera dejado la vez
+  anterior. Ahora queda en el aparato — como la densidad o el lado del botón
+  flotante — y sólo cambia cuando el vendedor lo vuelve a tocar.
+- **Al volver del segundo plano, se pone al día sola.** Un teléfono que
+  queda abierto una hora mientras se trabaja desde el escritorio no se
+  enteraba de nada nuevo hasta que alguien tocaba sincronizar. Ahora, cada
+  vez que Android trae la app de vuelta a primer plano, se dispara la misma
+  sincronización incremental de siempre — con un plazo de cinco minutos para
+  no repetirla a cada rato.
+
 ### 0.6.3 — El icono del vendedor
 *2026-09-14*
 

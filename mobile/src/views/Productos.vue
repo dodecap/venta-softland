@@ -51,13 +51,19 @@ onMounted(async () => {
 
 watch([busqueda, grupo], buscar);
 
+// Mismo guardián que en clientes: dos búsquedas pueden cruzarse y sin turno
+// gana la que termina última, no la que se pidió última.
+let turno = 0;
+
 async function buscar() {
     cargando.value = true;
+    const este = ++turno;
     try {
-        resultados.value = await idb.buscar('productos', busqueda.value, {
+        const filas = await idb.buscar('productos', busqueda.value, {
             limite: TOPE,
             filtro: grupo.value ? (p) => p.grupo === grupo.value : null,
         });
+        if (este === turno) resultados.value = filas;
     } finally {
         cargando.value = false;
     }

@@ -63,6 +63,25 @@ export const db = {
     setSincronizado: (v) => escribir('sincronizado_at', v),
 
     /**
+     * Qué período y qué ámbito dejó elegidos el vendedor en el panel.
+     * Cada uno prefiere quedarse en el suyo —hoy, trimestre, el equipo— y no
+     * quiere volver a elegirlo cada vez que entra. Del aparato, como la
+     * densidad: no se manda al servidor.
+     */
+    async getPanelPeriodo() {
+        return (await Preferences.get({ key: 'panel_periodo' })).value || null;
+    },
+    async setPanelPeriodo(v) {
+        await Preferences.set({ key: 'panel_periodo', value: v || '' });
+    },
+    async getPanelAmbito() {
+        return (await Preferences.get({ key: 'panel_ambito' })).value || null;
+    },
+    async setPanelAmbito(v) {
+        await Preferences.set({ key: 'panel_ambito', value: v || '' });
+    },
+
+    /**
      * Tamaño de la interfaz: compacta | normal | amplia.
      * Del aparato, no de la sesión — depende de la pantalla y de la vista de
      * quien lo usa, no de quién entró. Ver `densidad.js`.

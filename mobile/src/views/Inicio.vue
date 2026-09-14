@@ -133,7 +133,13 @@ async function calcularPanel() {
     await cargarNombresRecientes();
 }
 
-watch([periodo, ambito], calcularPanel);
+watch([periodo, ambito], ([p, a]) => {
+    calcularPanel();
+    // Se guarda en el aparato, no como parte del cálculo: cambiar de período
+    // no espera a que termine de escribirse para repintar el panel.
+    db.setPanelPeriodo(p);
+    db.setPanelAmbito(a);
+});
 
 const venta = computed(() => m.value?.actual.vendido ?? null);
 
@@ -325,7 +331,18 @@ const atencion = computed(() => {
 onMounted(async () => {
     usuario.value = await db.getUsuario();
     vigencia.value = (await db.getServidorInfo())?.vigencia_cotizacion_dias || 30;
-    ambito.value = ambitos.value[0]?.id ?? 'todos';
+
+    // El período y el ámbito quedan como el vendedor los dejó, no en «mes» y
+    // «yo»: si uno se guarda inválido —el jefe ya no lo es, el período no
+    // existe— se cae al de siempre en vez de dejar el panel sin nada elegido.
+    const periodoGuardado = await db.getPanelPeriodo();
+    if (periodoGuardado && PERIODOS.some((p) => p.id === periodoGuardado)) periodo.value = periodoGuardado;
+
+    const ambitoGuardado = await db.getPanelAmbito();
+    ambito.value = (ambitoGuardado && ambitos.value.some((a) => a.id === ambitoGuardado))
+        ? ambitoGuardado
+        : ambitos.value[0]?.id ?? 'todos';
+
     await releerAlmacen();
     // El punto rojo de la barra inferior sale de aquí: si se pidiera recién al
     // abrir el buzón, nunca habría aviso de que hay algo que mirar.

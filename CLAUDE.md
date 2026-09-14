@@ -187,6 +187,18 @@ tocar nada de esto:
   para buscar un documento viejo por su número; el segundo es permiso y no se
   levanta nunca. Lo que se trae así **no se guarda en IndexedDB**: el panel
   cuenta lo que hay en el almacén.
+- **Al volver del segundo plano, `App.vue` sincroniza sola.** Escucha
+  `appStateChange` de `@capacitor/app` y dispara la incremental de siempre,
+  con un plazo de 5 minutos para no repetirla a cada rato. Un teléfono que
+  queda abierto sin cerrarse mientras se trabaja desde el escritorio se pone
+  al día sin que nadie toque el botón.
+- **Dos búsquedas pueden cruzarse, y sin turno gana la que termina última, no
+  la que se pidió última.** Pasa en cualquier campo que combine una carga
+  inicial con una búsqueda tecleada — el cliente y el producto de
+  `Editor.vue`, las listas de Clientes y Productos —: la carga lenta puede
+  resolver después de la búsqueda rápida y pisarla en silencio. El resguardo
+  es un número de turno por búsqueda; sólo se pinta la del turno más
+  reciente.
 
 ## Comandos habituales
 
@@ -321,7 +333,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.6.3**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
+Versión **0.7.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
 panel comercial hasta el paso 4. Ver `STATE.md`. El mapa de tablas del flujo de
 ventas está en `docs/flujo-ventas-softland.md`, el motor de documentos en
 `docs/motor-documentos.md`, la auditoría del panel comercial en

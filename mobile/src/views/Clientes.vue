@@ -40,13 +40,19 @@ onMounted(async () => {
 
 watch([busqueda, soloConCorreo], buscar);
 
+// Dos búsquedas pueden cruzarse — el filtro de correo cambia justo después de
+// teclear— y sin turno gana la que termina última, no la que se pidió última.
+let turno = 0;
+
 async function buscar() {
     cargando.value = true;
+    const este = ++turno;
     try {
-        resultados.value = await idb.buscar('clientes', busqueda.value, {
+        const filas = await idb.buscar('clientes', busqueda.value, {
             limite: TOPE,
             filtro: soloConCorreo.value ? (c) => !! (c.email || c.email_dte) : null,
         });
+        if (este === turno) resultados.value = filas;
     } finally {
         cargando.value = false;
     }

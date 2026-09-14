@@ -3,8 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api, ErrorApi } from '../api';
 import { db } from '../db';
-import { idb } from '../idb';
-import { monto, nombre as nombreDe } from '../catalogos';
+import { idb, normalizar } from '../idb';
+import { monto, nombre as nombreDe, opciones } from '../catalogos';
 import { calcularTotales, cuerpoDe, TIPOS } from '../documentos';
 import { conectado } from '../red';
 import { encolar, nuevoUuid } from '../pendientes';
@@ -250,14 +250,24 @@ const redondearPeso = (n) => Math.round(n * 100) / 100;
 const busquedaCliente = ref('');
 const clientesHallados = ref([]);
 
+// La carga inicial y lo que se escribe compiten por la misma respuesta: si la
+// primera tarda más que la búsqueda que el vendedor ya hizo, llega después y
+// la pisa, dejando la lista congelada en el cliente equivocado sin ningún
+// aviso. El turno se queda con la última pedida, gane quien gane la carrera.
+let turnoCliente = 0;
+
 watch(busquedaCliente, async (q) => {
-    clientesHallados.value = await idb.buscar('clientes', q, { limite: 30 });
+    const turno = ++turnoCliente;
+    const filas = await idb.buscar('clientes', q, { limite: 30 });
+    if (turno === turnoCliente) clientesHallados.value = filas;
 });
 
 async function abrirClientes() {
     eligiendoCliente.value = true;
     busquedaCliente.value = '';
-    clientesHallados.value = await idb.buscar('clientes', '', { limite: 30 });
+    const turno = ++turnoCliente;
+    const filas = await idb.buscar('clientes', '', { limite: 30 });
+    if (turno === turnoCliente) clientesHallados.value = filas;
 }
 
 async function elegirCliente(codigo, cerrar = true) {
@@ -272,19 +282,57 @@ async function elegirCliente(codigo, cerrar = true) {
     if (cerrar) eligiendoCliente.value = false;
 }
 
+// ----------------------------------------------------------- centro de costo
+//
+// 594 centros de costo: un `<select>` nativo con esa cantidad no se navega en
+// Android. Es un maestro chico —vive entero en memoria, lo carga
+// `cargarCatalogos()`— así que filtrar es sincrónico, sin `idb.buscar` ni
+// condición de carrera posible.
+
+const eligiendoCentroCosto = ref(false);
+useCapa(eligiendoCentroCosto, () => { eligiendoCentroCosto.value = false; });
+const busquedaCC = ref('');
+
+const centrosCostoQueCalzan = computed(() => {
+    const q = normalizar(busquedaCC.value).trim();
+    const todos = opciones('centros_costo');
+    if (! q) return todos;
+    return todos.filter((c) => normalizar(c.nombre).includes(q) || normalizar(String(c.codigo)).includes(q));
+});
+const centrosCostoHallados = computed(() => centrosCostoQueCalzan.value.slice(0, 30));
+const sobranCentrosCosto = computed(() => centrosCostoQueCalzan.value.length - 30);
+
+function abrirCentroCosto() {
+    eligiendoCentroCosto.value = true;
+    busquedaCC.value = '';
+}
+
+function elegirCentroCosto(codigo) {
+    form.value.centro_costo = codigo;
+    eligiendoCentroCosto.value = false;
+}
+
 // --------------------------------------------------------------- las líneas
 
 const busquedaProducto = ref('');
 const productosHallados = ref([]);
 
+// Mismo guardián que el cliente: sin él, la carga inicial puede pisar la
+// búsqueda que ya se hizo.
+let turnoProducto = 0;
+
 watch(busquedaProducto, async (q) => {
-    productosHallados.value = await idb.buscar('productos', q, { limite: 30 });
+    const turno = ++turnoProducto;
+    const filas = await idb.buscar('productos', q, { limite: 30 });
+    if (turno === turnoProducto) productosHallados.value = filas;
 });
 
 async function abrirProductos() {
     eligiendoProducto.value = true;
     busquedaProducto.value = '';
-    productosHallados.value = await idb.buscar('productos', '', { limite: 30 });
+    const turno = ++turnoProducto;
+    const filas = await idb.buscar('productos', '', { limite: 30 });
+    if (turno === turnoProducto) productosHallados.value = filas;
 }
 
 /**
@@ -469,8 +517,14 @@ function cantidad(n) {
                 <Selector v-model="form.condicion" maestro="condiciones_venta" vacio="— sin elegir —" />
 
                 <label>Centro de costo</label>
-                <Selector v-model="form.centro_costo" maestro="centros_costo"
-                          :vacio="esNV ? null : '— sin elegir —'" filtrar="Filtrar centros de costo" />
+                <button type="button" class="campo-boton" @click="abrirCentroCosto">
+                    <span v-if="form.centro_costo">
+                        <b>{{ nombreDe('centros_costo', form.centro_costo) }}</b>
+                        <small>{{ form.centro_costo }}</small>
+                    </span>
+                    <span v-else class="hueco">Elegir centro de costo</span>
+                    <AppIcon name="buscar" :size="18" color="var(--texto-suave)" />
+                </button>
                 <p class="ayuda" v-if="esNV">
                     Obligatorio en la nota de venta: así está configurado Softland.
                 </p>
@@ -589,6 +643,36 @@ function cantidad(n) {
                     </div>
                     <Vacio v-if="! clientesHallados.length" icono="sinResultados" titulo="Ningún cliente con eso">
                         Prueba con una palabra del nombre o con el RUT.
+                    </Vacio>
+                </div>
+            </div>
+        </div>
+
+        <!-- Elegir centro de costo -->
+        <div class="velo" v-if="eligiendoCentroCosto" @click.self="eligiendoCentroCosto = false">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Centro de costo</h2>
+                    <button class="icono-barra" @click="eligiendoCentroCosto = false"><AppIcon name="cerrar" :size="21" /></button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <Buscador v-model="busquedaCC" placeholder="Nombre o código" />
+                    <div class="item" v-if="! esNV" @click="elegirCentroCosto('')">
+                        <div class="item-estado gris"></div>
+                        <div class="item-cuerpo"><div class="item-titulo">— sin elegir —</div></div>
+                    </div>
+                    <div class="item" v-for="c in centrosCostoHallados" :key="c.codigo" @click="elegirCentroCosto(c.codigo)">
+                        <div class="item-estado cian"></div>
+                        <div class="item-cuerpo">
+                            <div class="item-titulo">{{ c.nombre }}</div>
+                            <div class="item-meta"><span class="etiqueta gris">{{ c.codigo }}</span></div>
+                        </div>
+                    </div>
+                    <p class="ayuda" v-if="sobranCentrosCosto > 0">
+                        Hay {{ sobranCentrosCosto.toLocaleString('es-CL') }} más. Escribe arriba para acotar.
+                    </p>
+                    <Vacio v-if="! centrosCostoHallados.length && esNV" icono="sinResultados" titulo="Ningún centro de costo con eso">
+                        Prueba con una palabra del nombre o con el código.
                     </Vacio>
                 </div>
             </div>
