@@ -10,6 +10,8 @@
  *
  * Las reglas, que están razonadas en `docs/panel-comercial.md` §14:
  *
+ * - **Los montos van netos**: neto afecto + neto exento, sin IVA. El impuesto
+ *   no es venta y además no infla parejo, porque lo exento no lo lleva.
  * - Lo anulado (`N`) no cuenta en ninguna parte. Lo perdido (`R`) sí cuenta
  *   como cotizado —se cotizó— y no cuenta como vendido.
  * - La conversión se mide sobre la **cohorte del período**: de las
@@ -32,11 +34,27 @@ const dentro = (f, r) => {
     return d >= r.desde && d <= r.hasta;
 };
 
+/**
+ * Lo que vale un documento **para el panel**: neto afecto + neto exento, o sea
+ * el total sin IVA.
+ *
+ * No es `total` (`CtMonto` / `nvMonto`), que es lo que el cliente paga y lo que
+ * sale impreso en el documento. El IVA no es venta: es plata que se recauda
+ * para el Estado, y meterla en la cifra de gestión infla un 19 % lo afecto
+ * mientras deja lo exento igual, así que ni siquiera infla parejo. Comprobado
+ * contra INNOVAGES: septiembre del vendedor 2 son $43,8 MM con IVA y $37,9 MM
+ * netos, y la diferencia es exactamente el IVA de lo afecto.
+ *
+ * La lista de documentos y la ficha **siguen mostrando el total con IVA**: ahí
+ * se está mirando un documento, no midiendo una venta.
+ */
+const valor = (f) => (Number(f.neto) || 0) + (Number(f.exento) || 0);
+
 /** Suma y cuenta en una sola pasada. */
 function agregar(filas) {
     let monto = 0;
 
-    for (const f of filas) monto += Number(f.total) || 0;
+    for (const f of filas) monto += valor(f);
 
     return { monto, n: filas.length };
 }

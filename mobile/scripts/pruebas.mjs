@@ -128,20 +128,26 @@ es(dia(new Date(2026, 0, 5)), '2026-01-05', 'fecha local, sin pasar por UTC');
 const R = rango('mes', LUN);
 
 const COT = [
-    { numero: 1, vendedor: '2', estado: 'P', fecha: '2026-09-02T00:00:00', total: 1000000 },
-    { numero: 2, vendedor: '2', estado: 'V', fecha: '2026-09-05T00:00:00', total: 2000000 },
-    { numero: 3, vendedor: '2', estado: 'R', fecha: '2026-09-08T00:00:00', total: 500000 },
-    { numero: 4, vendedor: '2', estado: 'N', fecha: '2026-09-09T00:00:00', total: 9999999 },
-    { numero: 5, vendedor: '19', estado: 'V', fecha: '2026-09-10T00:00:00', total: 4000000 },
-    { numero: 6, vendedor: '2', estado: 'P', fecha: '2026-08-20T00:00:00', total: 7000000 },
-    { numero: 7, vendedor: '2', estado: 'A', fecha: '2026-09-11T00:00:00', total: 100000 },
+    { numero: 1, vendedor: '2', estado: 'P', fecha: '2026-09-02T00:00:00', neto: 800000, exento: 200000 },
+    { numero: 2, vendedor: '2', estado: 'V', fecha: '2026-09-05T00:00:00', neto: 1600000, exento: 400000 },
+    { numero: 3, vendedor: '2', estado: 'R', fecha: '2026-09-08T00:00:00', neto: 500000, exento: 0 },
+    { numero: 4, vendedor: '2', estado: 'N', fecha: '2026-09-09T00:00:00', neto: 9999999, exento: 0 },
+    { numero: 5, vendedor: '19', estado: 'V', fecha: '2026-09-10T00:00:00', neto: 3200000, exento: 800000 },
+    { numero: 6, vendedor: '2', estado: 'P', fecha: '2026-08-20T00:00:00', neto: 5600000, exento: 1400000 },
+    { numero: 7, vendedor: '2', estado: 'A', fecha: '2026-09-11T00:00:00', neto: 100000, exento: 0 },
 ];
 const NV = [
-    { numero: 900, cotizacion: 2, vendedor: '2', estado: 'A', fecha: '2026-09-09T00:00:00', total: 2000000 },
-    { numero: 901, cotizacion: 5, vendedor: '19', estado: 'A', fecha: '2026-09-12T00:00:00', total: 4000000 },
-    { numero: 902, cotizacion: 0, vendedor: '2', estado: 'N', fecha: '2026-09-12T00:00:00', total: 8888888 },
-    { numero: 903, cotizacion: 0, vendedor: '2', estado: 'A', fecha: '2026-08-03T00:00:00', total: 3000000 },
+    { numero: 900, cotizacion: 2, vendedor: '2', estado: 'A', fecha: '2026-09-09T00:00:00', neto: 1600000, exento: 400000 },
+    { numero: 901, cotizacion: 5, vendedor: '19', estado: 'A', fecha: '2026-09-12T00:00:00', neto: 3200000, exento: 800000 },
+    { numero: 902, cotizacion: 0, vendedor: '2', estado: 'N', fecha: '2026-09-12T00:00:00', neto: 8888888, exento: 0 },
+    { numero: 903, cotizacion: 0, vendedor: '2', estado: 'A', fecha: '2026-08-03T00:00:00', neto: 2400000, exento: 600000 },
 ];
+
+// El panel suma neto + exento y NO `total`, que lleva IVA. Estas dos filas
+// traen un `total` disparatado a propósito: si alguien vuelve a sumarlo, las
+// comprobaciones de abajo se caen.
+COT[0].total = 999999999;
+NV[0].total = 999999999;
 
 const todos = calcular({ cotizaciones: COT, notas: NV, rango: R });
 es(todos.cotizado.n, 5, 'cotizado del mes: sin la anulada y sin la de agosto');
@@ -169,8 +175,8 @@ es(vacio.cotizado.monto, 0, 'pero el monto sí es cero: cero es un dato');
 
 // una NV fechada antes que su cotización no se corrige: se descarta
 const alReves = calcular({
-    cotizaciones: [{ numero: 1, estado: 'P', fecha: '2026-09-20T00:00:00', total: 1 }],
-    notas: [{ numero: 9, cotizacion: 1, estado: 'A', fecha: '2026-09-05T00:00:00', total: 1 }],
+    cotizaciones: [{ numero: 1, estado: 'P', fecha: '2026-09-20T00:00:00', neto: 1, exento: 0 }],
+    notas: [{ numero: 9, cotizacion: 1, estado: 'A', fecha: '2026-09-05T00:00:00', neto: 1, exento: 0 }],
     rango: R,
 });
 es(alReves.cierre, null, 'días negativos fuera');

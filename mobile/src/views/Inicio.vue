@@ -481,8 +481,11 @@ const pct = computed(() => {
                         <span class="contra" v-if="variacionVenta">vs. {{ rangoPrevio.etiqueta.toLowerCase() }}</span>
                         <span class="contra" v-else>sin período anterior con que comparar</span>
                     </div>
+                    <!-- «Neto» va escrito, no supuesto. El total del documento
+                         lleva IVA y el del panel no, y sin decirlo el vendedor
+                         suma su lista a mano y no le cuadra. -->
                     <div class="cuantos">
-                        {{ venta.n }} {{ venta.n === 1 ? 'nota de venta' : 'notas de venta' }}
+                        {{ venta.n }} {{ venta.n === 1 ? 'nota de venta' : 'notas de venta' }} · neto
                     </div>
                 </div>
 
@@ -510,6 +513,10 @@ const pct = computed(() => {
                 </div>
                 <div class="embudo-pie" v-else>
                     Sin cotizaciones en el período: no hay conversión que medir.
+                </div>
+                <div class="embudo-pie">
+                    Todos los montos del panel van <b>netos</b>, sin IVA. En la lista y en
+                    la ficha de cada documento sale el total que paga el cliente.
                 </div>
 
                 <!-- Cómo se vende, no cuánto. Las tres van juntas porque se

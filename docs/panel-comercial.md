@@ -12,6 +12,12 @@
 > del ámbito empresa da 134 cotizaciones y 34 notas de venta por $79,3 MM,
 > exactamente lo que devuelve SQL Server.
 
+> **Corrección 2026-09-14**: los montos del panel son **neto afecto + neto
+> exento**, no `CtMonto`/`nvMonto`. El IVA no es venta, y además no infla
+> parejo: lo afecto sube 19 % y lo exento no. Septiembre del vendedor 2 son
+> $43,8 MM con IVA y **$37,9 MM netos**. La lista y la ficha siguen mostrando
+> el total con IVA, que es lo que paga el cliente y lo que sale impreso.
+
 ## 0. La conclusión, antes del detalle
 
 Se pueden calcular **hoy y con datos reales** el embudo completo hasta
