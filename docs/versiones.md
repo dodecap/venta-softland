@@ -42,6 +42,20 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.7.1 — El teclado de Android impedía que la búsqueda filtrara sola
+*2026-09-14*
+
+- **La búsqueda instantánea de 0.7.0 no llegó al teléfono de verdad.** En el
+  navegador de escritorio filtraba sola; en Android sólo filtraba al tocar la
+  lupa del teclado. La causa: el campo era `type="search"`, y en el WebView
+  del teléfono ese tipo no dispara el evento de cada tecla mientras se compone
+  la palabra —el texto se ve escrito porque el navegador lo pinta igual, pero
+  Vue no se entera hasta que se confirma con la lupa o el campo pierde el
+  foco—. Es `Buscador.vue`, así que un solo archivo corrige cliente, producto,
+  centro de costo, cotizaciones y notas de venta a la vez. Ahora es
+  `type="text"` con `inputmode="search"` y `enterkeyhint="search"`: mismo
+  teclado, mismo ícono, sin el problema.
+
 ### 0.7.0 — Búsqueda instantánea, centro de costo buscable, el panel recuerda lo elegido y se pone al día solo
 *2026-09-14*
 

@@ -8,6 +8,14 @@ import AppIcon from './AppIcon.vue';
  * Emite con retraso a propósito. Buscar en IndexedDB es rápido, pero dibujar
  * cincuenta fichas en cada letra no lo es, y quien escribe «rojas» genera cinco
  * búsquedas de las que solo importa la última.
+ *
+ * El `<input>` es `type="text"`, no `type="search"`. Con `search` el teclado de
+ * Android muestra el mismo ícono de lupa, pero en el WebView del teléfono el
+ * evento `input` no llega mientras se compone la palabra — el navegador pinta
+ * lo que se escribe, mas Vue no se entera hasta que se toca el botón de buscar
+ * del teclado o el campo pierde el foco. Es decir: el filtro parecía manual
+ * porque, para ese `type`, *lo era*. `inputmode` y `enterkeyhint` bastan para
+ * el mismo teclado y el mismo ícono, sin el problema.
  */
 const props = defineProps({
     modelValue: { type: String, default: '' },
@@ -38,7 +46,7 @@ function limpiar() {
 <template>
     <div class="campo-buscar">
         <AppIcon name="buscar" :size="18" />
-        <input v-model="texto" type="search" :placeholder="placeholder"
+        <input v-model="texto" type="text" inputmode="search" enterkeyhint="search" :placeholder="placeholder"
                autocapitalize="off" autocomplete="off" spellcheck="false">
         <!-- La X aparece solo cuando hay algo que borrar: un botón que no hace
              nada es peor que no tener botón. -->

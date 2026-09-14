@@ -705,6 +705,30 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       navegador simulando `visibilitychange`: la sincronización se dispara al
       volver y el plazo la frena si se repite antes de los 5 minutos.
 
+### El teclado de Android impedía que la búsqueda filtrara sola
+- [x] **`type="search"` no dispara el evento de cada tecla en el WebView del
+      teléfono.** La corrección de arriba (el número de turno) era real, pero
+      no era la causa de lo que reportó el vendedor: en el navegador de
+      escritorio la búsqueda instantánea funcionaba de punta a punta, y en el
+      teléfono seguía sin filtrar sola. Un video de pantalla lo mostró: el
+      texto se ve escrito letra por letra —el navegador lo pinta igual,
+      escuche Vue o no— pero la lista sólo se actualiza cuando se toca la lupa
+      del teclado. Con `type="search"`, Android compone la palabra completa
+      antes de avisarle a la página; el `input` de Vue no se entera hasta que
+      se confirma con la lupa o el campo pierde el foco. Se reprodujo también
+      con un campo que ni siquiera toca IndexedDB —centro de costo, que filtra
+      en memoria— y se comportaba igual, lo que descartó IndexedDB o la
+      sincronización de fondo como culpables y apuntó al `<input>` mismo.
+      `Buscador.vue` es el único componente detrás de cliente, producto,
+      centro de costo, cotizaciones, notas de venta y clientes/productos en
+      lista, así que arreglarlo ahí alcanza para los seis. Ahora es
+      `type="text"` con `inputmode="search"` y `enterkeyhint="search"`: mismo
+      teclado, mismo ícono de lupa, sin el problema. `Usuarios.vue` tenía su
+      propio campo con el mismo `type="search"` suelto y se corrigió igual.
+      Sin poder probarlo en un WebView de Android real desde aquí, la
+      confirmación definitiva queda pendiente de que el vendedor lo pruebe en
+      el teléfono.
+
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
   tiene filas porque el SMTP todavía no está configurado, y el único usuario
