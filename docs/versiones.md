@@ -42,6 +42,37 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.6.0 — Venta es la nota aprobada, y cada lista se actualiza sola
+*2026-09-14*
+
+- **Venta es la nota de venta aprobada (`A`) o concluida (`C`).** La pendiente
+  no suma al KPI ni al embudo ni al ticket; se informa aparte, bajo el número
+  grande, y desde ahí se abre la lista con esas notas. En septiembre del
+  vendedor 2 la diferencia son $2,4 MM de 6 notas, de las que 4 están
+  aprobadas.
+- **La nota de venta nace aprobada donde el ERP no exige aprobación.** Estaba
+  al revés: con `nwparam.CheckApruebaNv = N` la app la escribía en `P`, así que
+  la venta del vendedor no aparecía en su propio panel. El Softland de
+  escritorio las escribe en `A` —736 de 800, con `nvFeAprob` vacío—, y ahora la
+  app hace lo mismo. Corregirla y anularla dejaron de mirar sólo el estado:
+  miran si **alguien la aprobó** y si ya avanzó a factura, picking o compra.
+- **Tirar hacia abajo para actualizar** en cotizaciones, notas de venta,
+  clientes y productos, con su botón al lado por si el gesto no se descubre.
+  Baja sólo esa lista —las cotizaciones con su detalle son 1.096 filas de las
+  14.184 del teléfono— y cada pantalla dice cuándo se actualizó ella, no la app
+  entera.
+- **Buscar en Softland un documento más viejo que los 12 meses que se
+  descargan.** Se escribe el número en el buscador de la lista y, si no está en
+  el teléfono y hay señal, se ofrece traerlo. Se ve, se duplica y no se guarda:
+  si se guardara, el panel contaría cotizaciones de 2024 entre las vencidas. El
+  alcance por vendedor no se toca — la de otro sigue siendo 404.
+- **Las emisiones dejaron de heredarse entre documentos con el mismo número.**
+  `ventas.documento_emision` guardaba el número y nada más: la cotización 8553
+  se entregó por WhatsApp, la borraron desde el escritorio de Softland, y la
+  8553 siguiente —otro cliente, otro vendedor— nacía diciendo «ya se le entregó
+  al cliente» y no se podía borrar. Ahora cada versión lleva `creado_en`, la
+  misma huella que ya usaba `documento_app`.
+
 ### 0.5.0 — Panel de control comercial
 *2026-09-14*
 

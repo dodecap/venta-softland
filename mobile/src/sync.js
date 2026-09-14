@@ -39,13 +39,49 @@ export const inventarioLocal = ref({});
 let cancelado = false;
 
 /**
+ * Qué maestros hay detrás de cada pantalla.
+ *
+ * Existe para el refresco de una sola lista: el vendedor tira de la pantalla
+ * de cotizaciones hacia abajo y baja **eso**, no los veintiún maestros. Una
+ * cabecera sin su detalle no sirve de nada, así que van juntos.
+ *
+ * El mapa vive aquí y no en cada pantalla por la misma razón de siempre: dos
+ * copias de la lista son el día en que alguien refresca cotizaciones y el
+ * detalle se queda con los precios de la semana pasada.
+ */
+export const GRUPOS = {
+    cotizaciones: ['cotizaciones', 'cotizacion_lineas'],
+    notas_venta: ['notas_venta', 'nota_venta_lineas'],
+    clientes: ['clientes', 'contactos'],
+    productos: ['productos', 'precios'],
+};
+
+/**
+ * Refresca sólo lo que hay detrás de una pantalla.
+ *
+ * Es el tirón hacia abajo. Cuesta lo que cuesta ese grupo —las cotizaciones
+ * con su detalle son 1.096 filas de las 14.184 del teléfono— y por eso se
+ * puede hacer a cada rato, que es justo lo que hace falta: Softland no tiene
+ * cómo avisar de que alguien cambió un documento desde el escritorio.
+ */
+export function refrescarGrupo(nombre) {
+    const solo = GRUPOS[nombre];
+
+    if (! solo) throw new Error(`No hay grupo de sincronización «${nombre}».`);
+
+    return sincronizar({ solo });
+}
+
+/**
  * Baja todo lo que falte.
  *
  * @param {boolean} completa Fuerza descarga completa de todo, ignorando lo que
  *                           ya haya. Es el botón «volver a descargar» de Cuenta,
  *                           para cuando algo quedó raro y no se sabe por qué.
+ * @param {string[]|null} solo Sólo estos maestros. El resto ni se cuenta en el
+ *                           servidor. `null` es todo, que es lo normal.
  */
-export async function sincronizar({ completa = false } = {}) {
+export async function sincronizar({ completa = false, solo = null } = {}) {
     if (sincronizando.value) return null;
 
     cancelado = false;
@@ -55,7 +91,7 @@ export async function sincronizar({ completa = false } = {}) {
     const resumen = { recursos: 0, filas: 0, errores: [] };
 
     try {
-        const { recursos } = await api.catalogo();
+        const { recursos } = await api.catalogo(solo);
         progreso.value.recursos = recursos.length;
 
         for (const [i, def] of recursos.entries()) {
@@ -80,7 +116,10 @@ export async function sincronizar({ completa = false } = {}) {
             }
         }
 
-        await db.setSincronizado(new Date().toISOString());
+        // La marca de «sincronizado» es de la sincronización entera. Un
+        // refresco de una lista no la mueve: si la moviera, Cuenta diría que
+        // el teléfono está al día con todo por haber bajado dos maestros.
+        if (! solo) await db.setSincronizado(new Date().toISOString());
         await refrescarInventarioLocal();
 
         if (resumen.errores.length) ultimoError.value = resumen.errores[0];

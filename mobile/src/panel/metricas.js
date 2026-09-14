@@ -14,6 +14,9 @@
  *   no es venta y además no infla parejo, porque lo exento no lo lleva.
  * - Lo anulado (`N`) no cuenta en ninguna parte. Lo perdido (`R`) sí cuenta
  *   como cotizado —se cotizó— y no cuenta como vendido.
+ * - **Venta es la nota de venta aprobada** (`A`) o concluida (`C`). La que
+ *   sigue pendiente (`P`) todavía no la autorizó nadie: sumarla es contar como
+ *   venta algo que puede no ocurrir.
  * - La conversión se mide sobre la **cohorte del período**: de las
  *   cotizaciones hechas este mes, cuántas llegaron a nota de venta. Contar las
  *   NV del mes contra las cotizaciones del mes deja que una NV de una
@@ -26,6 +29,26 @@
 
 /** Nulo en los dos documentos. Es «nula», no «nueva». */
 const ANULADO = 'N';
+
+/**
+ * Los estados de nota de venta que **son una venta**.
+ *
+ * `A` es aprobada y `C` concluida —la que ya terminó su vida, despachada y
+ * facturada—. Las dos son ventas; la segunda, más todavía.
+ *
+ * Fuera queda `P`, pendiente: una nota de venta escrita que nadie autorizó
+ * aún. En INNOVAGES son 16 de 800 y el ERP escribe las suyas directamente en
+ * `A`, así que una en `P` es de verdad una que quedó esperando, no el estado
+ * normal de nacer. Contarla como venta es anunciar plata que puede no entrar,
+ * y es la diferencia entre las 6 notas de septiembre del vendedor 2 y las 4
+ * que están aprobadas.
+ *
+ * `N` no está por partida doble: es nula, y lo nulo no cuenta en ninguna parte.
+ */
+const VENTA = ['A', 'C'];
+
+/** La que está escrita y todavía no autorizada. No es venta, pero se avisa. */
+const POR_APROBAR = 'P';
 
 const est = (f) => (f.estado || '').trim().toUpperCase();
 const dentro = (f, r) => {
@@ -93,11 +116,22 @@ export function calcular({ cotizaciones = [], notas = [], rango, vendedores = nu
     const nv = notas.filter((f) => suyo(f) && est(f) !== ANULADO);
 
     const cotPeriodo = cot.filter((f) => dentro(f, rango));
-    const nvPeriodo = nv.filter((f) => dentro(f, rango));
+    // Lo que se cuenta como venta son las aprobadas y las concluidas. Las
+    // pendientes se apartan, no se pierden: se informan por separado para que
+    // el vendedor sepa por qué su cifra no es la suma de sus notas.
+    const nvPeriodo = nv.filter((f) => dentro(f, rango) && VENTA.includes(est(f)));
+    const nvEsperando = nv.filter((f) => dentro(f, rango) && est(f) === POR_APROBAR);
 
     // Qué cotizaciones acabaron en nota de venta. Se mira contra **todas** las
     // notas bajadas, no sólo las del período: una cotización de fin de mes que
     // se convierte al mes siguiente sí convirtió.
+    //
+    // Y aquí sí entran las pendientes, a diferencia del monto vendido. La
+    // pregunta que responde la conversión es «¿llegó a nota de venta?», y una
+    // nota de venta sin aprobar es una nota de venta: la cotización quedó en
+    // `V` en Softland y la lista la muestra «en nota de venta». Si la
+    // conversión las dejara fuera, el panel diría que no convirtió una
+    // cotización que la propia lista da por convertida.
     const convertidas = new Set(nv.map((f) => Number(f.cotizacion)).filter(Boolean));
     const conNv = cotPeriodo.filter((f) => convertidas.has(Number(f.numero)));
 
@@ -124,6 +158,8 @@ export function calcular({ cotizaciones = [], notas = [], rango, vendedores = nu
         rango,
         cotizado,
         vendido,
+        // Escrito y sin autorizar: no suma a la venta y por eso hay que verlo.
+        esperando: agregar(nvEsperando),
         perdidas,
         conversion: cotizado.n ? { pct: (conNv.length * 100) / cotizado.n, n: conNv.length, base: cotizado.n } : null,
         cierre: mediana(cierres),

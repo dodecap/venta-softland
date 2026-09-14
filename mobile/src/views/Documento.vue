@@ -5,7 +5,7 @@ import { api } from '../api';
 import { db } from '../db';
 import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
-import { TIPOS, estado, lineasDe, avanceFacturacion } from '../documentos';
+import { TIPOS, estado, enriquecerLineas, lineasDe, avanceFacturacion } from '../documentos';
 import { conectado } from '../red';
 import { compartirPdf, olvidarPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
@@ -36,6 +36,22 @@ const error = ref('');
 const aviso = ref('');
 const trabajando = ref(false);
 
+/*
+ * Este documento no está en el teléfono: se trajo del servidor.
+ *
+ * Pasa con los más viejos que la ventana de doce meses — la cotización 8000 es
+ * de marzo de 2024 — a los que se llega escribiendo su número en el buscador
+ * de la lista. Se ven igual que los demás y se dicen distintos, porque lo son:
+ * hacen falta señal y no están guardados, así que fuera de cobertura esta
+ * pantalla se queda vacía.
+ *
+ * Y **no se guardan**. Meterlos en IndexedDB parecería un favor y sería un
+ * problema: el panel cuenta lo que hay en el almacén, y una cotización
+ * pendiente de 2024 entraría a la cuenta de las vencidas y al monto del
+ * embudo.
+ */
+const delServidor = ref(false);
+
 // Si el PDF ya está en el teléfono, verlo y mandarlo funcionan sin señal.
 const papelGuardado = ref(null);
 
@@ -62,15 +78,42 @@ watch(numero, cargar);
 async function cargar() {
     cargando.value = true;
     error.value = '';
+    delServidor.value = false;
     try {
         doc.value = await idb.obtener(def.value.almacen, numero.value);
         lineas.value = doc.value ? await lineasDe(tipo.value, numero.value) : [];
+
+        // Lo que no está en el teléfono se pide al servidor. Es la única
+        // pantalla que lo hace, y sólo cuando no hay nada que mostrar: con el
+        // documento bajado manda lo bajado, que es lo que funciona sin señal.
+        if (! doc.value && conectado.value) await traerDelServidor();
+
         cliente.value = doc.value ? await idb.obtener('clientes', doc.value.cliente) : null;
         papelGuardado.value = doc.value ? await pdfGuardado(tipo.value, numero.value) : null;
-        await refrescarDelServidor();
+        if (! delServidor.value) await refrescarDelServidor();
     } finally {
         cargando.value = false;
     }
+}
+
+/**
+ * El documento entero desde la API: cabecera, detalle y lo suyo.
+ *
+ * Un 404 aquí no es un fallo que haya que gritar: quiere decir que ese número
+ * no existe o no es de este vendedor, y la pantalla ya sabe decir «no está».
+ */
+async function traerDelServidor() {
+    try {
+        const r = esCotizacion.value
+            ? await api.cotizacion(numero.value)
+            : await api.notaVenta(numero.value);
+
+        doc.value = esCotizacion.value ? r.cotizacion : r.nota_venta;
+        lineas.value = await enriquecerLineas(r.lineas ?? []);
+        seguimientos.value = r.seguimientos ?? [];
+        aprobacion.value = r.aprobacion ?? null;
+        delServidor.value = true;
+    } catch { /* no está, o no es suyo: la pantalla lo dice sola */ }
 }
 
 /**
@@ -92,12 +135,28 @@ async function refrescarDelServidor() {
 const esCotizacion = computed(() => tipo.value === 'cotizacion');
 
 /**
- * En qué estados el documento todavía admite cambios. Igual que en el servidor
- * (`CotizacionController::EDITABLES`).
+ * En qué estados el documento todavía admite cambios.
  *
- * Sólo el pendiente. Ojo: `N` **no** entra, porque en Softland es «nula».
+ * La cotización, sólo pendiente. Ojo: `N` **no** entra, porque en Softland es
+ * «nula».
+ *
+ * La nota de venta tiene una vuelta más. Donde el ERP no exige aprobación
+ * —`nwparam.CheckApruebaNv = N`, que es el caso de INNOVAGES— la NV **nace en
+ * `A`**, igual que las que escribe el Softland de escritorio. Si `A` cerrara
+ * el documento, el vendedor no podría corregir la que acaba de grabar. Lo que
+ * lo cierra es que alguien la haya aprobado, y eso se lee en `fecha_aprobacion`
+ * (`nvFeAprob`).
+ *
+ * Aquí sólo se sabe lo que se ve. Si además se facturó o tiene picking, lo
+ * sabe el servidor y responde 409; es el mismo trato que `borrable`.
  */
-const editable = computed(() => ['P', ''].includes((doc.value?.estado || '').trim()));
+const editable = computed(() => {
+    const e = (doc.value?.estado || '').trim().toUpperCase();
+
+    if (esCotizacion.value) return ['P', ''].includes(e);
+
+    return ['P', ''].includes(e) || (e === 'A' && ! doc.value?.fecha_aprobacion);
+});
 
 const puedeConvertir = computed(() => esCotizacion.value && editable.value);
 
@@ -115,7 +174,8 @@ const anulable = computed(() => editable.value);
  * contesta el servidor, que es el único que sabe si esto se facturó, si generó
  * picking o si el PDF ya salió al cliente.
  */
-const borrable = computed(() => ['P', 'N', ''].includes((doc.value?.estado || '').trim()));
+const borrable = computed(() => ['P', 'N', ''].includes((doc.value?.estado || '').trim())
+    || (! esCotizacion.value && editable.value));
 
 async function perder() {
     if (! formPerdida.value.motivo) return;
@@ -361,11 +421,26 @@ function cantidad(n) {
         <div class="contenido">
             <div class="cargando" v-if="cargando">Cargando…</div>
 
+            <Vacio v-else-if="! doc && ! conectado" icono="sinRed"
+                   :titulo="`No tenemos la ${def.singular.toLowerCase()} ${numero}`">
+                No está en el teléfono y ahora no hay señal para buscarla en Softland.
+                Vuelve a intentarlo con cobertura.
+            </Vacio>
+
             <Vacio v-else-if="! doc" icono="sinResultados" :titulo="`No tenemos la ${def.singular.toLowerCase()} ${numero}`">
-                Puede ser de otro vendedor, o de antes de los últimos 12 meses.
+                Tampoco está en Softland con ese número, o es de otro vendedor.
             </Vacio>
 
             <template v-else>
+                <!-- Se trajo del servidor, no estaba en el teléfono. Se dice,
+                     porque cambia lo que se puede esperar de ella: sin señal
+                     esta pantalla se queda vacía. -->
+                <Aviso tipo="info" v-if="delServidor">
+                    Esta {{ def.singular.toLowerCase() }} es anterior a los 12 meses que se
+                    descargan al teléfono: se acaba de traer de Softland y no queda guardada.
+                    Sin señal no se puede abrir.
+                </Aviso>
+
                 <div class="ficha">
                     <h2>{{ monto(doc.total, doc.moneda) }}</h2>
                     <div class="sub">

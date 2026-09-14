@@ -1594,6 +1594,29 @@ select.filtro-grupo { margin-bottom: 12px; }
 .protagonista .cuantos { font-size: 12px; color: var(--texto-suave); margin-top: 4px; }
 .protagonista .contra { font-size: 12px; color: var(--texto-suave); }
 
+/* Lo escrito que todavía no cuenta como venta. Va dentro del KPI, no en una
+   sección aparte: es la explicación de por qué el número grande no es la suma
+   de las notas que el vendedor tiene en la lista, y esa duda se resuelve donde
+   nace. Es pulsable, así que mantiene sus 44 px pase lo que pase con `--d`. */
+.protagonista .esperando {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin-top: calc(8px * var(--d));
+    padding: 8px 10px;
+    border: 1px solid var(--ic-aviso-bg);
+    border-radius: var(--radio);
+    background: var(--ic-aviso-bg);
+    color: var(--ic-aviso-fg);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: left;
+}
+.protagonista .esperando span { flex: 1; }
+
 /* La tendencia lleva siempre flecha, no sólo color: a pleno sol y para quien
    no distingue rojo de verde, el color por sí solo no es una señal. */
 .tendencia {
@@ -1804,5 +1827,74 @@ select.filtro-grupo { margin-bottom: 12px; }
     background: var(--indigo-suave);
     border: 0;
     border-radius: 999px;
+    cursor: pointer;
+}
+
+/* ---------- Tirar para actualizar ----------
+   El indicador vive dentro del contenedor que se desplaza y no ocupa nada
+   mientras no se tira. La altura la escribe el gesto, así que aquí no hay
+   transición durante el arrastre: el indicador tiene que seguir al dedo, no
+   ir detrás de él. La que sí hay es la de volver a cero al soltar. */
+.tirador {
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+.tirador.trabajando { transition: height .18s ease; }
+.tirador .senal {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    /* 12 px es el piso de lectura y por eso no se escala con `--d`. */
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--texto-suave);
+}
+
+/* El botón de actualizar de la cabecera de una lista. Existe porque el gesto
+   no se ve: quien no lo descubra tiene que poder llegar igual. Sus 44 px son
+   de área pulsable y no se escalan nunca. */
+.actualizar-lista {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--texto-medio);
+    background: none;
+    border: 0;
+    cursor: pointer;
+}
+.actualizar-lista:disabled { opacity: .55; }
+
+/* La línea que dice cuándo se refrescó esta lista, no la app entera. */
+.cuando-lista {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--texto-suave);
+}
+
+/* La fila que ofrece ir a buscar un documento viejo a Softland. Es una acción,
+   no un resultado: por eso lleva la franja cian de «esto es del servidor» y la
+   comilla de avanzar, y se distingue de las filas de documento que tiene
+   encima y debajo. */
+.item.buscar-servidor {
+    width: 100%;
+    align-items: center;
+    padding-right: 10px;
+    text-align: left;
+    font-family: inherit;
+    border: 1px dashed var(--borde);
+    background: none;
+    box-shadow: none;
     cursor: pointer;
 }

@@ -133,7 +133,7 @@ export const api = {
     // ---- Maestros para trabajar sin señal (el orquestador está en sync.js) ----
 
     /** Qué maestros hay y cuántas filas tiene cada uno hoy en Softland. */
-    catalogo: () => pedir('/catalogo'),
+    catalogo: (solo = null) => pedir('/catalogo' + (solo?.length ? `?solo=${solo.join(',')}` : '')),
 
     /**
      * Una página de un maestro. `desde` trae solo lo cambiado desde esa hora y

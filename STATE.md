@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-14 — versión **0.5.0**
+2026-09-14 — versión **0.6.0**
 
 ## Resumen del estado actual
-**Versión 0.5.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.6.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -513,6 +513,84 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] **Corregido el rótulo del período anterior**: `rango('hoy', ayer)`
       devolvía la etiqueta «Hoy», y el panel comparaba «vs. hoy». Ahora «Hoy» y
       «Esta semana» sólo se llaman así cuando contienen el día de verdad.
+- [x] **El panel mide en neto**, no en el total con IVA: neto afecto + neto
+      exento. El IVA no es venta y además no infla parejo, porque lo exento no
+      lo lleva. Lo dice escrito en dos sitios del panel, y dos filas de las
+      pruebas traen un `total` disparatado para que la suite se caiga si
+      alguien vuelve a sumar esa columna.
+
+### Venta es la nota de venta aprobada
+- [x] **Sólo `A` y `C` cuentan como venta.** La pendiente (`P`) está escrita y
+      sin autorizar: no entra en el KPI, ni en el embudo, ni en el ticket, ni
+      en el tiempo de cierre. Se informa **aparte**, bajo el número grande —«2
+      notas más esperan aprobación · $2,4 MM que todavía no cuenta»— y desde
+      ahí se abre la lista filtrada (`/notas-venta?estado=P`). Sin eso, el
+      vendedor cuenta seis notas en su lista, el panel dice cuatro y la
+      diferencia parece un error de la app.
+      La **conversión** sí las cuenta: la pregunta ahí es «¿llegó a nota de
+      venta?», y la cotización ya quedó en `V` en Softland.
+- [x] **Arreglado el estado con que nace la nota de venta.** Estaba invertido:
+      `estadoInicialNotaVenta()` devolvía `P` cuando `nwparam.CheckApruebaNv`
+      valía `N`, o sea que en INNOVAGES —que lo tiene en `N`— la app escribía
+      todas sus notas de venta pendientes de una aprobación que el ERP no pide.
+      Los datos lo dicen: de las 800 notas de la base **736 están en `A` y sólo
+      8 tienen `nvFeAprob`**, así que el Softland de escritorio las escribe
+      aprobadas de entrada. Con la corrección de arriba el efecto era doble: la
+      venta del vendedor no aparecía en su propio panel.
+- [x] **Corregir y anular una NV dejaron de mirar sólo `nvEstado`.** Si `A`
+      cerrara el documento, el vendedor no podría tocar la que acaba de
+      escribir. La regla completa está en `Ventas::corregibleNotaVenta()`: que
+      nadie la haya aprobado (`nvFeAprob` vacío) y que no haya avanzado a
+      factura, picking o compra. El teléfono repite la mitad que puede ver y el
+      servidor contesta 409 con el resto.
+
+### Tirar hacia abajo para actualizar
+- [x] **Refresco por lista** en cotizaciones, notas de venta, clientes y
+      productos (`mobile/src/refresco.js`, `sync.js` → `GRUPOS`,
+      `GET /api/catalogo?solo=…`). Baja sólo esa pantalla: cotizaciones con su
+      detalle son 1.096 filas de las 14.184 del teléfono, notas de venta 227.
+      Cada lista dice **cuándo se actualizó ella**, no la app entera, y lleva
+      un botón «Actualizar» al lado, porque un gesto que no se ve no existe
+      para quien no lo descubre.
+- [x] **Es descarga completa del maestro, a propósito.** No hay forma de
+      preguntarle a Softland qué cambió: `nwcotiza` sólo tiene
+      `FechaHoraCreacion`, que no se mueve cuando la cotización pasa a vendida
+      o a perdida, y `nw_nventa.FechaUlMod` está lleno en 15 de 800 filas —las
+      que escribió esta app— porque el escritorio no lo toca. Como es completa,
+      el barrido por sello se entera también de **lo borrado**. Comprobado
+      borrando la NV 2063 del teléfono e inventando una 999999: tras el tirón,
+      la 2063 volvió y la inventada desapareció, sin tocar clientes ni
+      cotizaciones.
+- [x] El gesto sólo arranca con la lista arriba del todo, tiene resistencia de
+      un medio, tope de 104 px y umbral de 68. Probado con eventos táctiles:
+      tirón corto, lista desplazada y arrastre hacia arriba no disparan nada.
+
+### Buscar en Softland un documento más viejo
+- [x] **La ventana de 12 meses y el alcance por vendedor se separaron.** Eran
+      el mismo `filtro` del maestro y hacían dos trabajos distintos: uno es
+      equipaje y el otro es permiso. `Maestros::uno()` y `varios()` aceptan
+      `ventana: false`, y `GET /cotizaciones/{n}` y `/notas-venta/{n}` la
+      levantan. El alcance **no** se toca: comprobado contra la API con tres
+      tokens — el vendedor 2 obtiene la 8000 (de 2024, suya) y 404 en la 8360
+      (del vendedor 19); el supervisor, 404; el administrador, 200.
+- [x] **Se llega escribiendo el número en el buscador de la lista.** Si no hay
+      nada con él en el teléfono y hay señal, aparece «Buscar la Nº 8000 en
+      Softland». La ficha se abre igual que cualquier otra, con un aviso de que
+      viene del servidor y **no queda guardada**: en IndexedDB ensuciaría el
+      panel, donde entraría a contarse entre las vencidas de hace dos años.
+- [x] **Las emisiones dejaron de heredarse entre documentos con el mismo
+      número.** Salió probando lo de arriba: al crear una cotización de prueba
+      le tocó el número 8553, que ya había tenido otra —de otro cliente y otro
+      vendedor— entregada por WhatsApp el 13-09 y borrada después desde el
+      Softland de escritorio. La nueva nacía con el historial de entregas de la
+      muerta, así que decía «ya se le entregó al cliente» y no se podía borrar.
+      `ventas.documento_emision` guardaba sólo el número; ahora lleva
+      `creado_en`, la misma huella que ya usaba `documento_app`, y la comprueban
+      `Emision::versiones()` y `Ventas::entregado()`. La migración se llevó la
+      única fila que había —la de esa 8553 muerta— con su PDF.
+- [x] **Duplicar también funciona con esas.** Volver a cotizarle a un cliente
+      lo de 2024 es el caso bueno de la copia. Probado: la 8000 se abre como
+      cotización nueva con su cliente, su línea y sus $300.196 exentos.
 
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
@@ -549,13 +627,19 @@ vendibles, 12 meses de documentos y solo los del vendedor).
   13-09-2026 por una prueba de la fase 2. El dato de negocio se restauró (su
   teléfono volvió a quedar vacío, como estaba); lo que no se pudo devolver es
   quién lo había tocado antes, porque la columna se sobrescribe.
-- **Queda un documento de prueba en INNOVAGES**: la cotización 8553. Las notas
-  de venta 2064 y 2065 ya no están (el máximo es 2063), así que la comprobación
-  del vendedor en nulo en las ventanas de búsqueda del ERP quedó sin hacer.
-- **La emisión de la cotización 8553 quedó marcada como entregada por WhatsApp**
-  (13-09 23:23). Es de las pruebas de la sesión anterior, no salió nada de
-  verdad, pero mientras esté ahí esa cotización no se puede eliminar desde la
-  app — sólo anular.
+- **Softland no avisa de lo que cambia, y no hay forma de preguntárselo.**
+  `nwcotiza` sólo guarda `FechaHoraCreacion`, que no se mueve al cambiar de
+  estado; `nw_nventa.FechaUlMod` existe pero lo escribe esta app, no el ERP (15
+  de 800 filas, todas desde 2026-07-22). Por eso el refresco de una lista baja
+  el maestro entero. La alternativa buena el día que duela son las bitácoras
+  `nw_lognwcotiza` (15.795 filas) y `nw_lognwnventa` (3.139), que sí registran
+  eventos del escritorio con fecha —«Estado En Nota de Venta», «Elimina»— y son
+  además la fuente del paso 5 del panel. Lo que no está comprobado es que
+  registren *toda* modificación, por ejemplo un cambio de precio en una línea.
+- **El panel suma montos sin convertir la moneda.** Hoy no se nota: las 185
+  cotizaciones y las 51 notas de venta de los 12 meses están todas en `CodMon`
+  `01`. El día que alguien cotice en UF o en dólares, el KPI sumará peras con
+  manzanas. La conversión existe (`Equivalencia.php`), pero en el servidor.
 - **INNOVAGES factura por suscripción, no por nota de venta.** La NV 2003 tiene
   10 facturas entre 2025-09 y 2026-03. Cualquier «conversión NV → factura»
   contada en documentos daría más de 100 %. El panel mide monto facturado del

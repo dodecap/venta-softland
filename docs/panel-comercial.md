@@ -12,11 +12,29 @@
 > del ámbito empresa da 134 cotizaciones y 34 notas de venta por $79,3 MM,
 > exactamente lo que devuelve SQL Server.
 
-> **Corrección 2026-09-14**: los montos del panel son **neto afecto + neto
+> **Corrección 2026-09-14 (a)**: los montos del panel son **neto afecto + neto
 > exento**, no `CtMonto`/`nvMonto`. El IVA no es venta, y además no infla
 > parejo: lo afecto sube 19 % y lo exento no. Septiembre del vendedor 2 son
 > $43,8 MM con IVA y **$37,9 MM netos**. La lista y la ficha siguen mostrando
 > el total con IVA, que es lo que paga el cliente y lo que sale impreso.
+
+> **Corrección 2026-09-14 (b)**: **venta es la nota de venta aprobada (`A`) o
+> concluida (`C`)**. La pendiente (`P`) está escrita y sin autorizar; contarla
+> es anunciar plata que puede no entrar. Afecta a la venta, al embudo, al
+> ticket y al tiempo de cierre — **no** a la conversión, que pregunta si la
+> cotización llegó a nota de venta y ahí una pendiente cuenta, porque la
+> cotización ya quedó en `V`.
+>
+> El reparto real: de las 800 notas de venta de INNOVAGES, **736 en `A`**, 45
+> nulas, 16 pendientes y 3 concluidas (las tres de 2020). Septiembre del
+> vendedor 2 son 6 notas por $9,6 MM netos, de las que **4 están aprobadas por
+> $7,2 MM**; las otras dos, $2,4 MM, salen en el panel bajo el KPI con su
+> propia línea y su enlace a la lista filtrada.
+>
+> De paso apareció un defecto que venía de la fase 3:
+> `Ventas::estadoInicialNotaVenta()` estaba **invertido** y la app escribía sus
+> notas de venta en `P` justo donde el ERP no pide aprobación. Con esta regla
+> el efecto habría sido que la venta del vendedor no aparece en su panel.
 
 ## 0. La conclusión, antes del detalle
 

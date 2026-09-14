@@ -55,7 +55,9 @@ const editando = computed(() => numero.value !== null);
  * que asigna el servidor, la idempotencia, el guardado sin señal— funciona sin
  * saber que viene de una copia.
  *
- * Sale del teléfono: duplicar no necesita señal.
+ * Sale del teléfono y no necesita señal, salvo que el original sea anterior a
+ * los doce meses que se descargan: esos no están en el aparato y hay que
+ * pedirlos a la API.
  */
 const desde = computed(() => (route.query.desde ? Number(route.query.desde) : null));
 const esNV = computed(() => tipo.value === 'nota_venta');
@@ -129,22 +131,35 @@ async function cargar() {
 }
 
 /**
- * Rearma el formulario desde lo que hay en el teléfono.
+ * Rearma el formulario desde las filas del documento.
  *
  * Sirve para corregir y para duplicar: es el mismo trabajo —volver a armar el
  * documento desde sus filas— y sólo cambia si lo que sale es el mismo
  * documento o uno nuevo.
  */
 async function cargarDocumento(num, copia = false) {
-    const doc = await idb.obtener(def.value.almacen, num);
+    let doc = await idb.obtener(def.value.almacen, num);
+    let filas = doc ? await idb.porIndice(def.value.lineas, def.value.indiceLineas, num) : [];
+
+    // Los anteriores a la ventana de doce meses no están en el teléfono, y
+    // copiar uno de esos es de los casos buenos: volver a cotizarle a un
+    // cliente lo mismo que en 2024 es escribir doce líneas a mano o traerse
+    // las que ya existen. Hace falta señal, y si no la hay se dice.
+    if (! doc && conectado.value) {
+        const traido = await traerDelServidor(num);
+        doc = traido?.doc ?? null;
+        filas = traido?.lineas ?? [];
+    }
+
     if (! doc) {
         error.value = copia
-            ? `La ${def.value.singular.toLowerCase()} Nº ${num} no está en el teléfono. Sincroniza y vuelve a entrar.`
+            ? `La ${def.value.singular.toLowerCase()} Nº ${num} no está en el teléfono`
+                + (conectado.value ? ' ni en Softland, o no es tuya.' : '. Búscala con señal.')
             : 'Ese documento no está en el teléfono. Sincroniza y vuelve a entrar.';
         return;
     }
 
-    const filas = await idb.porIndice(def.value.lineas, def.value.indiceLineas, num);
+    filas = [...filas];
     filas.sort((a, b) => a.linea - b.linea);
 
     form.value = {
@@ -185,6 +200,17 @@ async function cargarDocumento(num, copia = false) {
     }
 
     await elegirCliente(form.value.cliente, false);
+}
+
+/** El documento y su detalle desde la API, para lo que no está descargado. */
+async function traerDelServidor(num) {
+    try {
+        const r = esNV.value ? await api.notaVenta(num) : await api.cotizacion(num);
+
+        return { doc: esNV.value ? r.nota_venta : r.cotizacion, lineas: r.lineas ?? [] };
+    } catch {
+        return null;
+    }
 }
 
 /**

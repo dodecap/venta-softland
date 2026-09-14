@@ -141,6 +141,10 @@ const NV = [
     { numero: 901, cotizacion: 5, vendedor: '19', estado: 'A', fecha: '2026-09-12T00:00:00', neto: 3200000, exento: 800000 },
     { numero: 902, cotizacion: 0, vendedor: '2', estado: 'N', fecha: '2026-09-12T00:00:00', neto: 8888888, exento: 0 },
     { numero: 903, cotizacion: 0, vendedor: '2', estado: 'A', fecha: '2026-08-03T00:00:00', neto: 2400000, exento: 600000 },
+    // Escrita y sin aprobar: no es venta. Y su cotización sí convirtió.
+    { numero: 904, cotizacion: 1, vendedor: '2', estado: 'P', fecha: '2026-09-13T00:00:00', neto: 700000, exento: 300000 },
+    // Concluida: terminó su vida, despachada y facturada. Venta de las buenas.
+    { numero: 905, cotizacion: 0, vendedor: '2', estado: 'C', fecha: '2026-09-06T00:00:00', neto: 2400000, exento: 600000 },
 ];
 
 // El panel suma neto + exento y NO `total`, que lleva IVA. Estas dos filas
@@ -148,20 +152,33 @@ const NV = [
 // comprobaciones de abajo se caen.
 COT[0].total = 999999999;
 NV[0].total = 999999999;
+NV[4].total = 999999999;
 
 const todos = calcular({ cotizaciones: COT, notas: NV, rango: R });
 es(todos.cotizado.n, 5, 'cotizado del mes: sin la anulada y sin la de agosto');
 es(todos.cotizado.monto, 7600000, 'monto cotizado, la perdida incluida');
-es(todos.vendido.n, 2, 'vendido del mes: sin la anulada y sin la de agosto');
-es(todos.vendido.monto, 6000000, 'monto vendido');
+es(todos.vendido.n, 3, 'vendido del mes: la aprobada y la concluida, sin la anulada, sin la pendiente y sin la de agosto');
+es(todos.vendido.monto, 9000000, 'monto vendido');
 es(todos.perdidas.n, 1, 'una perdida');
-es(Math.round(todos.conversion.pct), 40, 'conversión: 2 de 5');
+es(Math.round(todos.conversion.pct), 60, 'conversión: 3 de 5');
 es(todos.ticket, 3000000, 'ticket promedio');
+
+// Venta es la NV aprobada o concluida. La pendiente no suma, pero tampoco
+// desaparece: se informa aparte, que es lo que explica la diferencia entre lo
+// que el vendedor cuenta en su lista y lo que dice el panel.
+es(todos.esperando.n, 1, 'una nota de venta esperando aprobación');
+es(todos.esperando.monto, 1000000, 'y su monto, que no está en lo vendido');
+es(todos.vendido.monto + todos.esperando.monto, 10000000, 'las dos cifras no se solapan');
+// Pero sí convirtió: la cotización 1 llegó a nota de venta, aunque esa nota
+// todavía no esté autorizada. La lista la muestra «en nota de venta» y el
+// panel no puede decir lo contrario.
+es(todos.conversion.n, 3, 'la cotización de la NV pendiente cuenta como convertida');
 
 const mio = calcular({ cotizaciones: COT, notas: NV, rango: R, vendedores: ['2'] });
 es(mio.cotizado.n, 4, 'ámbito yo: sin las del vendedor 19');
-es(mio.vendido.monto, 2000000, 'ámbito yo: una sola nota de venta');
-es(Math.round(mio.conversion.pct), 25, 'conversión del ámbito yo: 1 de 4');
+es(mio.vendido.monto, 5000000, 'ámbito yo: la aprobada y la concluida');
+es(mio.esperando.monto, 1000000, 'ámbito yo: lo que espera aprobación');
+es(Math.round(mio.conversion.pct), 50, 'conversión del ámbito yo: 2 de 4');
 
 // cierre: cot 2 (05-09) → NV 900 (09-09) = 4 días; cot 5 (10-09) → NV 901 (12-09) = 2
 es(todos.cierre, 3, 'cierre: mediana de 4 y 2');

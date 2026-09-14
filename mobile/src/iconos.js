@@ -20,7 +20,7 @@ import {
     Ban, Bell, BellOff, Boxes, Building2, CalendarDays, ChartNoAxesCombined, CheckCheck, ChevronLeft,
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
     CloudDownload, CloudUpload, Copy, CreditCard, Database, FileDown, FileText, Image, Inbox, Info,
-    LayoutDashboard,
+    Hourglass, LayoutDashboard,
     LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
     LifeBuoy, Percent, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
     Share2, Smartphone, Minus, Trash2, TrendingDown, TrendingUp, TriangleAlert, Type,
@@ -78,6 +78,9 @@ export const ICONOS = {
     // Las tres medidas de «Mi rendimiento». Son de la familia del dinero
     // porque hablan de cómo se vende, no de qué se vende.
     conversion: { glifo: Percent, variante: 'dinero' },
+    // Lo escrito que espera la firma de alguien. Ámbar: no es un error, es
+    // algo detenido — y detenido es exactamente lo que hay que ver.
+    esperando: { glifo: Hourglass, variante: 'aviso' },
     tiempoCierre: { glifo: Timer, variante: 'dinero' },
     ticket: { glifo: ReceiptText, variante: 'dinero' },
 

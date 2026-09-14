@@ -152,6 +152,18 @@ tocar nada de esto:
   Ninguna pantalla lee un maestro chico por su cuenta.
 - Para elegir un código de un maestro largo se usa `Selector.vue`, no un
   `<select>` pelado: 2.009 giros en un desplegable de Android no se navegan.
+- **Cada lista se refresca sola, tirando hacia abajo.** El gesto vive en
+  `mobile/src/refresco.js` y el mapa pantalla → maestros en `sync.js`
+  (`GRUPOS`); el servidor acota el inventario con `?solo=`. Se baja el maestro
+  **completo**, no lo que cambió: Softland no tiene columna que sirva —
+  `nwcotiza` sólo guarda `FechaHoraCreacion`, que no se mueve al cambiar de
+  estado, y el `FechaUlMod` de `nw_nventa` lo escribe esta app, no el ERP.
+  Como es completo, el barrido por sello se entera también de lo borrado.
+- **La ventana de 12 meses y el alcance por vendedor son cosas distintas.** La
+  primera es equipaje y se puede levantar (`Maestros::uno(..., ventana: false)`)
+  para buscar un documento viejo por su número; el segundo es permiso y no se
+  levanta nunca. Lo que se trae así **no se guarda en IndexedDB**: el panel
+  cuenta lo que hay en el almacén.
 
 ## Comandos habituales
 
@@ -189,6 +201,15 @@ tocar nada de esto:
 - **`N` es «nula», no «nueva»**, en la cotización y en la nota de venta. Los
   estados son los cuatro que admite el ERP y ningún otro — `TipoDocumento`
   los declara y `mobile/src/documentos.js` los repite con su color.
+- **La nota de venta nace aprobada si el ERP no exige aprobación.**
+  `nwparam.CheckApruebaNv`: `S` → nace en `P` y espera; `N` → nace en `A`, que
+  es lo que escribe el Softland de escritorio (736 de 800, con `nvFeAprob`
+  vacío). Lo único que la app superpone es su tope por vendedor: la que lo
+  pasa nace en `P` aunque el ERP no lo pida.
+- **`A` no significa «cerrada».** Desde que la NV nace ahí, corregirla o
+  anularla no se decide por el estado sino por `Ventas::corregibleNotaVenta()`:
+  que nadie la haya aprobado (`nvFeAprob` vacío) y que no haya avanzado a
+  factura, picking o compra.
 - **Un documento sin vendedor no existe para Softland**: no sale en las
   ventanas de búsqueda del ERP. `VenCod` nunca va en nulo; antes de escribir
   uno así, el servidor devuelve 422.
@@ -229,6 +250,10 @@ que hay que saber antes de tocar nada de esto:
 - **Lo entregado al cliente no se toca.** `ventas.documento_emision` guarda cada
   versión; corregir un documento ya enviado crea la siguiente. La huella es del
   HTML, no del PDF: dompdf le estampa la fecha dentro al archivo.
+- **Una emisión es de un documento, no de un número.** `documento_emision`
+  lleva `creado_en` igual que `documento_app`, y todas las consultas piden las
+  dos cosas. Sin eso, borrar un documento entregado y que el correlativo
+  reparta su número otra vez le pasaba el historial de entregas al siguiente.
 - **La letra no se achica para que quepa.** Si hay sesenta líneas, hay tres
   páginas.
 - **`wa.me` sólo transporta texto.** El PDF sale por la hoja de compartir de
@@ -248,6 +273,10 @@ de Softland que cambian las fórmulas. Tres que se olvidan:
   a lo largo de meses. No se calcula «conversión NV → factura» en documentos.
 - **El formato del dinero no toca el cálculo.** `mobile/src/dinero.js` recibe
   un número y devuelve un texto. `npm run pruebas` lo comprueba.
+- **Venta es la nota de venta aprobada o concluida.** La pendiente está escrita
+  y sin autorizar: no entra en el KPI, ni en el embudo, ni en el ticket, ni en
+  el tiempo de cierre. Sí entra en la **conversión**, porque la pregunta ahí es
+  «¿llegó a nota de venta?» y la cotización ya quedó en `V`.
 - **La regla se escribe una vez.** `situacion()` decide si una cotización está
   por vencer, y la usan el panel para contar y la lista para filtrar. Dos
   copias de la misma regla es un panel que dice «6» y una lista que muestra 7.
@@ -269,7 +298,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.5.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
+Versión **0.6.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
 panel comercial hasta el paso 4. Ver `STATE.md`. El mapa de tablas del flujo de
 ventas está en `docs/flujo-ventas-softland.md`, el motor de documentos en
 `docs/motor-documentos.md`, la auditoría del panel comercial en

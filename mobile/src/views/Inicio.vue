@@ -202,8 +202,8 @@ const rendimiento = computed(() => {
             rotulo: 'Ticket promedio',
             valor: dinero(a.ticket),
             sub: a.vendido.n
-                ? `${a.vendido.n} ${a.vendido.n === 1 ? 'nota de venta' : 'notas de venta'} en el período`
-                : 'Sin notas de venta en el período',
+                ? `${a.vendido.n} ${a.vendido.n === 1 ? 'nota de venta aprobada' : 'notas de venta aprobadas'} en el período`
+                : 'Sin notas de venta aprobadas en el período',
             cambio: variacion(a.ticket, b?.ticket),
         },
     ];
@@ -485,8 +485,22 @@ const pct = computed(() => {
                          lleva IVA y el del panel no, y sin decirlo el vendedor
                          suma su lista a mano y no le cuadra. -->
                     <div class="cuantos">
-                        {{ venta.n }} {{ venta.n === 1 ? 'nota de venta' : 'notas de venta' }} · neto
+                        {{ venta.n }} {{ venta.n === 1 ? 'nota de venta aprobada' : 'notas de venta aprobadas' }} · neto
                     </div>
+                    <!-- Lo escrito y sin autorizar no suma arriba, y por eso
+                         mismo tiene que verse: si no, el vendedor cuenta seis
+                         notas en su lista, el panel dice cuatro y la diferencia
+                         parece un error de la app. -->
+                    <button class="esperando" v-if="m.actual.esperando.n"
+                            @click="router.push('/notas-venta?estado=P')">
+                        <AppIcon name="esperando" :size="14" color="currentColor" />
+                        <span>
+                            {{ m.actual.esperando.n }}
+                            {{ m.actual.esperando.n === 1 ? 'nota más espera' : 'notas más esperan' }}
+                            aprobación · {{ dinero(m.actual.esperando.monto) }} que todavía no cuenta
+                        </span>
+                        <AppIcon name="avanzar" :size="14" color="currentColor" />
+                    </button>
                 </div>
 
                 <div class="seccion">
@@ -517,6 +531,8 @@ const pct = computed(() => {
                 <div class="embudo-pie">
                     Todos los montos del panel van <b>netos</b>, sin IVA. En la lista y en
                     la ficha de cada documento sale el total que paga el cliente.
+                    Y venta es la nota de venta <b>aprobada o concluida</b>: la que
+                    sigue pendiente aparece en la lista, pero no en esta cifra.
                 </div>
 
                 <!-- Cómo se vende, no cuánto. Las tres van juntas porque se

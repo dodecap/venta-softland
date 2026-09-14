@@ -9,8 +9,13 @@ import { situacion } from '../panel/metricas';
 import { TIPOS, estado } from '../documentos';
 import { useAccionCrear } from '../crear';
 import { contarPendientes, porEnviar } from '../pendientes';
+import { conectado } from '../red';
+import { refrescarGrupo } from '../sync';
+import { useTirarParaRefrescar } from '../refresco';
 import AppIcon from '../components/AppIcon.vue';
+import Aviso from '../components/Aviso.vue';
 import Buscador from '../components/Buscador.vue';
+import TirarRefrescar from '../components/TirarRefrescar.vue';
 import Vacio from '../components/Vacio.vue';
 
 /*
@@ -51,10 +56,74 @@ const sinEnviar = ref([]);
 const nombres = ref({});
 const cargando = ref(true);
 
+/* ------------------------------------------------- tirar para actualizar
+ *
+ * Un documento que cambia en el Softland de escritorio no llega solo al
+ * teléfono, y Softland no tiene columna que permita preguntar qué cambió. Lo
+ * que sí se puede es volver a bajar **esta** lista y nada más: cotizaciones
+ * con su detalle son 1.096 filas de las 14.184 del teléfono.
+ *
+ * De paso se entera de lo borrado, que es el punto ciego de la sincronización
+ * incremental: la descarga completa de un maestro barre lo que quedó con sello
+ * viejo.
+ */
+const contenido = ref(null);
+const refrescado = ref(null);
+const errorRefresco = ref('');
+
+const { distancia, refrescando, listo } = useTirarParaRefrescar(contenido, refrescar, conectado);
+
+async function refrescar() {
+    errorRefresco.value = '';
+    try {
+        await refrescarGrupo(def.value.grupo);
+        await cargar();
+        await leerRefrescado();
+    } catch (e) {
+        errorRefresco.value = e.message;
+    }
+}
+
+/**
+ * Cuándo se bajó esta lista por última vez — no la app entera, que es lo que
+ * dice Cuenta. Son dos números distintos desde que se puede refrescar una sola
+ * pantalla, y mezclarlos sería decirle al vendedor que está al día con todo
+ * por haber tirado de las cotizaciones.
+ */
+async function leerRefrescado() {
+    refrescado.value = (await idb.estado(def.value.almacen))?.sync_at || null;
+}
+
+const cuando = computed(() => {
+    if (! refrescado.value) return 'Sin descargar';
+
+    const d = new Date(refrescado.value);
+    const hoy = new Date().toDateString() === d.toDateString();
+    const hora = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    return hoy ? `Hoy ${hora}` : `${d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' })} ${hora}`;
+});
+
 onMounted(async () => {
     vigencia.value = (await db.getServidorInfo())?.vigencia_cotizacion_dias || 30;
     await cargar();
+    await leerRefrescado();
 });
+
+/*
+ * El panel puede llegar con el filtro puesto — `?estado=P` desde «2 notas más
+ * esperan aprobación». Va en un `watch` y no en el montaje porque esta
+ * pantalla se reusa: cotizaciones y notas de venta son el mismo componente, y
+ * volver a ella con otra consulta no la vuelve a montar.
+ *
+ * A partir de ahí manda la pestaña: el vendedor ya está en la lista y la
+ * cambia con el dedo.
+ */
+watch(() => route.query.estado, (v) => {
+    const pedido = String(v || '').toUpperCase();
+
+    if (def.value.estados[pedido]) filtroEstado.value = pedido;
+}, { immediate: true });
 watch([busqueda, filtroEstado, tipo, atencion], cargar);
 // La bandeja se vacía sola al volver la red, estando en otra pantalla: sin esto
 // el documento seguiría apareciendo como «sin enviar» después de haber salido.
@@ -112,6 +181,28 @@ async function cargarNombres() {
     nombres.value = mapa;
 }
 
+/* ------------------------------------------- buscar una más vieja en Softland
+ *
+ * El teléfono se lleva doce meses de documentos. Más atrás hay 2.351
+ * cotizaciones y once mil líneas: no caben, no se usan y además ensuciarían el
+ * panel, donde entrarían a contarse como vencidas de hace dos años.
+ *
+ * Pero preguntar por la 8000 tiene que funcionar. El vendedor sabe su número —
+ * se lo dijo el cliente por teléfono— y es suya. Así que si lo que se escribió
+ * es un número, no hay nada con él en el aparato y hay señal, se ofrece ir a
+ * buscarla: la ficha la pide a la API, la muestra y no la guarda.
+ */
+const numeroBuscado = computed(() => {
+    const t = busqueda.value.trim();
+
+    return /^\d{1,9}$/.test(t) ? Number(t) : null;
+});
+
+const buscarEnServidor = computed(() => ! cargando.value
+    && numeroBuscado.value !== null
+    && conectado.value
+    && ! documentos.value.some((d) => Number(d.numero) === numeroBuscado.value));
+
 /** Solo se ofrecen los estados que de verdad hay: un filtro vacío es ruido. */
 const estadosPresentes = computed(() => {
     const vistos = new Set(documentos.value.map((d) => d.estado));
@@ -135,8 +226,23 @@ function quitarAtencion() {
             <h1>{{ def.titulo }}</h1>
         </div>
 
-        <div class="contenido">
+        <div class="contenido" ref="contenido">
+            <TirarRefrescar :distancia="distancia" :refrescando="refrescando" :listo="listo"
+                            :que="def.titulo.toLowerCase()" />
+
             <Buscador v-model="busqueda" placeholder="Número, cliente o contacto" />
+
+            <!-- El gesto no se ve, así que el botón también está. Y la hora es
+                 la de esta lista, no la de la sincronización completa. -->
+            <div class="cuando-lista">
+                <span>Actualizada: {{ cuando }}</span>
+                <button class="actualizar-lista" :disabled="refrescando || ! conectado" @click="refrescar">
+                    <AppIcon name="sincronizar" :size="15" color="currentColor" :class="{ girando: refrescando }" />
+                    {{ conectado ? 'Actualizar' : 'Sin señal' }}
+                </button>
+            </div>
+
+            <Aviso tipo="error" v-if="errorRefresco">{{ errorRefresco }}</Aviso>
 
             <!-- El filtro que trajo el vendedor desde el panel, a la vista y
                  con su salida: un filtro que no se ve es una lista incompleta
@@ -158,6 +264,21 @@ function quitarAtencion() {
                    :titulo="`Sin ${def.titulo.toLowerCase()}`">
                 Aquí aparecen las de los últimos 12 meses, una vez que sincronices.
             </Vacio>
+
+            <!-- No está en el teléfono y es un número: se puede ir a buscarla.
+                 Va antes del estado vacío porque es la salida, no el consuelo. -->
+            <button class="item buscar-servidor" v-if="buscarEnServidor"
+                    @click="router.push(`${def.ruta}/${numeroBuscado}`)">
+                <div class="item-estado cian"></div>
+                <div class="item-cuerpo">
+                    <div class="item-titulo">Buscar la Nº {{ numeroBuscado }} en Softland</div>
+                    <div class="item-meta">
+                        No está en el teléfono. Si es tuya, se trae del servidor aunque sea
+                        de hace años.
+                    </div>
+                </div>
+                <AppIcon name="avanzar" :size="18" color="var(--texto-suave)" />
+            </button>
 
             <Vacio v-else-if="vacio" icono="sinResultados" titulo="Nada con esos criterios" />
 

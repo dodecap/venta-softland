@@ -279,8 +279,10 @@ class Maestros
                     'motivo_perdida' => 'CodPerd',
                     'creado' => 'FechaHoraCreacion:fecha',
                 ],
-                'filtro' => function (Builder $q, array $ctx) {
-                    $q->where('CtFem', '>=', static::desdeHistoria());
+                'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
+                    if ($ventana) {
+                        $q->where('CtFem', '>=', static::desdeHistoria());
+                    }
                     static::soloSusVendedores($q, 'VenCod', $ctx);
                 },
             ],
@@ -305,8 +307,8 @@ class Maestros
                     'descuento' => 'CtTotDesc:decimal',
                     'total' => 'CtTotLinea:decimal',
                 ],
-                'filtro' => fn (Builder $q, array $ctx) => $q->whereIn(
-                    'CotNum', static::cabecerasVisibles('softland.nwcotiza', 'CotNum', 'CtFem', 'VenCod', $ctx)
+                'filtro' => fn (Builder $q, array $ctx, bool $ventana = true) => $q->whereIn(
+                    'CotNum', static::cabecerasVisibles('softland.nwcotiza', 'CotNum', 'CtFem', 'VenCod', $ctx, $ventana)
                 ),
             ],
             'notas_venta' => [
@@ -338,8 +340,10 @@ class Maestros
                     'total' => 'nvMonto:decimal',
                     'creado' => 'FechaHoraCreacion:fecha',
                 ],
-                'filtro' => function (Builder $q, array $ctx) {
-                    $q->where('nvFem', '>=', static::desdeHistoria());
+                'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
+                    if ($ventana) {
+                        $q->where('nvFem', '>=', static::desdeHistoria());
+                    }
                     static::soloSusVendedores($q, 'VenCod', $ctx);
                 },
             ],
@@ -364,14 +368,33 @@ class Maestros
                     'facturado' => 'nvCantFact:decimal',
                     'despachado' => 'nvCantDesp:decimal',
                 ],
-                'filtro' => fn (Builder $q, array $ctx) => $q->whereIn(
-                    'NVNumero', static::cabecerasVisibles('softland.nw_nventa', 'NVNumero', 'nvFem', 'VenCod', $ctx)
+                'filtro' => fn (Builder $q, array $ctx, bool $ventana = true) => $q->whereIn(
+                    'NVNumero', static::cabecerasVisibles('softland.nw_nventa', 'NVNumero', 'nvFem', 'VenCod', $ctx, $ventana)
                 ),
             ],
         ];
     }
 
-    /** Hasta dónde atrás se lleva el vendedor sus documentos. */
+    /**
+     * Hasta dónde atrás se lleva el vendedor sus documentos.
+     *
+     * ## La ventana y el alcance son dos cosas distintas
+     *
+     * El `filtro` de los cuatro maestros de documentos hace dos trabajos: uno
+     * es el **alcance** —qué vendedores puede ver este usuario—, que es
+     * permiso y no se negocia nunca; el otro es la **ventana** de doce meses,
+     * que es sólo cuánto equipaje se lleva el teléfono.
+     *
+     * Por eso se pueden separar, y hay una pregunta donde hay que hacerlo:
+     * buscar **un** documento por su número. La cotización 8000 es de 2024 y
+     * ningún teléfono la tiene, pero es del vendedor que la pide y no hay
+     * ninguna razón para negársela. Bajarse las 2.351 de la historia para eso
+     * sí la habría: son once mil líneas y además ensuciarían el panel, donde
+     * aparecerían como cotizaciones vencidas de hace dos años.
+     *
+     * Lo que **no** se toca al quitar la ventana es el alcance. Pedir sin
+     * ventana sigue devolviendo 404 en el documento de otro vendedor.
+     */
     public static function desdeHistoria(): string
     {
         return now()->subMonths(self::MESES_HISTORIA)->startOfDay()->format('Y-m-d H:i:s');
@@ -405,10 +428,15 @@ class Maestros
     }
 
     /** Subconsulta con los números de documento que este usuario puede ver. */
-    protected static function cabecerasVisibles(string $tabla, string $pk, string $fecha, string $vendedor, array $ctx): \Closure
+    protected static function cabecerasVisibles(string $tabla, string $pk, string $fecha, string $vendedor, array $ctx, bool $ventana = true): \Closure
     {
-        return function ($q) use ($tabla, $pk, $fecha, $vendedor, $ctx) {
-            $q->select($pk)->from($tabla)->where($fecha, '>=', static::desdeHistoria());
+        return function ($q) use ($tabla, $pk, $fecha, $vendedor, $ctx, $ventana) {
+            $q->select($pk)->from($tabla);
+
+            if ($ventana) {
+                $q->where($fecha, '>=', static::desdeHistoria());
+            }
+
             static::soloSusVendedores($q, $vendedor, $ctx);
         };
     }
@@ -423,11 +451,21 @@ class Maestros
         return DB::connection('softland');
     }
 
-    /** Resumen de todos los maestros: cuántas filas tiene cada uno hoy. */
-    public function inventario(array $ctx = []): array
+    /**
+     * Resumen de los maestros: cuántas filas tiene cada uno hoy.
+     *
+     * `$solo` acota a una lista de nombres, conservando el orden declarado:
+     * las dependencias importan —el detalle de una cotización no sirve sin su
+     * cabecera— y ese orden es el de `recursos()`, no el de quien pregunta.
+     */
+    public function inventario(array $ctx = [], ?array $solo = null): array
     {
         $out = [];
         foreach (static::recursos() as $nombre => $def) {
+            if ($solo !== null && ! in_array($nombre, $solo, true)) {
+                continue;
+            }
+
             $out[] = [
                 'recurso' => $nombre,
                 'titulo' => $def['titulo'],
@@ -498,20 +536,23 @@ class Maestros
      * (cotizaciones, notas de venta y sus detalles) se cierran sin él. Quien
      * pida una cotización sin decir de parte de quién no recibe nada, que es
      * lo correcto: el camino que no sabe de permisos falla cerrado.
+     *
+     * `$ventana = false` levanta el corte de doce meses —y sólo ese— para
+     * poder buscar un documento viejo por su número. El alcance sigue puesto.
      */
-    public function uno(string $recurso, array $donde, array $ctx = []): ?array
+    public function uno(string $recurso, array $donde, array $ctx = [], bool $ventana = true): ?array
     {
         $def = static::recursos()[$recurso];
-        $fila = $this->consulta($def, $ctx)->where($donde)->first($this->columnas($def));
+        $fila = $this->consulta($def, $ctx, $ventana)->where($donde)->first($this->columnas($def));
 
         return $fila ? $this->mapear($def, $fila) : null;
     }
 
     /** Varias filas de un maestro, mapeadas igual que en la descarga. */
-    public function varios(string $recurso, array $donde, array $ctx = []): array
+    public function varios(string $recurso, array $donde, array $ctx = [], bool $ventana = true): array
     {
         $def = static::recursos()[$recurso];
-        $q = $this->consulta($def, $ctx)->where($donde);
+        $q = $this->consulta($def, $ctx, $ventana)->where($donde);
         foreach ($def['clave'] as $col) {
             $q->orderBy($col);
         }
@@ -521,12 +562,12 @@ class Maestros
 
     // ---------------------------------------------------------------- interno
 
-    protected function consulta(array $def, array $ctx = []): Builder
+    protected function consulta(array $def, array $ctx = [], bool $ventana = true): Builder
     {
         $q = $this->conn()->table($def['tabla']);
 
         if (isset($def['filtro'])) {
-            ($def['filtro'])($q, $ctx);
+            ($def['filtro'])($q, $ctx, $ventana);
         }
 
         return $q;

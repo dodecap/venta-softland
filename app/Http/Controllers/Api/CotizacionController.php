@@ -34,14 +34,14 @@ class CotizacionController extends DocumentoController
 
     // ------------------------------------------------ lo que pide la base
 
-    protected function documentoDe(int $numero): ?array
+    protected function documentoDe(int $numero, bool $ventana = true): ?array
     {
-        return $this->maestros->uno('cotizaciones', ['CotNum' => $numero], self::YA_COMPROBADO);
+        return $this->maestros->uno('cotizaciones', ['CotNum' => $numero], self::YA_COMPROBADO, $ventana);
     }
 
-    protected function lineasDocumento(int $numero): array
+    protected function lineasDocumento(int $numero, bool $ventana = true): array
     {
-        return $this->maestros->varios('cotizacion_lineas', ['CotNum' => $numero], self::YA_COMPROBADO);
+        return $this->maestros->varios('cotizacion_lineas', ['CotNum' => $numero], self::YA_COMPROBADO, $ventana);
     }
 
     protected function vendedorDelDocumento(int $numero): ?string
@@ -76,9 +76,22 @@ class CotizacionController extends DocumentoController
         return Eventos::COTIZACION_ENVIADA;
     }
 
+    /**
+     * Una cotización por su número, **de cualquier fecha**.
+     *
+     * El teléfono sólo se lleva doce meses, que es lo que cabe y lo que se
+     * usa. Pero preguntar por la 8000 de 2024 tiene que funcionar: es del
+     * vendedor que la pide y él sabe su número. Por eso aquí la ventana se
+     * levanta (`$ventana = false`) y el alcance no: una cotización de otro
+     * vendedor sigue siendo 404.
+     *
+     * `fuera_de_ventana` le dice al teléfono que esto no está en IndexedDB y
+     * que no lo guarde. Si lo guardara, el panel empezaría a contar
+     * cotizaciones de hace dos años entre las vencidas.
+     */
     public function show(Request $request, int $numero)
     {
-        $doc = $this->documentoDe($numero);
+        $doc = $this->documentoDe($numero, false);
 
         if (! $doc || ! $this->alcanza($request, $doc['vendedor'])) {
             return response()->json(['message' => $this->noEncontrado()], 404);
@@ -86,10 +99,14 @@ class CotizacionController extends DocumentoController
 
         return response()->json([
             'cotizacion' => $doc,
-            'lineas' => $this->lineasDocumento($numero),
+            'lineas' => $this->lineasDocumento($numero, false),
             'seguimientos' => $this->seguimientosDe($numero),
+            // El historial es de **este** documento. Sin la fecha de nacimiento,
+            // una cotización recién escrita heredaría las entregas de la que
+            // tuvo ese número antes de que alguien la borrara.
             'emisiones' => app(\App\Services\Documentos\Emision::class)
-                ->historial($this->tipoDoc(), $numero),
+                ->historial($this->tipoDoc(), $numero, $doc['creado'] ?? null),
+            'fuera_de_ventana' => $this->fueraDeVentana($doc),
         ]);
     }
 

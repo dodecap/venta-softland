@@ -339,7 +339,8 @@ class Ventas
     /** Lo mismo para la nota de venta, que tiene más sitios donde haber avanzado. */
     public function impedimentosNotaVenta(int $numero): array
     {
-        $v = $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)->first(['nvEstado']);
+        $v = $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)
+            ->first(['nvEstado', 'nvFeAprob']);
 
         if (! $v) {
             return ['Esa nota de venta ya no está en Softland.'];
@@ -348,9 +349,30 @@ class Ventas
         $razones = [];
         $estado = strtoupper(trim((string) $v->nvEstado));
 
-        if (! in_array($estado, ['P', 'N'], true)) {
+        // `A` no bloquea por sí sola desde que la NV nace aprobada donde el ERP
+        // no exige aprobación: si bloqueara, el vendedor no podría borrar la
+        // que acaba de escribir. Lo que bloquea es que **alguien la haya
+        // aprobado** — eso deja `nvFeAprob` escrito — o que esté concluida.
+        $intacta = in_array($estado, ['P', 'N', ''], true)
+            || ($estado === 'A' && $v->nvFeAprob === null);
+
+        if (! $intacta) {
             $razones[] = 'Está '.$this->enMinuscula(TipoDocumento::NOTA_VENTA->estado($estado)).'.';
         }
+
+        return array_merge($razones, $this->avancesNotaVenta($numero),
+            $this->impedimentosComunes('nota_venta', $numero, 'la nota de venta'));
+    }
+
+    /**
+     * Dónde ha avanzado ya una nota de venta: facturada, en picking o en una
+     * compra. Va aparte porque lo miran dos preguntas distintas — si se puede
+     * borrar y si se puede corregir desde el teléfono — y la respuesta es la
+     * misma.
+     */
+    private function avancesNotaVenta(int $numero): array
+    {
+        $razones = [];
 
         // Que esté facturada es lo más grave: `iw_gsaen` es el movimiento de
         // facturación. En 209 filas no hay una sola que apunte a una nota de
@@ -370,7 +392,34 @@ class Ventas
             }
         }
 
-        return array_merge($razones, $this->impedimentosComunes('nota_venta', $numero, 'la nota de venta'));
+        return $razones;
+    }
+
+    /**
+     * ¿Se puede corregir esta nota de venta desde el teléfono?
+     *
+     * No es lo mismo que el estado. Desde que la NV nace en `A` allí donde el
+     * ERP no pide aprobación, mirar sólo `nvEstado` dejaría al vendedor sin
+     * poder tocar la que acaba de escribir. Lo que cierra el documento es que
+     * **alguien lo haya aprobado** (`nvFeAprob`), que esté concluido o nulo, o
+     * que ya haya avanzado a factura, picking o compra.
+     */
+    public function corregibleNotaVenta(int $numero): bool
+    {
+        $v = $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)
+            ->first(['nvEstado', 'nvFeAprob']);
+
+        if (! $v) {
+            return false;
+        }
+
+        $estado = strtoupper(trim((string) $v->nvEstado));
+
+        if (! in_array($estado, ['P', 'A', ''], true) || ($estado === 'A' && $v->nvFeAprob !== null)) {
+            return false;
+        }
+
+        return $this->avancesNotaVenta($numero) === [];
     }
 
     /** Las dos condiciones que valen igual para los dos documentos. */
@@ -385,13 +434,30 @@ class Ventas
         // Emitir el PDF no basta para bloquear — mirar el documento propio no
         // es entregarlo. Lo que bloquea es que haya salido: correo, WhatsApp o
         // descarga, que es cuando `enviado_at` deja de estar en nulo.
-        if ($this->conn()->table('ventas.documento_emision')
-            ->where('tipo', $tipo)->where('numero', $numero)
-            ->whereNotNull('enviado_at')->exists()) {
+        //
+        // Y tiene que ser una entrega **de este documento**. El número se
+        // reparte de nuevo cuando el anterior se borra, y una entrega heredada
+        // dejaba al vendedor sin poder borrar lo que acababa de escribir.
+        if ($this->entregado($tipo, $numero)) {
             $razones[] = 'Ya se le entregó al cliente: anula '.$ese.' en vez de borrarla.';
         }
 
         return $razones;
+    }
+
+    /** ¿Alguna versión de **este** documento salió al cliente? */
+    private function entregado(string $tipo, int $numero): bool
+    {
+        $nacimiento = $this->conn()
+            ->table($tipo === 'nota_venta' ? 'softland.nw_nventa' : 'softland.nwcotiza')
+            ->where($tipo === 'nota_venta' ? 'NVNumero' : 'CotNum', $numero)
+            ->value('FechaHoraCreacion');
+
+        return $this->conn()->table('ventas.documento_emision')
+            ->where('tipo', $tipo)->where('numero', $numero)
+            ->whereNotNull('enviado_at')
+            ->get(['creado_en'])
+            ->contains(fn ($e) => $this->instante($e->creado_en ?? '') === $this->instante($nacimiento ?? ''));
     }
 
     /**
@@ -524,7 +590,7 @@ class Ventas
     /** Al segundo: SQL Server y PHP no siempre devuelven la misma precisión. */
     private function instante($v): string
     {
-        return \Carbon\Carbon::parse($v)->format('Y-m-d H:i:s');
+        return $v ? \Carbon\Carbon::parse($v)->format('Y-m-d H:i:s') : '';
     }
 
     // ---------------------------------------------------------------- armado
@@ -849,16 +915,32 @@ class Ventas
     /**
      * El estado con que nace una nota de venta, según el ERP.
      *
-     * Lo decide `nwparam.CheckApruebaNv`: con `S` la NV nace aprobada (`A`) y
-     * con `N` nace pendiente (`P`), a la espera de que alguien la apruebe en
-     * Softland. Es configuración del cliente, no una constante de la app: en
-     * INNOVAGES está en `N`, pero la siguiente empresa puede tenerlo al revés.
+     * Lo decide `nwparam.CheckApruebaNv`, y va en el sentido que dice su
+     * nombre: **si el ERP exige aprobar (`S`), la NV nace pendiente (`P`)** y
+     * espera a que alguien la suelte; si no la exige (`N`), nace **aprobada**
+     * (`A`), que es el único estado en que puede empezar algo que nadie tiene
+     * que autorizar.
+     *
+     * Estuvo al revés hasta la 0.6.0, y se veía en los datos: en INNOVAGES
+     * `CheckApruebaNv = N` y de las 800 notas de venta de la base **736 están
+     * en `A`**, con `nvFeAprob` lleno en apenas 8. O sea que el Softland de
+     * escritorio las escribe aprobadas de entrada, no pendientes que luego
+     * alguien aprueba — si fuera lo segundo, la fecha de aprobación estaría
+     * puesta. Las 16 en `P` son las que de verdad quedaron esperando.
+     *
+     * Importa más de lo que parece: el panel sólo cuenta como venta la nota
+     * aprobada o concluida, así que naciendo en `P` la venta del vendedor no
+     * aparecía en su propio panel hasta que alguien tocara el documento en el
+     * ERP.
+     *
+     * Es configuración del cliente, no una constante de la app: la siguiente
+     * empresa Softland puede tenerlo al revés.
      */
     public function estadoInicialNotaVenta(): string
     {
         $v = $this->conn()->table('softland.nwparam')->value('CheckApruebaNv');
 
-        return strtoupper(trim((string) $v)) === 'S' ? 'A' : 'P';
+        return strtoupper(trim((string) $v)) === 'S' ? 'P' : 'A';
     }
 
     /**

@@ -41,10 +41,10 @@ abstract class DocumentoController extends Controller
     abstract protected function recurso(): string;
 
     /** La cabecera del documento tal como la sirve el maestro, o null si no está. */
-    abstract protected function documentoDe(int $numero): ?array;
+    abstract protected function documentoDe(int $numero, bool $ventana = true): ?array;
 
     /** Las líneas del documento, tal como las sirve el maestro. */
-    abstract protected function lineasDocumento(int $numero): array;
+    abstract protected function lineasDocumento(int $numero, bool $ventana = true): array;
 
     /** El vendedor a cuyo nombre está el documento, para comprobar el alcance. */
     abstract protected function vendedorDelDocumento(int $numero): ?string;
@@ -188,6 +188,20 @@ abstract class DocumentoController extends Controller
      * supervisor lo de su gente, administración y facturación todo. Y sin
      * contexto no se abre nada.
      */
+    /**
+     * Si este documento es más viejo que lo que el teléfono se lleva.
+     *
+     * No es un error ni un permiso: es «esto no está en tu aparato, lo acabas
+     * de traer del servidor». El teléfono lo muestra con su distintivo y **no
+     * lo guarda**, para que el panel siga contando doce meses y no cinco años.
+     */
+    protected function fueraDeVentana(array $doc): bool
+    {
+        $fecha = substr((string) ($doc['fecha'] ?? ''), 0, 10);
+
+        return $fecha !== '' && $fecha < substr(Maestros::desdeHistoria(), 0, 10);
+    }
+
     protected function alcanza(Request $request, ?string $venCod): bool
     {
         $visibles = $this->usuario($request)->vendedoresVisibles();
@@ -206,6 +220,17 @@ abstract class DocumentoController extends Controller
      * estado escrito.
      */
     protected const ANULABLES = ['P', ''];
+
+    /**
+     * Si este documento admite anulación. Por el estado basta en la
+     * cotización; la nota de venta lo refina, porque desde que nace en `A`
+     * donde el ERP no pide aprobación, el estado dejó de distinguir «recién
+     * escrita» de «aprobada por alguien».
+     */
+    protected function puedeAnularse(string $estado, int $numero): bool
+    {
+        return in_array($estado, static::ANULABLES, true);
+    }
 
     /** Anula el documento en Softland: `N`, que allá quiere decir «nula». */
     abstract protected function anularEnSoftland(int $numero, Usuario $u): void;
@@ -246,7 +271,7 @@ abstract class DocumentoController extends Controller
             return response()->json(['message' => 'Ya estaba anulada.'], 409);
         }
 
-        if (! in_array($estado, static::ANULABLES, true)) {
+        if (! $this->puedeAnularse($estado, $numero)) {
             return response()->json([
                 'message' => 'No se puede anular: está '
                     .mb_strtolower($this->tipoDoc()->estado($estado), 'UTF-8').'.',
@@ -293,7 +318,9 @@ abstract class DocumentoController extends Controller
             ], 409);
         }
 
-        $emision->borrar($this->tipoDoc(), $numero);
+        // Sólo las versiones de **este** documento: el número pudo ser de otro
+        // antes, y las suyas no son nuestras para borrarlas.
+        $emision->borrar($this->tipoDoc(), $numero, $doc['creado'] ?? null);
         $liberada = $this->eliminarDeSoftland($numero, $u);
 
         return response()->json(
@@ -386,7 +413,7 @@ abstract class DocumentoController extends Controller
             conPdf: true,
         );
 
-        $emision->marcarEnviado($this->tipoDoc(), $numero, 'correo');
+        $emision->marcarEnviado($this->tipoDoc(), $numero, 'correo', $doc['creado'] ?? null);
 
         return response()->json([
             'enviada_a' => $cliente['email'],
@@ -404,14 +431,16 @@ abstract class DocumentoController extends Controller
      */
     public function compartido(Request $request, int $numero, Emision $emision)
     {
-        if (! $this->alcanza($request, $this->vendedorDelDocumento($numero))) {
+        $doc = $this->documentoDe($numero);
+
+        if (! $doc || ! $this->alcanza($request, $doc['vendedor'])) {
             return response()->json(['message' => $this->noEncontrado()], 404);
         }
 
         $canal = $request->input('canal');
         $canal = in_array($canal, ['whatsapp', 'descarga', 'impresion'], true) ? $canal : 'descarga';
 
-        $emision->marcarEnviado($this->tipoDoc(), $numero, $canal);
+        $emision->marcarEnviado($this->tipoDoc(), $numero, $canal, $doc['creado'] ?? null);
 
         return response()->json(['ok' => true]);
     }

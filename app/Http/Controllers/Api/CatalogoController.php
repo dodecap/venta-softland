@@ -17,11 +17,24 @@ class CatalogoController extends Controller
 {
     public function __construct(private Maestros $maestros) {}
 
-    /** Qué maestros hay y cuántas filas tiene cada uno hoy, para este usuario. */
+    /**
+     * Qué maestros hay y cuántas filas tiene cada uno hoy, para este usuario.
+     *
+     * `?solo=cotizaciones,cotizacion_lineas` acota la respuesta a esos. Lo usa
+     * el refresco de una sola lista —el tirón hacia abajo—, que no tiene por
+     * qué pagar los veintiún `COUNT` del inventario completo para bajar dos
+     * maestros. Un nombre que no existe se ignora en vez de romper: el teléfono
+     * puede ser más nuevo que el servidor.
+     */
     public function index(Request $request)
     {
+        $solo = array_filter(
+            array_map('trim', explode(',', (string) $request->query('solo', ''))),
+            fn ($r) => $r !== '' && Maestros::existe($r)
+        );
+
         return response()->json([
-            'recursos' => $this->maestros->inventario($this->contexto($request)),
+            'recursos' => $this->maestros->inventario($this->contexto($request), $solo ?: null),
             'meses_historia' => Maestros::MESES_HISTORIA,
             'servidor_at' => now()->toIso8601String(),
         ]);

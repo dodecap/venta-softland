@@ -37,25 +37,17 @@ class NotaVentaController extends DocumentoController
         return true;
     }
 
-    /** Estados en que una NV todavía se puede corregir. */
-    /**
-     * Los estados en que todavía se puede corregir desde el teléfono.
-     *
-     * Sólo la pendiente. `A` ya está aprobada, `C` concluida y `N` **nula** —
-     * ojo con esa, que no es «nueva».
-     */
-    private const EDITABLES = ['P', ''];
 
     // ------------------------------------------------ lo que pide la base
 
-    protected function documentoDe(int $numero): ?array
+    protected function documentoDe(int $numero, bool $ventana = true): ?array
     {
-        return $this->maestros->uno('notas_venta', ['NVNumero' => $numero], self::YA_COMPROBADO);
+        return $this->maestros->uno('notas_venta', ['NVNumero' => $numero], self::YA_COMPROBADO, $ventana);
     }
 
-    protected function lineasDocumento(int $numero): array
+    protected function lineasDocumento(int $numero, bool $ventana = true): array
     {
-        return $this->maestros->varios('nota_venta_lineas', ['NVNumero' => $numero], self::YA_COMPROBADO);
+        return $this->maestros->varios('nota_venta_lineas', ['NVNumero' => $numero], self::YA_COMPROBADO, $ventana);
     }
 
     protected function vendedorDelDocumento(int $numero): ?string
@@ -71,6 +63,17 @@ class NotaVentaController extends DocumentoController
     protected function anularEnSoftland(int $numero, Usuario $u): void
     {
         $this->ventas->anularNotaVenta($numero, $u);
+    }
+
+    /**
+     * La NV se anula mientras nadie la haya aprobado y no haya avanzado. Es la
+     * misma pregunta que la de corregirla: lo que cierra el documento no es el
+     * estado `A` —con el ERP sin aprobación obligatoria, ahí nace— sino que
+     * alguien lo firmara o que ya se facturara.
+     */
+    protected function puedeAnularse(string $estado, int $numero): bool
+    {
+        return parent::puedeAnularse($estado, $numero) || $this->ventas->corregibleNotaVenta($numero);
     }
 
     protected function eliminarDeSoftland(int $numero, Usuario $u): ?int
@@ -96,9 +99,11 @@ class NotaVentaController extends DocumentoController
      * despache contra un documento que nadie autorizó.
      *
      * La marca la pone la **aprobación pendiente de la app**, no `nvEstado`.
-     * Con `nwparam.CheckApruebaNv = N` toda nota de venta nace en `P`, así que
-     * mirar el estado marcaría todas por igual y la marca dejaría de decir
-     * nada. Desaparece sola cuando el jefe resuelve.
+     * Son dos cosas distintas: `P` en Softland quiere decir «nadie la aprobó
+     * todavía», y puede llegar ahí por el tope de la app o porque el ERP lo
+     * pide. Lo que hace que este papel salga sellado es que *este* documento
+     * tenga una solicitud abierta, y por eso la marca desaparece sola cuando el
+     * jefe resuelve.
      */
     protected function contextoDocumento(array $doc, array $lineas): array
     {
@@ -116,9 +121,15 @@ class NotaVentaController extends DocumentoController
         return $ctx;
     }
 
+    /**
+     * Una nota de venta por su número, de cualquier fecha. La razón está en
+     * `CotizacionController::show()`: el teléfono se lleva doce meses, pero
+     * preguntar por una más vieja tiene que funcionar, y el alcance por
+     * vendedor sigue puesto.
+     */
     public function show(Request $request, int $numero)
     {
-        $doc = $this->maestros->uno('notas_venta', ['NVNumero' => $numero], self::YA_COMPROBADO);
+        $doc = $this->documentoDe($numero, false);
 
         if (! $doc || ! $this->alcanza($request, $doc['vendedor'])) {
             return response()->json(['message' => 'Esa nota de venta no existe o no es tuya.'], 404);
@@ -126,8 +137,9 @@ class NotaVentaController extends DocumentoController
 
         return response()->json([
             'nota_venta' => $doc,
-            'lineas' => $this->maestros->varios('nota_venta_lineas', ['NVNumero' => $numero], self::YA_COMPROBADO),
+            'lineas' => $this->lineasDocumento($numero, false),
             'aprobacion' => $this->aprobacionDe($numero),
+            'fuera_de_ventana' => $this->fueraDeVentana($doc),
         ]);
     }
 
@@ -179,9 +191,15 @@ class NotaVentaController extends DocumentoController
             return response()->json(['message' => 'Esa nota de venta no existe o no es tuya.'], 404);
         }
 
-        if (! in_array(trim((string) $actual->nvEstado), self::EDITABLES, true)) {
+        // Quién puede corregirla no lo dice `nvEstado` a secas. Donde el ERP no
+        // exige aprobación la NV nace en `A`, así que mirar sólo el estado
+        // dejaría al vendedor sin poder tocar la que acaba de escribir. La
+        // regla completa —aprobada por alguien, concluida, nula o ya avanzada a
+        // factura, picking o compra— vive en `Ventas`.
+        if (! $this->ventas->corregibleNotaVenta($numero)) {
             return response()->json([
-                'message' => 'Esta nota de venta ya está aprobada: no se cambia desde el teléfono.',
+                'message' => 'Esta nota de venta ya no se cambia desde el teléfono: '
+                    .'la aprobaron o ya avanzó en Softland.',
             ], 409);
         }
 

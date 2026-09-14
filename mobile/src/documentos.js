@@ -25,6 +25,9 @@ export const TIPOS = {
         icono: 'cotizacion',
         ruta: '/cotizaciones',
         almacen: 'cotizaciones',
+        // El grupo de sincronización: cabecera y detalle juntos. Lo usa el
+        // tirón hacia abajo de la lista (`sync.js`, `GRUPOS`).
+        grupo: 'cotizaciones',
         lineas: 'cotizacion_lineas',
         indiceLineas: 'cotizacion',
         estados: {
@@ -40,6 +43,7 @@ export const TIPOS = {
         icono: 'notaVenta',
         ruta: '/notas-venta',
         almacen: 'notas_venta',
+        grupo: 'notas_venta',
         lineas: 'nota_venta_lineas',
         indiceLineas: 'nota_venta',
         estados: {
@@ -72,7 +76,20 @@ export function estado(tipo, codigo) {
  */
 export async function lineasDe(tipo, numero) {
     const def = TIPOS[tipo];
-    const filas = await idb.porIndice(def.lineas, def.indiceLineas, Number(numero));
+
+    return enriquecerLineas(await idb.porIndice(def.lineas, def.indiceLineas, Number(numero)));
+}
+
+/**
+ * Lo mismo, para líneas que no vienen de IndexedDB.
+ *
+ * Existe por los documentos más viejos que la ventana de doce meses: no están
+ * en el teléfono y se traen del servidor enteros, cabecera y detalle. Se ven
+ * exactamente igual que los demás, y por eso el arreglo pasa por aquí en vez
+ * de dibujarse aparte.
+ */
+export async function enriquecerLineas(lineas) {
+    const filas = [...lineas];
     filas.sort((a, b) => a.linea - b.linea);
 
     for (const l of filas) {
