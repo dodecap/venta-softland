@@ -28,6 +28,7 @@ class AuthController extends Controller
         return response()->json([
             'ok' => true,
             'app' => (string) config('app.name'),
+            'version' => (string) config('app.version'),
             'configurado' => $cfg !== null,
             'base' => $cfg['database'] ?? null,
         ]);
@@ -96,6 +97,11 @@ class AuthController extends Controller
             'usuario' => $u->payload(),
             'servidor' => [
                 'app' => (string) config('app.name'),
+                // La versión de la API. El teléfono la guarda y la
+                // muestra al lado de la suya en Cuenta: cuando no
+                // coinciden, media hora de soporte se ahorra en una
+                // línea.
+                'version' => (string) config('app.version'),
                 'base' => SoftlandConfig::load()['database'] ?? null,
                 'rut_emisor' => $this->catalogos->rutEmisor(),
                 // Dos números que el teléfono necesita para calcular un total

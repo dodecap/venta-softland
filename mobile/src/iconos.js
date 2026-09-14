@@ -19,12 +19,12 @@
 import {
     Ban, Bell, BellOff, Boxes, Building2, CalendarDays, ChartNoAxesCombined, CheckCheck, ChevronLeft,
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
-    CloudDownload, CloudUpload, CreditCard, Database, FileDown, FileText, Image, Inbox, Info,
+    CloudDownload, CloudUpload, Copy, CreditCard, Database, FileDown, FileText, Image, Inbox, Info,
     LayoutDashboard,
     LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
-    LifeBuoy, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
+    LifeBuoy, Percent, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
     Share2, Smartphone, Minus, Trash2, TrendingDown, TrendingUp, TriangleAlert, Type,
-    UserCog, UserPlus, Users, UsersRound, WifiOff, X,
+    Timer, UserCog, UserPlus, Users, UsersRound, WifiOff, X,
 } from 'lucide-vue-next';
 
 /*
@@ -43,6 +43,7 @@ export const VARIANTES = ['venta', 'catalogo', 'dinero', 'aviso', 'admin', 'peli
 export const ICONOS = {
     // ---- Flujo de ventas ----
     cotizacion: { glifo: FileText, variante: 'venta' },
+    duplicar: { glifo: Copy, variante: 'venta' },
     notaVenta: { glifo: ClipboardList, variante: 'venta' },
     factura: { glifo: ReceiptText, variante: 'venta' },
     pdf: { glifo: FileDown, variante: 'venta' },
@@ -73,6 +74,12 @@ export const ICONOS = {
     sinCambio: { glifo: Minus, variante: 'neutro' },
     periodo: { glifo: CalendarDays, variante: 'admin' },
     equipo: { glifo: UsersRound, variante: 'admin' },
+
+    // Las tres medidas de «Mi rendimiento». Son de la familia del dinero
+    // porque hablan de cómo se vende, no de qué se vende.
+    conversion: { glifo: Percent, variante: 'dinero' },
+    tiempoCierre: { glifo: Timer, variante: 'dinero' },
+    ticket: { glifo: ReceiptText, variante: 'dinero' },
 
     // ---- Avisos ----
     notificacion: { glifo: Bell, variante: 'aviso' },

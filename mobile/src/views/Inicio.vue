@@ -4,14 +4,16 @@ import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { db } from '../db';
 import { refrescarAvisos } from '../avisos';
-import { cargarCatalogos } from '../catalogos';
+import { cargarCatalogos, fecha as fechaCorta, monto } from '../catalogos';
 import { px } from '../densidad';
 import { conectado } from '../red';
 import { contarRegistros, progreso, sincronizando, sincronizar, cancelarSincronizacion } from '../sync';
 import { enviarPendientes, contarPendientes, porEnviar } from '../pendientes';
-import { dinero, porcentaje, variacion, SIN_DATO } from '../dinero';
+import { dias, diferenciaDias, dinero, porcentaje, puntos, variacion, SIN_DATO } from '../dinero';
 import { PERIODOS, POR_DEFECTO, anterior, dia, rango } from '../panel/periodo';
 import { panel } from '../panel/datos';
+import { estado as estadoDoc } from '../documentos';
+import { idb } from '../idb';
 import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
@@ -29,7 +31,16 @@ const registros = ref(0);
  * el mismo valor por defecto que usa el servidor.
  */
 const vigencia = ref(30);
-const actividad = ref([]);
+
+/*
+ * La actividad reciente. Antes eran los últimos correos que había mandado el
+ * servidor, que es un dato de administrador y no de vendedor: contaba lo que
+ * hacía la máquina, no lo que pasaba con las ventas. Ahora son los últimos
+ * cinco documentos de cada tipo, salidos de IndexedDB, que es lo que el
+ * vendedor reconoce como «lo que hice». La bitácora de correos no se perdió:
+ * vive en Cuenta, donde ya estaba su sitio.
+ */
+const nombresCliente = ref({});
 const aviso = ref('');
 const error = ref('');
 
@@ -89,6 +100,12 @@ const tituloVenta = computed(() => {
     return esAdmin.value ? 'Venta de la empresa' : 'Venta del equipo';
 });
 
+const tituloRendimiento = computed(() => {
+    if (ambito.value === 'yo') return 'Mi rendimiento';
+
+    return esAdmin.value ? 'Rendimiento de la empresa' : 'Rendimiento del equipo';
+});
+
 /* ----------------------------------------------------------------- período */
 const periodo = ref(POR_DEFECTO);
 const eligiendoPeriodo = ref(false);
@@ -113,6 +130,7 @@ async function calcularPanel() {
         hoy: dia(new Date()),
         vigencia: vigencia.value,
     });
+    await cargarNombresRecientes();
 }
 
 watch([periodo, ambito], calcularPanel);
@@ -137,6 +155,102 @@ const embudo = computed(() => {
         { id: 'facturado', rotulo: 'Facturado', sinFuente: 'No sincronizado' },
     ];
 });
+
+/* ------------------------------------------------------- mi rendimiento
+ *
+ * Las tres medidas de *cómo* se vende, frente al período anterior. No son el
+ * cuánto —eso es el KPI de arriba—: son las que dicen si el mes fue bueno por
+ * trabajar mejor o sólo por trabajar más.
+ *
+ * Cada una se cae sola cuando no hay con qué calcularla, y lo dice en su sitio
+ * en vez de mostrar un cero. Un cero es un dato; la ausencia de dato no lo es,
+ * y confundirlos en un panel comercial es cómo se toman decisiones sobre humo.
+ */
+const rendimiento = computed(() => {
+    if (! m.value) return [];
+
+    const a = m.value.actual;
+    const b = m.value.anterior;
+
+    return [
+        {
+            id: 'conversion',
+            icono: 'conversion',
+            rotulo: 'Conversión',
+            valor: a.conversion ? porcentaje(a.conversion.pct) : SIN_DATO,
+            sub: a.conversion
+                ? `${a.conversion.n} de ${a.conversion.base} ${a.conversion.base === 1 ? 'cotización' : 'cotizaciones'} ${a.conversion.n === 1 ? 'llegó' : 'llegaron'} a nota de venta`
+                : 'Sin cotizaciones en el período: no hay conversión que medir',
+            cambio: puntos(a.conversion?.pct, b?.conversion?.pct),
+        },
+        {
+            id: 'cierre',
+            icono: 'tiempoCierre',
+            rotulo: 'Tiempo de cierre',
+            valor: dias(a.cierre, true),
+            sub: a.cierre === null
+                ? 'Ninguna nota del período tiene su cotización en el teléfono'
+                : `Mediana de ${a.cierre_n} ${a.cierre_n === 1 ? 'nota' : 'notas'}, desde que se cotizó`,
+            cambio: diferenciaDias(a.cierre, b?.cierre),
+            // Cerrar antes es mejor. La flecha sigue apuntando hacia donde se
+            // movió el número; lo que cambia es de qué color se pinta.
+            menosEsMejor: true,
+        },
+        {
+            id: 'ticket',
+            icono: 'ticket',
+            rotulo: 'Ticket promedio',
+            valor: dinero(a.ticket),
+            sub: a.vendido.n
+                ? `${a.vendido.n} ${a.vendido.n === 1 ? 'nota de venta' : 'notas de venta'} en el período`
+                : 'Sin notas de venta en el período',
+            cambio: variacion(a.ticket, b?.ticket),
+        },
+    ];
+});
+
+/* -------------------------------------------------- actividad reciente */
+
+const recientes = computed(() => {
+    const r = m.value?.recientes;
+
+    if (! r) return [];
+
+    return [
+        { id: 'cotizacion', tipo: 'cotizacion', titulo: 'Cotizaciones', ruta: '/cotizaciones', icono: 'cotizacion', filas: r.cotizaciones },
+        { id: 'nota_venta', tipo: 'nota_venta', titulo: 'Notas de venta', ruta: '/notas-venta', icono: 'notaVenta', filas: r.notas },
+    ];
+});
+
+/**
+ * El nombre del cliente, que en el documento sólo está su código.
+ *
+ * Son diez búsquedas por clave primaria contra un almacén de 3.824 clientes:
+ * el maestro completo en memoria costaría más que esto y haría falta una vez
+ * por apertura del panel.
+ */
+async function cargarNombresRecientes() {
+    const codigos = new Set(recientes.value.flatMap((g) => g.filas.map((d) => d.cliente)).filter(Boolean));
+    const mapa = {};
+
+    for (const c of codigos) mapa[c] = (await idb.obtener('clientes', c))?.nombre || c;
+
+    nombresCliente.value = mapa;
+}
+
+/**
+ * El color de una comparación dice si la noticia es buena; la flecha, hacia
+ * dónde se movió el número. Son dos cosas distintas y en el tiempo de cierre
+ * se separan: pasar de 14 días a 11 es una flecha hacia abajo y una buena
+ * noticia.
+ */
+function tono(cambio, menosEsMejor = false) {
+    if (! cambio || cambio.direccion === 'igual') return 'igual';
+
+    const bueno = menosEsMejor ? cambio.direccion === 'baja' : cambio.direccion === 'sube';
+
+    return bueno ? 'sube' : 'baja';
+}
 
 /**
  * Requiere tu atención — lo que convierte el panel en una lista de trabajo.
@@ -219,7 +333,6 @@ onMounted(async () => {
     // El punto rojo de la barra inferior sale de aquí: si se pidiera recién al
     // abrir el buzón, nunca habría aviso de que hay algo que mirar.
     refrescarAvisos();
-    if (esAdmin.value) cargarActividad();
     cargarAprobaciones();
 });
 
@@ -236,16 +349,6 @@ async function cargarAprobaciones() {
     try {
         porAprobar.value = (await api.aprobaciones()).aprobaciones.length;
     } catch { /* sin red el panel sigue sirviendo */ }
-}
-
-/** Últimos correos que salieron. Es la actividad del administrador. */
-async function cargarActividad() {
-    try {
-        const r = await api.bitacora(5);
-        actividad.value = r.notificaciones;
-    } catch {
-        // Sin red el panel sigue sirviendo: la actividad es un extra, no falla la pantalla.
-    }
 }
 
 /**
@@ -276,7 +379,6 @@ async function sincronizarTodo() {
                 + (salida.enviados ? ` Se enviaron ${salida.enviados} cambios.` : '');
 
         refrescarAvisos();
-        if (esAdmin.value) cargarActividad();
     } catch (e) {
         error.value = e.message;
     }
@@ -306,12 +408,6 @@ const pct = computed(() => {
     return Math.round((p.indice - 1) * porRecurso + dentro * porRecurso);
 });
 
-function fecha(n) {
-    const v = n.enviada_at || n.created_at;
-    if (!v) return '';
-    return new Date(String(v).replace(' ', 'T'))
-        .toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
 </script>
 
 <template>
@@ -415,6 +511,31 @@ function fecha(n) {
                 <div class="embudo-pie" v-else>
                     Sin cotizaciones en el período: no hay conversión que medir.
                 </div>
+
+                <!-- Cómo se vende, no cuánto. Las tres van juntas porque se
+                     leen juntas: un ticket que sube con una conversión que baja
+                     es un vendedor que está yendo a menos puertas más grandes. -->
+                <div class="seccion">
+                    <h2>{{ tituloRendimiento }}</h2>
+                    <span class="sub">vs. {{ rangoPrevio.etiqueta.toLowerCase() }}</span>
+                </div>
+
+                <div class="rendimiento">
+                    <div class="medida" v-for="r in rendimiento" :key="r.id">
+                        <AppIcon :name="r.icono" :caja="px(38)" :size="px(19)" />
+                        <div class="texto">
+                            <div class="rotulo">{{ r.rotulo }}</div>
+                            <div class="sub">{{ r.sub }}</div>
+                        </div>
+                        <div class="cifra">
+                            <div class="valor">{{ r.valor }}</div>
+                            <span class="tendencia" :class="tono(r.cambio, r.menosEsMejor)" v-if="r.cambio">
+                                <AppIcon :name="iconoTendencia(r.cambio)" :size="12" color="currentColor" />
+                                {{ r.cambio.texto }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </template>
 
             <!-- Va antes que las acciones porque pide una decisión, no una
@@ -456,26 +577,37 @@ function fecha(n) {
                 </button>
             </div>
 
-            <template v-if="esAdmin">
+            <template v-if="!sinDatos">
                 <div class="seccion">
                     <h2>Actividad reciente</h2>
-                    <span class="sub">Correos enviados</span>
-                    <button class="ver-todo" @click="router.push('/bitacora')">
-                        Ver todo
-                        <AppIcon name="avanzar" :size="15" color="currentColor" />
-                    </button>
+                    <span class="sub">Lo último, sin mirar el período</span>
                 </div>
 
-                <div class="actividad">
-                    <Vacio v-if="!actividad.length" icono="correo" titulo="Sin movimiento" />
-                    <div class="fila" v-for="n in actividad" :key="n.id">
-                        <AppIcon :name="n.estado === 'error' ? 'correoFallido' : (n.enviada_at ? 'correoEnviado' : 'correo')"
-                                 :caja="px(36)" :size="px(18)" />
-                        <div class="texto">
-                            <div class="titulo">{{ n.asunto }}</div>
-                            <div class="sub">{{ fecha(n) }} · {{ n.evento }}</div>
-                        </div>
-                    </div>
+                <div class="grupo-reciente" v-for="g in recientes" :key="g.id">
+                    <button class="cabeza" @click="router.push(g.ruta)">
+                        <AppIcon :name="g.icono" :caja="px(30)" :size="px(16)" />
+                        <span class="titulo">{{ g.titulo }}</span>
+                        <span class="ver">Ver todas</span>
+                        <AppIcon name="avanzar" :size="15" color="var(--texto-suave)" />
+                    </button>
+
+                    <Vacio v-if="!g.filas.length" :icono="g.icono" :titulo="`Sin ${g.titulo.toLowerCase()}`" />
+
+                    <button class="fila-reciente" v-for="d in g.filas" :key="d.numero"
+                            @click="router.push(`${g.ruta}/${d.numero}`)">
+                        <span class="franja" :class="estadoDoc(g.tipo, d.estado).color"></span>
+                        <span class="texto">
+                            <span class="linea">
+                                <b>Nº {{ d.numero }}</b>
+                                <small>{{ fechaCorta(d.fecha) }}</small>
+                            </span>
+                            <small class="quien">{{ nombresCliente[d.cliente] || d.cliente }}</small>
+                        </span>
+                        <span class="cifra">
+                            <b>{{ monto(d.total, d.moneda) }}</b>
+                            <small>{{ estadoDoc(g.tipo, d.estado).rotulo }}</small>
+                        </span>
+                    </button>
                 </div>
             </template>
 

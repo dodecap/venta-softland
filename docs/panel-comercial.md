@@ -4,11 +4,13 @@
 > la base `INNOVAGES` el 2026-09-14; cada cifra sale de una consulta, no de
 > una estimación.
 >
-> **Pasos 1, 2 y 3 hechos** (§16): el motor de métricas con sus pruebas, el
-> panel con ámbito, período, KPI protagonista y embudo, y «Requiere tu
-> atención» con su drill-down. Comprobado contra el ERP: el año 2026 del ámbito
-> empresa da 134 cotizaciones y 34 notas de venta por $79,3 MM, exactamente lo
-> que devuelve SQL Server.
+> **Pasos 1, 2, 3 y 4 hechos** (§16), más la actividad reciente en su versión
+> del teléfono: el motor de métricas con sus pruebas, el panel con ámbito,
+> período, KPI protagonista y embudo, «Requiere tu atención» con su
+> drill-down, «Mi rendimiento» con la comparación al período anterior y los
+> últimos cinco documentos de cada tipo. Comprobado contra el ERP: el año 2026
+> del ámbito empresa da 134 cotizaciones y 34 notas de venta por $79,3 MM,
+> exactamente lo que devuelve SQL Server.
 
 ## 0. La conclusión, antes del detalle
 
@@ -586,11 +588,11 @@ Cada paso deja la app funcionando y demostrable. Nada de esto toca las fases
 
 | Paso | Qué | Riesgo |
 |---|---|---|
-| ~~**1**~~ | ~~`dinero.js` + `periodo.js` + `metricas.js`, con pruebas. Sin UI.~~ **Hecho**, 98 comprobaciones en `npm run pruebas`. | nulo: código nuevo, nadie lo llama todavía |
+| ~~**1**~~ | ~~`dinero.js` + `periodo.js` + `metricas.js`, con pruebas. Sin UI.~~ **Hecho**, 132 comprobaciones en `npm run pruebas`. | nulo: código nuevo, nadie lo llama todavía |
 | ~~**2**~~ | ~~Encabezado con ámbito y período. KPI protagonista + embudo hasta NV, todo offline. Los tres KPI técnicos se van a Cuenta.~~ **Hecho.** | medio: cambia lo primero que ve el vendedor |
 | ~~**3**~~ | ~~«Requiere tu atención» con drill-down a las listas ya existentes, filtradas.~~ **Hecho.** | bajo |
-| **4** | «Mi rendimiento» (conversión, cierre, ticket) con comparación al período anterior. | bajo |
-| **5** | Actividad reciente de verdad: `GET /api/panel/actividad` sobre `nw_lognwcotiza` + `nw_lognwnventa`. **Arregla lo que hoy está vacío.** | bajo |
+| ~~**4**~~ | ~~«Mi rendimiento» (conversión, cierre, ticket) con comparación al período anterior.~~ **Hecho.** | bajo |
+| **5** | Actividad reciente **desde el ERP**: `GET /api/panel/actividad` sobre `nw_lognwcotiza` + `nw_lognwnventa`. **Ya no es urgente**: la sección dejó de estar vacía con los últimos cinco documentos de cada tipo leídos de IndexedDB (`ultimos()` en `metricas.js`), que además funcionan sin señal. Lo que añadiría el log es el *movimiento* —quién cambió el estado, quién reasignó el vendedor— y eso necesita red. | bajo |
 | **6** | Maestro `facturas` (`iw_gsaen`) en `Maestros.php` + almacén en `idb.js` → el embudo llega a «Facturado» **sin señal**. | bajo: un maestro más, patrón conocido |
 | **7** | `ventas.meta` (vendedor, período, monto) + administración desde la app + widget de meta. | bajo |
 | **8** | Ámbitos EQUIPO y EMPRESA con el mismo motor y los permisos que ya existen. | bajo |

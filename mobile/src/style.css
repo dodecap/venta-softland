@@ -1656,6 +1656,128 @@ select.filtro-grupo { margin-bottom: 12px; }
 }
 .embudo-pie b { color: var(--texto); }
 
+/* Mi rendimiento: cómo se vende, en tres filas.
+   Filas y no tarjetas en línea: cada medida necesita una frase que explique de
+   dónde sale («mediana de 7 notas»), y esa frase no cabe en un tercio de
+   360 px sin quedar en dos palabras sueltas. */
+.rendimiento {
+    display: flex;
+    flex-direction: column;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    overflow: hidden;
+}
+.rendimiento .medida {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: calc(10px * var(--d)) 12px;
+    border-top: 1px solid var(--borde);
+}
+.rendimiento .medida:first-child { border-top: 0; }
+.rendimiento .medida .texto { flex: 1; min-width: 0; }
+.rendimiento .medida .rotulo {
+    font-size: calc(13px * var(--d));
+    font-weight: 600;
+    color: var(--texto);
+}
+.rendimiento .medida .sub {
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--texto-suave);
+    margin-top: 2px;
+}
+.rendimiento .medida .cifra {
+    flex: 0 0 auto;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+}
+.rendimiento .medida .valor {
+    font-size: calc(17px * var(--d));
+    font-weight: 700;
+    color: var(--texto);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Actividad reciente: las últimas de cada tipo.
+   Lleva la misma franja de estado que la lista de documentos a propósito: son
+   las mismas filas, y dos lenguajes visuales para lo mismo se pagan caro. */
+.grupo-reciente {
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+.grupo-reciente .cabeza,
+.fila-reciente {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    /* Los 44 px no escalan con --d: son área pulsable, no tamaño de letra. */
+    min-height: 44px;
+    padding: calc(9px * var(--d)) 12px;
+    font-family: inherit;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--borde);
+    cursor: pointer;
+}
+.grupo-reciente .cabeza { border-top: 0; background: var(--fondo); }
+.grupo-reciente .cabeza .titulo {
+    flex: 1;
+    font-size: calc(13px * var(--d));
+    font-weight: 700;
+    color: var(--texto);
+}
+.grupo-reciente .cabeza .ver { font-size: 12px; color: var(--texto-suave); }
+.grupo-reciente .cabeza:active,
+.fila-reciente:active { background: var(--indigo-suave); }
+
+.fila-reciente .franja {
+    flex: 0 0 4px;
+    align-self: stretch;
+    min-height: calc(30px * var(--d));
+    border-radius: 2px;
+    background: var(--texto-suave);
+}
+.fila-reciente .franja.verde { background: var(--verde); }
+.fila-reciente .franja.amarillo { background: var(--amarillo); }
+.fila-reciente .franja.rojo { background: var(--rojo); }
+.fila-reciente .franja.cian { background: var(--cian); }
+
+.fila-reciente .texto { flex: 1; min-width: 0; }
+.fila-reciente .linea { display: flex; align-items: baseline; gap: 7px; }
+.fila-reciente .linea b { font-size: calc(13px * var(--d)); color: var(--texto); }
+.fila-reciente .linea small { font-size: 11px; color: var(--texto-suave); }
+.fila-reciente .quien {
+    display: block;
+    font-size: 12px;
+    color: var(--texto-medio);
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fila-reciente .cifra {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+.fila-reciente .cifra b {
+    font-size: calc(13px * var(--d));
+    color: var(--texto);
+    font-variant-numeric: tabular-nums;
+}
+.fila-reciente .cifra small { font-size: 11px; color: var(--texto-suave); }
+
 /* Lo técnico, que antes eran tres tarjetas, reducido a una línea al pie. */
 .pie-estado {
     display: flex;

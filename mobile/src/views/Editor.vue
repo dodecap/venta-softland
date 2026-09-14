@@ -47,6 +47,17 @@ const tipo = computed(() => route.meta.tipo);
 const def = computed(() => TIPOS[tipo.value]);
 const numero = computed(() => (route.params.numero ? Number(route.params.numero) : null));
 const editando = computed(() => numero.value !== null);
+
+/*
+ * Duplicar. Se entra por `/cotizaciones/nuevo?desde=8550`: es la pantalla de
+ * alta con el formulario ya lleno, no un modo aparte. Así lo que se guarda es
+ * un documento nuevo, con su `client_uuid` nuevo, y todo lo demás —el número
+ * que asigna el servidor, la idempotencia, el guardado sin señal— funciona sin
+ * saber que viene de una copia.
+ *
+ * Sale del teléfono: duplicar no necesita señal.
+ */
+const desde = computed(() => (route.query.desde ? Number(route.query.desde) : null));
 const esNV = computed(() => tipo.value === 'nota_venta');
 
 const form = ref(vacio());
@@ -96,7 +107,9 @@ async function cargar() {
         uf.value = Number(info?.uf) || null;
 
         if (editando.value) {
-            await cargarDocumento();
+            await cargarDocumento(numero.value);
+        } else if (desde.value) {
+            await cargarDocumento(desde.value, true);
         } else {
             // Los valores por defecto del vendedor: su lista, su centro de costo
             // y su bodega. Son tres campos que casi nunca cambia y que, en
@@ -115,19 +128,29 @@ async function cargar() {
     }
 }
 
-/** Rearma el formulario desde lo que hay en el teléfono. */
-async function cargarDocumento() {
-    const doc = await idb.obtener(def.value.almacen, numero.value);
+/**
+ * Rearma el formulario desde lo que hay en el teléfono.
+ *
+ * Sirve para corregir y para duplicar: es el mismo trabajo —volver a armar el
+ * documento desde sus filas— y sólo cambia si lo que sale es el mismo
+ * documento o uno nuevo.
+ */
+async function cargarDocumento(num, copia = false) {
+    const doc = await idb.obtener(def.value.almacen, num);
     if (! doc) {
-        error.value = 'Ese documento no está en el teléfono. Sincroniza y vuelve a entrar.';
+        error.value = copia
+            ? `La ${def.value.singular.toLowerCase()} Nº ${num} no está en el teléfono. Sincroniza y vuelve a entrar.`
+            : 'Ese documento no está en el teléfono. Sincroniza y vuelve a entrar.';
         return;
     }
 
-    const filas = await idb.porIndice(def.value.lineas, def.value.indiceLineas, numero.value);
+    const filas = await idb.porIndice(def.value.lineas, def.value.indiceLineas, num);
     filas.sort((a, b) => a.linea - b.linea);
 
     form.value = {
-        client_uuid: null,           // ya tiene número: esto no es un alta
+        // Con número es una corrección y no lleva uuid; la copia es un alta y
+        // estrena el suyo, que es lo que impide que un reenvío la duplique.
+        client_uuid: copia ? nuevoUuid() : null,
         cliente: doc.cliente || '',
         vendedor: doc.vendedor || '',
         contacto: doc.contacto || '',
@@ -136,7 +159,7 @@ async function cargarDocumento() {
         condicion: doc.condicion || '',
         centro_costo: doc.centro_costo || '',
         bodega: doc.bodega || '',
-        fecha_entrega: (doc.fecha_entrega || '').slice(0, 10),
+        fecha_entrega: fechaEntregaDe(doc, copia),
         oc: doc.oc && doc.oc !== '0' ? doc.oc : '',
         observacion: doc.observacion || '',
         descuento_pct: porcentajeDe(doc.descuento, filas),
@@ -162,6 +185,25 @@ async function cargarDocumento() {
     }
 
     await elegirCliente(form.value.cliente, false);
+}
+
+/**
+ * La fecha de entrega de una copia no se arrastra si ya pasó.
+ *
+ * Copiar una cotización de hace dos meses y guardarla con su fecha de entrega
+ * vencida escribe en Softland un compromiso imposible, y nadie lo mira: el
+ * campo viene lleno y parece revisado. En blanco, se ve que falta.
+ */
+function fechaEntregaDe(doc, copia) {
+    const f = (doc.fecha_entrega || '').slice(0, 10);
+
+    if (! f) return '';
+    if (! copia) return f;
+
+    const hoy = new Date();
+    const local = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+    return f >= local ? f : '';
 }
 
 /**
@@ -360,6 +402,11 @@ function cantidad(n) {
 
             <template v-else>
                 <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
+                <Aviso tipo="info" v-if="desde && ! error">
+                    Copia de la {{ def.singular.toLowerCase() }} Nº {{ desde }}.
+                    Todavía no existe en Softland: se crea con un número nuevo al guardar.
+                    Revisa precios y fechas antes.
+                </Aviso>
                 <Aviso tipo="info" v-if="! conectado && ! editando">
                     Sin señal. Se guarda en el teléfono y sale a Softland cuando vuelva.
                 </Aviso>

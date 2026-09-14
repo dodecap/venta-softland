@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
 
+// La versión sale del archivo VERSION de la raíz del repositorio, el mismo que
+// leen la SPA y la API. Android exige que el versionCode sea un entero que
+// sólo suba, así que se calcula: mayor x 10000 + menor x 100 + parche.
+def versionFile = rootProject.file('../../VERSION')
+def appVersionName = versionFile.exists() ? versionFile.text.trim() : '0.0.0'
+def (vMayor, vMenor, vParche) = (appVersionName.tokenize('.') + ['0', '0', '0'])[0..2].collect { it.toInteger() }
+def appVersionCode = vMayor * 10000 + vMenor * 100 + vParche
+
 android {
     namespace "cl.netdomain.ventasoftland"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +15,8 @@ android {
         applicationId "cl.netdomain.ventasoftland"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode
+        versionName appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

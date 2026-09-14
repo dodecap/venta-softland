@@ -4,10 +4,10 @@
  */
 import assert from 'node:assert/strict';
 import {
-    dinero, dineroExacto, leyenda, variacion, puntos, porcentaje, dias, hayDato, SIN_DATO,
+    dinero, dineroExacto, leyenda, variacion, puntos, porcentaje, dias, diferenciaDias, hayDato, SIN_DATO,
 } from '../src/dinero.js';
 import { rango, anterior, largoEnDias, dia } from '../src/panel/periodo.js';
-import { calcular, pendientes, situacion } from '../src/panel/metricas.js';
+import { calcular, pendientes, situacion, ultimos } from '../src/panel/metricas.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -94,6 +94,19 @@ es(rango('mes', new Date(2024, 1, 5)).hasta, '2024-02-29', 'febrero bisiesto');
 es(rango('trimestre', LUN).desde, '2026-07-01', 'trimestre 3 empieza en julio');
 es(rango('trimestre', LUN).hasta, '2026-09-30', 'y termina en septiembre');
 es(rango('trimestre', LUN).etiqueta, 'Trim. 3 · 2026', 'etiqueta del trimestre');
+
+// El rótulo de «hoy» y de «esta semana» es relativo al día de verdad, no a la
+// fecha de referencia: la comparación se arma corriendo esa fecha, y el panel
+// llegó a decir «vs. hoy» al comparar contra ayer.
+const HOY = new Date();
+const AYER = new Date(Date.now() - 86400000);
+es(rango('hoy', HOY).etiqueta, 'Hoy', 'hoy es hoy');
+es(rango('hoy', AYER).etiqueta, 'Ayer', 'y ayer es ayer, no «hoy»');
+es(rango('hoy', new Date(2026, 6, 13)).etiqueta, '13 de julio', 'un día cualquiera lleva su fecha');
+es(anterior(rango('hoy', HOY), HOY).etiqueta, 'Ayer', 'el período anterior a hoy es ayer');
+es(rango('semana', HOY).etiqueta, 'Esta semana', 'la semana en curso');
+es(anterior(rango('semana', HOY), HOY).etiqueta.startsWith('Semana del'), true,
+   'la anterior lleva su fecha, no «esta semana»');
 es(rango('ano', LUN).desde, '2026-01-01', 'el año empieza el 1 de enero');
 es(rango('ano', LUN).hasta, '2026-12-31', 'y termina el 31 de diciembre');
 es(rango('lo-que-sea', LUN).id, 'mes', 'lo desconocido cae en mes');
@@ -193,5 +206,39 @@ es(situacion({ estado: 'P', fecha: '2026-09-12T00:00:00' }, { hoy: '2026-09-14',
 const Pviejo = pendientes({ cotizaciones: COT, hoy: '2026-12-31', vigencia: 30 });
 es(Pviejo.viejas.n, 2, 'en diciembre las dos pasan de 90 días');
 es(Pviejo.vencidas.n, 2, 'y las dos están vencidas');
+
+
+// ---- días: el valor grande se escribe largo, la comparación corta
+es(dias(12), '12 d', 'la abreviatura por defecto');
+es(dias(12, true), '12 días', 'en largo cuando es el número protagonista');
+es(dias(1, true), '1 día', 'y concuerda en singular');
+es(dias(3.5, true), '3,5 días', 'una decimal, con coma');
+es(dias(null), SIN_DATO, 'sin dato no se inventa un cero');
+
+es(diferenciaDias(11, 14).texto, '3 d', 'de 14 a 11 son 3 días menos');
+es(diferenciaDias(11, 14).direccion, 'baja', 'y la flecha va hacia abajo');
+es(diferenciaDias(14, 11).direccion, 'sube', 'al revés, hacia arriba');
+es(diferenciaDias(12, 12).direccion, 'igual', 'sin movimiento no hay flecha');
+es(diferenciaDias(12, null), null, 'sin período anterior no hay comparación');
+es(diferenciaDias(null, 12), null, 'ni sin período actual');
+// El cero manda: de 14 días a 0 la comparación existe, a diferencia de
+// `variacion`, que no puede dividir por cero.
+es(diferenciaDias(0, 14).texto, '14 d', 'bajar a cero sí se puede comparar');
+
+// ---- actividad reciente
+const ACT = [
+    { numero: 10, fecha: '2026-09-01', vendedor: '2' },
+    { numero: 11, fecha: '2026-09-10', vendedor: '2' },
+    { numero: 12, fecha: '2026-09-10', vendedor: '7' },
+    { numero: 13, fecha: '2026-08-30', vendedor: '2', estado: 'N' },
+];
+es(ultimos(ACT, { cuantos: 5 }).map((f) => f.numero).join(','), '12,11,10,13',
+   'lo más nuevo primero, y a igual fecha manda el correlativo');
+es(ultimos(ACT, { cuantos: 2 }).length, 2, 'corta donde se le pide');
+es(ultimos(ACT, { vendedores: ['2'] }).map((f) => f.numero).join(','), '11,10,13',
+   'el ámbito filtra también la actividad');
+es(ultimos(ACT).some((f) => f.estado === 'N'), true,
+   'lo anulado sale: anular es algo que se hizo');
+es(ultimos([]).length, 0, 'sin documentos, lista vacía y no un error');
 
 console.log(`OK — ${hechas} comprobaciones`);

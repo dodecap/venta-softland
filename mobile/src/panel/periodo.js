@@ -36,6 +36,13 @@ export function dia(f) {
 
 const capitalizar = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
+/** «14 de septiembre», para rotular un día que no es hoy ni ayer. */
+function fechaCorta(iso) {
+    const [, mes, dd] = iso.split('-').map(Number);
+
+    return `${dd} de ${MESES[mes - 1]}`;
+}
+
 /**
  * El rango de un período: `{ id, desde, hasta, etiqueta }`.
  *
@@ -49,16 +56,30 @@ export function rango(id, ref = new Date()) {
 
     switch (id) {
         case 'hoy': {
-            const hoy = dia(ref);
+            const cuando = dia(ref);
+            const ahora = dia(new Date());
+            const ayer = dia(new Date(Date.now() - 86400000));
 
-            return { id, desde: hoy, hasta: hoy, etiqueta: 'Hoy' };
+            // «Hoy» sólo es hoy de verdad. Esta misma función arma el período
+            // anterior con la fecha corrida un día, y llamarle «hoy» a ayer
+            // dejaba el panel diciendo «vs. hoy».
+            const etiqueta = cuando === ahora ? 'Hoy' : (cuando === ayer ? 'Ayer' : fechaCorta(cuando));
+
+            return { id, desde: cuando, hasta: cuando, etiqueta };
         }
         case 'semana': {
             const desplazamiento = (ref.getDay() + 6) % 7;
             const lunes = new Date(a, m, d - desplazamiento);
             const domingo = new Date(a, m, d - desplazamiento + 6);
+            const desde = dia(lunes);
+            const hasta = dia(domingo);
+            const ahora = dia(new Date());
 
-            return { id, desde: dia(lunes), hasta: dia(domingo), etiqueta: 'Esta semana' };
+            // Igual que arriba: la semana de la comparación es «la semana
+            // pasada», no «esta semana».
+            const etiqueta = ahora >= desde && ahora <= hasta ? 'Esta semana' : `Semana del ${fechaCorta(desde)}`;
+
+            return { id, desde, hasta, etiqueta };
         }
         case 'trimestre': {
             const primero = Math.floor(m / 3) * 3;

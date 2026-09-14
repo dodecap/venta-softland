@@ -17,6 +17,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Versión
+    |--------------------------------------------------------------------------
+    |
+    | Sale del archivo VERSION de la raíz, el mismo que leen la SPA y el APK.
+    | La devuelven /api/ping y el bootstrap para que el teléfono pueda decir si
+    | está hablando con un servidor más viejo que él. Está cacheada con el resto
+    | de la configuración: el despliegue vuelve a correr `config:cache`.
+    |
+    */
+
+    'version' => is_file(base_path('VERSION')) ? trim((string) file_get_contents(base_path('VERSION'))) : 'dev',
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

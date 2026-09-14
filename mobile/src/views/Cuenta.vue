@@ -35,6 +35,15 @@ const error = ref('');
 
 const version = __VERSION__;
 
+/*
+ * La versión del servidor llega en el bootstrap. Se muestra al lado de la del
+ * teléfono porque son dos programas distintos que se despliegan por separado:
+ * un APK nuevo contra una API vieja es la causa de la mitad de los «a mí no me
+ * funciona», y hasta que no se ve escrito nadie lo sospecha.
+ */
+const versionServidor = computed(() => info.value?.version || null);
+const desfasado = computed(() => !! versionServidor.value && versionServidor.value !== version);
+
 const esAdmin = computed(() => !!usuario.value?.es_admin);
 
 const ADMIN = [
@@ -279,6 +288,9 @@ async function salir() {
                 <FilaAjuste icono="empresa" rotulo="Base de datos" :valor="info?.base || '—'" />
                 <FilaAjuste icono="permisos" rotulo="RUT emisor" :valor="info?.rut_emisor || '—'" />
                 <FilaAjuste icono="dispositivo" rotulo="Versión de la app" :valor="version" />
+                <FilaAjuste icono="servidor" rotulo="Versión del servidor"
+                            :valor="versionServidor || '—'"
+                            :detalle="desfasado ? 'No coincide con la del teléfono' : null" />
                 <FilaAjuste icono="configuracion" rotulo="Cambiar de servidor"
                             detalle="Vuelve a pedir la dirección y la sesión" lleva
                             @click="router.push('/servidor')" />

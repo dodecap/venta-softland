@@ -248,9 +248,30 @@ de Softland que cambian las fórmulas. Tres que se olvidan:
   a lo largo de meses. No se calcula «conversión NV → factura» en documentos.
 - **El formato del dinero no toca el cálculo.** `mobile/src/dinero.js` recibe
   un número y devuelve un texto. `npm run pruebas` lo comprueba.
+- **La regla se escribe una vez.** `situacion()` decide si una cotización está
+  por vencer, y la usan el panel para contar y la lista para filtrar. Dos
+  copias de la misma regla es un panel que dice «6» y una lista que muestra 7.
+- **El color dice si la noticia es buena; la flecha, hacia dónde se movió el
+  número.** No son lo mismo: el tiempo de cierre que baja es una flecha hacia
+  abajo y una buena noticia. Esa lectura la pone la pantalla (`tono()`), no el
+  icono.
+
+## La versión
+
+Vive en **un solo archivo**, `VERSION`, en la raíz. De ahí la leen la SPA
+(`vite.config.js`), el APK (`build.gradle`, que además calcula el `versionCode`)
+y la API (`config/app.php`). En Cuenta salen las dos, la del teléfono y la del
+servidor, y la pantalla avisa si no coinciden: un APK nuevo contra una API
+vieja explica la mitad de los «a mí no me funciona».
+
+Se sube con `bin/version.sh mayor|menor|parche "Título"`, que deja la entrada
+abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
+igual que actualiza `STATE.md`.
 
 ## Estado actual
-Fases 1, 2 y 3 terminadas, más el motor de documentos. Ver `STATE.md`. El mapa de tablas del flujo de ventas está en
-`docs/flujo-ventas-softland.md`, el motor de documentos en
+Versión **0.5.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
+panel comercial hasta el paso 4. Ver `STATE.md`. El mapa de tablas del flujo de
+ventas está en `docs/flujo-ventas-softland.md`, el motor de documentos en
 `docs/motor-documentos.md`, la auditoría del panel comercial en
-`docs/panel-comercial.md` y el plan por fases en `docs/roadmap.md`.
+`docs/panel-comercial.md`, el historial de versiones en `docs/versiones.md` y
+el plan por fases en `docs/roadmap.md`.

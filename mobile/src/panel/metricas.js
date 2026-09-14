@@ -114,6 +114,31 @@ export function calcular({ cotizaciones = [], notas = [], rango, vendedores = nu
     };
 }
 
+/**
+ * Los últimos documentos, sin filtro de período.
+ *
+ * La actividad reciente responde «¿qué ha pasado?», no «¿qué pasó en el mes
+ * que estoy mirando?»: un panel de septiembre que muestra actividad vacía
+ * porque todavía no se ha vendido nada parece roto, cuando lo que hay que ver
+ * son los documentos de agosto.
+ *
+ * Lo anulado **sí** sale. Aquí no se está sumando plata, se está contando qué
+ * se hizo, y anular una nota de venta es algo que se hizo.
+ *
+ * Se ordena por fecha y, a igualdad de fecha, por número: el correlativo de
+ * Softland sólo sube, así que el mayor es el más nuevo. Hace falta porque la
+ * fecha del documento es un día, sin hora, y en un día se escriben varios.
+ */
+export function ultimos(filas, { vendedores = null, cuantos = 5 } = {}) {
+    const suyo = (f) => ! vendedores || vendedores.includes((f.vendedor || '').trim());
+
+    return filas
+        .filter(suyo)
+        .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || ''))
+            || Number(b.numero) - Number(a.numero))
+        .slice(0, cuantos);
+}
+
 /*
  * La cotización no tiene columna de vencimiento en Softland: se calcula.
  */

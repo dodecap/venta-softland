@@ -313,6 +313,18 @@ async function convertir() {
     });
 }
 
+/**
+ * Duplicar: abre el alta con este documento ya cargado.
+ *
+ * No se copia nada aquí ni se llama al servidor. La copia vive en el
+ * formulario hasta que el vendedor la guarda, que es cuando decide si lo que
+ * quería era realmente otro documento igual. Duplicar y arrepentirse no deja
+ * rastro en Softland.
+ */
+function duplicar() {
+    router.push(`${def.value.ruta}/nuevo?desde=${numero.value}`);
+}
+
 async function conServidor(fn) {
     trabajando.value = true;
     error.value = '';
@@ -401,7 +413,12 @@ function cantidad(n) {
                     El documento se dibuja en el servidor. Ábrelo una vez con señal y después queda en el teléfono.
                 </p>
 
-                <div class="acciones-doc" v-if="editable || puedeConvertir">
+                <!-- Corregir, seguir, cerrar, convertir… y duplicar, que es la
+                     única de la fila que no toca este documento: crea otro. Va
+                     aquí porque es lo que se busca cuando se está mirando uno
+                     —la venta del mes pasado, la cotización que se perdió por
+                     precio— y es lo único de la fila que funciona sin señal. -->
+                <div class="acciones-doc">
                     <button class="chip-accion" v-if="editable"
                             @click="router.push(`${def.ruta}/${numero}/editar`)">
                         <AppIcon name="configuracion" :size="17" color="currentColor" /> Corregir
@@ -417,6 +434,9 @@ function cantidad(n) {
                     <button class="chip-accion fuerte" v-if="puedeConvertir"
                             :disabled="! conectado || trabajando" @click="convertir">
                         <AppIcon name="notaVenta" :size="17" color="currentColor" /> Pasar a nota de venta
+                    </button>
+                    <button class="chip-accion" @click="duplicar">
+                        <AppIcon name="duplicar" :size="17" color="currentColor" /> Duplicar
                     </button>
                 </div>
                 <p class="ayuda" v-if="! conectado && (editable || puedeConvertir)">

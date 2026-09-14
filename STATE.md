@@ -4,10 +4,11 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-14
+2026-09-14 — versión **0.5.0**
 
 ## Resumen del estado actual
-**Fases 1, 2 y 3 terminadas, más el motor de documentos comerciales.** El servidor (API Laravel) está en
+**Versión 0.5.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
 existe en INNOVAGES, hay un administrador y las 12 reglas de notificación
@@ -424,6 +425,20 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       `cotizacion_liberada` y el teléfono corrige su copia en IndexedDB.
       Probado de punta a punta: cotizar → convertir (`V`) → borrar NV → `P`.
 
+### Control de versiones
+- [x] **`VERSION` en la raíz**, una sola fuente: la SPA la inyecta desde
+      `vite.config.js`, Gradle arma con ella el `versionName` y calcula el
+      `versionCode` (`mayor × 10000 + menor × 100 + parche`), y la API la
+      devuelve en `/api/ping` y en el bootstrap desde `config('app.version')`.
+      Antes el APK decía `1.0`, `package.json` decía `0.1.0` y nadie los subía.
+- [x] **`docs/versiones.md`** con el historial reconstruido del repositorio
+      (0.1.0 fase 1 · 0.2.0 fase 2 · 0.3.0 fase 3 · 0.4.0 motor de documentos ·
+      0.5.0 panel comercial) y **`bin/version.sh mayor|menor|parche "Título"`**,
+      que sube el número, sincroniza `package.json` y abre la entrada. No hace
+      commit ni etiqueta solo.
+- [x] **Cuenta muestra las dos versiones**, la del teléfono y la del servidor,
+      y avisa cuando no coinciden. Comprobado forzando el desajuste.
+
 ### Panel de control comercial — auditoría
 - [x] **`docs/panel-comercial.md`**: auditoría del panel actual, inventario de
       datos, 24 KPI clasificados por fuente, disponibilidad offline, ámbito y
@@ -467,11 +482,37 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       regla que decide cuál es cuál está en una sola función —`situacion()`—
       que usan el panel para contar y la lista para filtrar. Comprobado: el
       panel dice 6 por vencer y 77 vencidas, y la lista muestra 6 y 77.
-- [x] Diagnosticado por qué «Actividad reciente» se ve vacía: lee los correos
-      enviados y `ventas.notificacion` tiene 0 filas. La fuente buena es la
-      bitácora de Softland — `nw_lognwcotiza` (15.795 filas) y
-      `nw_lognwnventa` (3.139) — con eventos ya redactados: «Estado En Nota de
-      Venta», «Estado Perdida», «Elimina». Es el paso 5 del plan.
+- [x] Diagnosticado por qué «Actividad reciente» se veía vacía: leía los correos
+      enviados y `ventas.notificacion` tiene 0 filas. La fuente buena para el
+      *movimiento* sigue siendo la bitácora de Softland — `nw_lognwcotiza`
+      (15.795 filas) y `nw_lognwnventa` (3.139), con eventos ya redactados:
+      «Estado En Nota de Venta», «Estado Perdida», «Elimina» —, que es el paso
+      5 del plan y necesita red.
+- [x] **Paso 4 — «Mi rendimiento»**: conversión, tiempo de cierre y ticket
+      promedio, cada uno con su comparación al período anterior y su frase de
+      dónde sale el número. La comparación del cierre va **en días**, no en
+      porcentaje: «bajó 3 d» se entiende y «bajó un 21 %» hay que deshacerlo.
+      Y el color dice si la noticia es buena mientras la flecha dice hacia
+      dónde se movió el número: cerrar antes es flecha abajo y chip verde.
+      Cada medida se cae sola cuando no hay con qué calcularla y lo dice en su
+      sitio, en vez de mostrar un cero que parece un dato.
+- [x] **Actividad reciente comercial**: las últimas cinco cotizaciones y las
+      últimas cinco notas de venta, con cliente, monto, fecha y estado, cada
+      una abriendo su documento. Sale de IndexedDB —funciona sin señal—, no
+      mira el período (un panel de septiembre con actividad vacía parece roto
+      cuando lo que hay que ver es agosto) y sí muestra lo anulado, porque
+      anular es algo que se hizo. Dejó de ser una sección de administrador.
+- [x] **Duplicar** cotización y nota de venta: abre el alta con el documento ya
+      cargado (`/cotizaciones/nuevo?desde=8550`), con `client_uuid` nuevo, así
+      que lo que se guarda es un documento nuevo y la idempotencia y el
+      guardado sin señal siguen funcionando sin saber que vienen de una copia.
+      Duplicar no toca el servidor: la copia vive en el formulario hasta que se
+      guarda. La fecha de entrega no se arrastra si ya pasó. Probado de punta a
+      punta: copia de la 8550 → cotización 8554 idéntica → eliminada, y la base
+      volvió a 2.351 cotizaciones con máximo 8553.
+- [x] **Corregido el rótulo del período anterior**: `rango('hoy', ayer)`
+      devolvía la etiqueta «Hoy», y el panel comparaba «vs. hoy». Ahora «Hoy» y
+      «Esta semana» sólo se llaman así cuando contienen el día de verdad.
 
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no

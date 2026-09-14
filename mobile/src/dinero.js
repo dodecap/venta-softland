@@ -140,11 +140,32 @@ export function porcentaje(v, decimales = 1) {
     return `${numero(n, n % 1 === 0 ? 0 : decimales)}%`;
 }
 
-/** Días de ciclo: «3,7 d». */
-export function dias(v) {
+/**
+ * Días de ciclo: «3,7 d», o «3,7 días» cuando el número es el protagonista de
+ * su tarjeta y la abreviatura se leería como una unidad cualquiera.
+ */
+export function dias(v, largo = false) {
     if (! hayDato(v)) return SIN_DATO;
 
     const n = Number(v);
+    const texto = numero(n, n % 1 === 0 ? 0 : 1);
 
-    return `${numero(n, n % 1 === 0 ? 0 : 1)} d`;
+    if (! largo) return `${texto} d`;
+
+    return `${texto} ${n === 1 ? 'día' : 'días'}`;
+}
+
+/**
+ * Diferencia entre dos cantidades de días, en días.
+ *
+ * Un tiempo de cierre que pasa de 14 a 11 bajó **3 días**, y decir que «bajó
+ * un 21 %» obliga a hacer la cuenta al revés para saber de qué está hablando.
+ * Las medidas que ya están en una unidad se comparan en su unidad.
+ */
+export function diferenciaDias(actual, anterior) {
+    if (! hayDato(actual) || ! hayDato(anterior)) return null;
+
+    const d = Number(actual) - Number(anterior);
+
+    return { d, direccion: direccionDe(d), texto: dias(Math.abs(d)) };
 }
