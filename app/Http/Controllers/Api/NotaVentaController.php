@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\DB;
  * `nwparam.CheckApruebaNv = N`: el ERP no pide aprobación de notas de venta.
  * La aporta la app, con los topes por vendedor de `ventas.usuario`
  * (`tope_descuento_pct`, `tope_monto_nv`). Una NV que pasa cualquiera de los
- * dos nace en estado `P` y no se aprueba sola; una que no los pasa nace en `N`.
+ * dos queda en `P` hasta que el jefe la suelte; una que no los pasa nace en el
+ * estado que le daría el ERP. **Nunca en `N`, que allá es «nula».**
  *
  * Eso se refleja donde Softland puede verlo: `nvEstado` y `nvFeAprob` son
  * columnas suyas, así que la nota de venta se ve pendiente también desde el
@@ -65,6 +66,21 @@ class NotaVentaController extends DocumentoController
     protected function noEncontrado(): string
     {
         return 'Esa nota de venta no existe o no es tuya.';
+    }
+
+    protected function anularEnSoftland(int $numero, Usuario $u): void
+    {
+        $this->ventas->anularNotaVenta($numero, $u);
+    }
+
+    protected function eliminarDeSoftland(int $numero): void
+    {
+        $this->ventas->eliminarNotaVenta($numero);
+    }
+
+    protected function impedimentosParaEliminar(int $numero): array
+    {
+        return $this->ventas->impedimentosNotaVenta($numero);
     }
 
     protected function eventoEnvio(): string
@@ -354,7 +370,7 @@ class NotaVentaController extends DocumentoController
             ->where('NVNumero', $numero)->first(['NVNumero', 'nvEstado', 'VenCod', 'CodAux']);
     }
 
-    private function respuesta(int $numero): array
+    protected function respuesta(int $numero): array
     {
         return [
             'nota_venta' => $this->documentoDe($numero),

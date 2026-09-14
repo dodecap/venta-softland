@@ -17,7 +17,7 @@
  * agrégalo abajo con la variante que le corresponda por función.
  */
 import {
-    Bell, BellOff, Boxes, Building2, ChartNoAxesCombined, CheckCheck, ChevronLeft,
+    Ban, Bell, BellOff, Boxes, Building2, ChartNoAxesCombined, CheckCheck, ChevronLeft,
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
     CloudDownload, CloudUpload, CreditCard, Database, FileDown, FileText, Image, Inbox, Info,
     LayoutDashboard,
@@ -100,6 +100,7 @@ export const ICONOS = {
     salir: { glifo: LogOut },
     buscar: { glifo: Search },
     borrar: { glifo: Trash2, variante: 'peligro' },
+    anular: { glifo: Ban, variante: 'peligro' },
     sinResultados: { glifo: SearchX, variante: 'neutro' },
 
     // ---- Estados ----

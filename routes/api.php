@@ -61,6 +61,8 @@ Route::middleware('auth.api')->group(function () {
     Route::put('/cotizaciones/{numero}', [CotizacionController::class, 'update'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/enviar', [CotizacionController::class, 'enviar'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/perder', [CotizacionController::class, 'perder'])->whereNumber('numero');
+    Route::post('/cotizaciones/{numero}/anular', [CotizacionController::class, 'anular'])->whereNumber('numero');
+    Route::delete('/cotizaciones/{numero}', [CotizacionController::class, 'destroy'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/seguimientos', [CotizacionController::class, 'seguimiento'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/nota-venta', [CotizacionController::class, 'convertir'])->whereNumber('numero');
     // El papel. `pdf` lo dibuja y lo guarda como emisión; `compartido` deja
@@ -74,6 +76,8 @@ Route::middleware('auth.api')->group(function () {
     Route::post('/notas-venta', [NotaVentaController::class, 'store']);
     Route::put('/notas-venta/{numero}', [NotaVentaController::class, 'update'])->whereNumber('numero');
     Route::post('/notas-venta/{numero}/aprobacion', [NotaVentaController::class, 'resolver'])->whereNumber('numero');
+    Route::post('/notas-venta/{numero}/anular', [NotaVentaController::class, 'anular'])->whereNumber('numero');
+    Route::delete('/notas-venta/{numero}', [NotaVentaController::class, 'destroy'])->whereNumber('numero');
     Route::post('/notas-venta/{numero}/enviar', [NotaVentaController::class, 'enviar'])->whereNumber('numero');
     Route::get('/notas-venta/{numero}/pdf', [NotaVentaController::class, 'pdf'])->whereNumber('numero');
     Route::post('/notas-venta/{numero}/compartido', [NotaVentaController::class, 'compartido'])->whereNumber('numero');

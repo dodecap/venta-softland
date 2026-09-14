@@ -195,6 +195,104 @@ abstract class DocumentoController extends Controller
         return $visibles === null || in_array(trim((string) $venCod), $visibles, true);
     }
 
+    // ----------------------------------------------------- anular y eliminar
+
+    /**
+     * Desde dónde se puede anular: sólo pendiente. Un documento perdido, ya
+     * convertido, aprobado o concluido tuvo un desenlace, y anularlo lo
+     * borraría de la historia comercial en vez de cerrarlo.
+     *
+     * El vacío es por las cotizaciones viejas de INNOVAGES, que no tienen
+     * estado escrito.
+     */
+    protected const ANULABLES = ['P', ''];
+
+    /** Anula el documento en Softland: `N`, que allá quiere decir «nula». */
+    abstract protected function anularEnSoftland(int $numero, Usuario $u): void;
+
+    /** Lo borra de Softland de verdad, y con eso su número vuelve al pozo. */
+    abstract protected function eliminarDeSoftland(int $numero): void;
+
+    /** Por qué este documento no se puede eliminar. Vacío = se puede. */
+    abstract protected function impedimentosParaEliminar(int $numero): array;
+
+    /** El documento tal como lo devuelven `store` y `update`. */
+    abstract protected function respuesta(int $numero): array;
+
+    /**
+     * Anular: el documento se queda donde está y conserva su número.
+     *
+     * Es lo que corresponde casi siempre, y desde luego lo único correcto si
+     * el papel ya salió. El cliente tiene un PDF que dice «Cotización N° 8551»;
+     * que ese número no exista después es peor que que exista anulado.
+     */
+    public function anular(Request $request, int $numero)
+    {
+        $u = $this->usuario($request);
+        $doc = $this->documentoDe($numero);
+
+        if (! $doc || ! $this->alcanza($request, $this->vendedorDelDocumento($numero))) {
+            return response()->json(['message' => $this->noEncontrado()], 404);
+        }
+
+        $estado = strtoupper(trim((string) ($doc['estado'] ?? '')));
+
+        if ($estado === 'N') {
+            return response()->json(['message' => 'Ya estaba anulada.'], 409);
+        }
+
+        if (! in_array($estado, static::ANULABLES, true)) {
+            return response()->json([
+                'message' => 'No se puede anular: está '
+                    .mb_strtolower($this->tipoDoc()->estado($estado), 'UTF-8').'.',
+            ], 409);
+        }
+
+        $this->anularEnSoftland($numero, $u);
+
+        return response()->json($this->respuesta($numero));
+    }
+
+    /**
+     * Eliminar: la fila desaparece de Softland.
+     *
+     * Sólo para un documento que nunca salió de la casa, y con las cuatro
+     * condiciones puestas: que lo haya creado esta app, que no se le haya
+     * entregado al cliente, que no haya avanzado a nada — nota de venta,
+     * factura, picking, compra — y que quien lo pide lo tenga a su alcance.
+     * Las tres primeras las contesta `Ventas`, que es donde está escrito lo que
+     * el ERP arrastra detrás de cada documento; la cuarta, el alcance por
+     * vendedor, es de aquí.
+     *
+     * Es irreversible y **el número vuelve al pozo**: el siguiente documento
+     * que se cree puede quedarse con él. Por eso la app ofrece antes anular, y
+     * por eso la bitácora de Softland — que sí sobrevive al borrado — queda con
+     * su evento `Elimina`.
+     */
+    public function destroy(Request $request, int $numero, Emision $emision)
+    {
+        $doc = $this->documentoDe($numero);
+
+        if (! $doc || ! $this->alcanza($request, $this->vendedorDelDocumento($numero))) {
+            return response()->json(['message' => $this->noEncontrado()], 404);
+        }
+
+        if ($razones = $this->impedimentosParaEliminar($numero)) {
+            return response()->json([
+                'message' => 'No se puede eliminar. '.implode(' ', $razones),
+                'razones' => $razones,
+                'puede_anular' => in_array(
+                    strtoupper(trim((string) ($doc['estado'] ?? ''))), static::ANULABLES, true
+                ),
+            ], 409);
+        }
+
+        $emision->borrar($this->tipoDoc(), $numero);
+        $this->eliminarDeSoftland($numero);
+
+        return response()->json(['eliminado' => $numero]);
+    }
+
     // -------------------------------------------------------------- el papel
 
     /**

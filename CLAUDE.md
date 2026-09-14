@@ -194,6 +194,16 @@ tocar nada de esto:
   uno así, el servidor devuelve 422.
 - **Quien crea el documento va en `UsuarioGeneraDocto`**, y `Usuario` se deja
   vacío. Es al revés de lo que parece, y es como lo escribe el ERP.
+- **Anular y eliminar no son lo mismo.** Anular es `N` y conserva el número;
+  eliminar borra la fila y **devuelve el número al pozo**, porque el correlativo
+  es `MAX + 1`. Lo entregado al cliente se anula, nunca se borra.
+- **El barrido del borrado lo hacen los triggers de Softland.** Sólo hay que
+  borrar antes lo que tiene clave foránea `NO_ACTION` — en la cotización,
+  seguimientos y adjuntos. Las bitácoras `nw_log*` no se tocan nunca.
+- **Un número no identifica un documento para siempre.** El mapa
+  `ventas.documento_app` lleva `creado_en`, la misma marca que
+  `FechaHoraCreacion`; si no coinciden, la fila está muerta. Sin eso, un
+  `client_uuid` viejo devolvía el documento de otra persona.
 
 ## El papel que ve el cliente
 

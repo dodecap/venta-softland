@@ -3,6 +3,7 @@
 namespace App\Services\Softland;
 
 use App\Models\Usuario;
+use App\Services\Documentos\TipoDocumento;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -72,12 +73,15 @@ class Ventas
             return $this->conn()->transaction(function () use ($data, $u) {
                 $numero = $this->siguienteNumero('softland.nwcotiza', 'CotNum');
                 $doc = $this->armar($data);
+                // El mismo instante en el documento y en el mapa. Es la huella
+                // con que después se reconoce que ese número sigue siendo suyo.
+                $creado = now();
 
                 $this->conn()->table('softland.nwcotiza')->insert(
-                    $this->cabeceraCotizacion($doc, $u) + ['CotNum' => $numero]
+                    $this->cabeceraCotizacion($doc, $u, $creado) + ['CotNum' => $numero]
                 );
                 $this->escribirDetalleCotizacion($numero, $doc);
-                $this->marcarEscrito($data['client_uuid'] ?? null, 'cotizacion', $numero, $u);
+                $this->marcarEscrito($data['client_uuid'] ?? null, 'cotizacion', $numero, $u, $creado);
 
                 return $numero;
             });
@@ -151,9 +155,10 @@ class Ventas
             return $this->conn()->transaction(function () use ($data, $u, $desdeCotizacion) {
                 $numero = $this->siguienteNumero('softland.nw_nventa', 'NVNumero');
                 $doc = $this->armar($data);
+                $creado = now();
 
                 $this->conn()->table('softland.nw_nventa')->insert(
-                    $this->cabeceraNotaVenta($doc, $u, $desdeCotizacion) + ['NVNumero' => $numero]
+                    $this->cabeceraNotaVenta($doc, $u, $desdeCotizacion, $creado) + ['NVNumero' => $numero]
                 );
                 $this->escribirDetalleNotaVenta($numero, $doc);
 
@@ -162,7 +167,7 @@ class Ventas
                         ->update(['CtEstado' => 'V'] + $this->auditoria($u, false));
                 }
 
-                $this->marcarEscrito($data['client_uuid'] ?? null, 'nota_venta', $numero, $u);
+                $this->marcarEscrito($data['client_uuid'] ?? null, 'nota_venta', $numero, $u, $creado);
 
                 return $numero;
             });
@@ -192,6 +197,194 @@ class Ventas
             + ($aprobada ? ['nvFeAprob' => now()] : [])
             + $this->auditoria($u, false)
         );
+    }
+
+    // ----------------------------------------------------- anular y eliminar
+
+    /**
+     * Anula un documento: se queda donde está, conserva su número y deja de
+     * contar. Es lo que corresponde cuando el papel ya salió — el cliente
+     * tiene un PDF con ese número, y que el número no exista después es peor
+     * que que exista anulado.
+     *
+     * Softland lo registra solo: el trigger de actualización escribe el cambio
+     * de estado en `nw_lognwcotiza` con nuestro `proceso`.
+     */
+    public function anularCotizacion(int $numero, Usuario $u): void
+    {
+        $this->conn()->table('softland.nwcotiza')->where('CotNum', $numero)
+            ->update(['CtEstado' => 'N'] + $this->auditoria($u, false));
+    }
+
+    /** Lo mismo en la nota de venta. `N` es «nula» también aquí. */
+    public function anularNotaVenta(int $numero, Usuario $u): void
+    {
+        $this->fijarEstadoNotaVenta($numero, 'N', $u);
+    }
+
+    /**
+     * Borra la cotización de verdad, y con ella su número vuelve al pozo.
+     *
+     * **Casi todo el barrido lo hace Softland, no nosotros.** La base trae
+     * triggers `FOR DELETE` sobre `nwcotiza` que se llevan el detalle
+     * (`NWCotiza_NWDetCot_DTRIG`), los impuestos, los documentos asociados, y
+     * que dejan escrito el evento `Elimina` en la bitácora. Repetir ese
+     * barrido a mano sería mantener dos veces la misma lógica y equivocarse en
+     * una de las dos el día que el ERP se actualice.
+     *
+     * Lo que los triggers **no** tocan son las dos tablas que además tienen
+     * clave foránea `NO_ACTION` hacia la cotización: los seguimientos y los
+     * adjuntos. Esas impiden el borrado si quedan filas, así que van antes. Es
+     * lo mismo que hace el Softland de escritorio: en INNOVAGES no hay ni un
+     * seguimiento huérfano.
+     *
+     * La bitácora `nw_lognwcotiza` no se toca nunca: tiene 10.397 filas de
+     * documentos que ya no existen, y así debe seguir.
+     */
+    public function eliminarCotizacion(int $numero): void
+    {
+        $this->conn()->transaction(function () use ($numero) {
+            $this->conn()->table('softland.nwtsegui')->where('CotNum', $numero)->delete();
+            $this->conn()->table('softland.nwctdoctos')->where('Cotnum', $numero)->delete();
+            $this->conn()->table('softland.nwcotiza')->where('CotNum', $numero)->delete();
+            $this->olvidar('cotizacion', $numero);
+        });
+    }
+
+    /**
+     * Borra la nota de venta. Aquí no hace falta barrer nada antes: `nw_nventa`
+     * no tiene ninguna clave foránea apuntándole, y sus diez triggers de
+     * borrado se llevan detalle, impuestos, adjuntos, atributos, la solicitud
+     * de aprobación de Softland y su detalle.
+     *
+     * Lo único que Softland no puede saber es la aprobación por topes, que es
+     * nuestra y vive en `ventas.aprobacion`.
+     */
+    public function eliminarNotaVenta(int $numero): void
+    {
+        $this->conn()->transaction(function () use ($numero) {
+            $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)->delete();
+            $this->conn()->table('ventas.aprobacion')->where('nv_numero', $numero)->delete();
+            $this->olvidar('nota_venta', $numero);
+        });
+    }
+
+    /**
+     * Por qué esta cotización no se puede eliminar. Arreglo vacío = se puede.
+     *
+     * Se devuelven **todas** las razones, no la primera: al vendedor le sirve
+     * saber de una vez todo lo que estorba.
+     */
+    public function impedimentosCotizacion(int $numero): array
+    {
+        $c = $this->conn()->table('softland.nwcotiza')->where('CotNum', $numero)->first(['CtEstado']);
+
+        if (! $c) {
+            return ['Esa cotización ya no está en Softland.'];
+        }
+
+        $razones = [];
+        $estado = strtoupper(trim((string) $c->CtEstado));
+
+        // Softland sí deja borrar una cotización que ya tiene nota de venta: en
+        // INNOVAGES hay 14 notas apuntando a una cotización que no existe. La
+        // app no lo permite — esa referencia rota nadie la reconstruye después.
+        $nv = $this->conn()->table('softland.nw_nventa')->where('CotNum', $numero)->value('NVNumero');
+
+        if ($nv) {
+            // Nombrar la nota de venta dice más que repetir que está en `V`.
+            $razones[] = 'Ya se convirtió en la nota de venta '.$nv.'.';
+        } elseif (! in_array($estado, ['P', 'N'], true)) {
+            $razones[] = 'Está '.$this->enMinuscula(TipoDocumento::COTIZACION->estado($estado)).'.';
+        }
+
+        return array_merge($razones, $this->impedimentosComunes('cotizacion', $numero, 'la cotización'));
+    }
+
+    /** Lo mismo para la nota de venta, que tiene más sitios donde haber avanzado. */
+    public function impedimentosNotaVenta(int $numero): array
+    {
+        $v = $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)->first(['nvEstado']);
+
+        if (! $v) {
+            return ['Esa nota de venta ya no está en Softland.'];
+        }
+
+        $razones = [];
+        $estado = strtoupper(trim((string) $v->nvEstado));
+
+        if (! in_array($estado, ['P', 'N'], true)) {
+            $razones[] = 'Está '.$this->enMinuscula(TipoDocumento::NOTA_VENTA->estado($estado)).'.';
+        }
+
+        // Que esté facturada es lo más grave: `iw_gsaen` es el movimiento de
+        // facturación. En 209 filas no hay una sola que apunte a una nota de
+        // venta borrada, o sea que el ERP tampoco lo permite.
+        if ($this->conn()->table('softland.iw_gsaen')->where('nvnumero', $numero)->exists()) {
+            $razones[] = 'Ya está facturada.';
+        }
+
+        if ($this->conn()->table('softland.iw_encpicking')->where('nvnumero', $numero)->exists()) {
+            $razones[] = 'Ya tiene picking en bodega.';
+        }
+
+        foreach (['owordencom' => 'NvNumero', 'owrequisicion' => 'NvNumero'] as $tabla => $col) {
+            if ($this->conn()->table("softland.$tabla")->where($col, $numero)->exists()) {
+                $razones[] = 'Ya generó una compra.';
+                break;
+            }
+        }
+
+        return array_merge($razones, $this->impedimentosComunes('nota_venta', $numero, 'la nota de venta'));
+    }
+
+    /** Las dos condiciones que valen igual para los dos documentos. */
+    private function impedimentosComunes(string $tipo, int $numero, string $ese): array
+    {
+        $razones = [];
+
+        if (! $this->esDeLaApp($tipo, $numero)) {
+            $razones[] = 'No la creó esta app: bórrala desde Softland.';
+        }
+
+        // Emitir el PDF no basta para bloquear — mirar el documento propio no
+        // es entregarlo. Lo que bloquea es que haya salido: correo, WhatsApp o
+        // descarga, que es cuando `enviado_at` deja de estar en nulo.
+        if ($this->conn()->table('ventas.documento_emision')
+            ->where('tipo', $tipo)->where('numero', $numero)
+            ->whereNotNull('enviado_at')->exists()) {
+            $razones[] = 'Ya se le entregó al cliente: anula '.$ese.' en vez de borrarla.';
+        }
+
+        return $razones;
+    }
+
+    /**
+     * ¿Este número lo escribió la app, y sigue siendo el mismo documento?
+     *
+     * Las dos mitades importan. Que exista una fila en el mapa sólo dice que
+     * *alguna vez* la app escribió ese número; con el correlativo por máximo,
+     * el número pudo repartirse de nuevo.
+     */
+    public function esDeLaApp(string $tipo, int $numero): bool
+    {
+        $fila = $this->conn()->table('ventas.documento_app')
+            ->where('tipo', $tipo)->where('numero', $numero)
+            ->orderByDesc('id')->first();
+
+        return $fila !== null && $this->sigueVivo($fila);
+    }
+
+    /** Olvida el mapa de un documento que ya no existe. */
+    private function olvidar(string $tipo, int $numero): void
+    {
+        $this->conn()->table('ventas.documento_app')
+            ->where('tipo', $tipo)->where('numero', $numero)->delete();
+    }
+
+    private function enMinuscula(string $s): string
+    {
+        return mb_strtolower($s, 'UTF-8');
     }
 
     // ------------------------------------------------------------- consultas
@@ -225,16 +418,78 @@ class Ventas
         return $this->armar($data)['totales']['total'];
     }
 
-    /** El número que se le asignó a un `client_uuid`, si ya se escribió. */
+    /**
+     * El número que se le asignó a un `client_uuid`, si ya se escribió **y el
+     * documento sigue siendo aquél**.
+     *
+     * Lo segundo no es una precaución teórica. El correlativo es `MAX + 1`, o
+     * sea que **el número de un documento borrado se vuelve a repartir**: en
+     * INNOVAGES hay 4.453 huecos en las cotizaciones, y durante las pruebas de
+     * este proyecto el 8553 llegó a estar asignado a tres documentos seguidos.
+     * Un teléfono que estuvo un día sin red y reintenta un `client_uuid` viejo
+     * recibía entonces «ya está escrita, es la 8553» y se traía a la pantalla
+     * la cotización de otra persona.
+     *
+     * Si el mapa quedó muerto se borra la fila y se devuelve `null`: el
+     * documento se escribe de nuevo, con número nuevo, que es lo que el
+     * teléfono venía a pedir.
+     */
     public function yaEscrito(?string $uuid): ?int
     {
         if (! $uuid) {
             return null;
         }
 
-        $n = $this->conn()->table('ventas.documento_app')->where('client_uuid', $uuid)->value('numero');
+        $fila = $this->conn()->table('ventas.documento_app')->where('client_uuid', $uuid)->first();
 
-        return $n ? (int) $n : null;
+        if (! $fila) {
+            return null;
+        }
+
+        if ($this->sigueVivo($fila)) {
+            return (int) $fila->numero;
+        }
+
+        $this->conn()->table('ventas.documento_app')->where('id', $fila->id)->delete();
+
+        return null;
+    }
+
+    /**
+     * ¿La fila del mapa sigue apuntando al documento que escribió?
+     *
+     * La huella es el instante de creación, guardado a la vez en
+     * `FechaHoraCreacion` del documento y en `creado_en` del mapa.
+     *
+     * Se declara muerto **sólo lo que se puede demostrar muerto**: o el
+     * documento ya no está, o las dos huellas existen y no coinciden. Sin
+     * huella con que comparar —filas escritas antes de que la columna
+     * existiera— se da por vivo. Equivocarse por exceso aquí escribiría el
+     * documento dos veces, que es peor que un puntero viejo.
+     */
+    private function sigueVivo(object $fila): bool
+    {
+        [$tabla, $clave] = $fila->tipo === 'nota_venta'
+            ? ['softland.nw_nventa', 'NVNumero']
+            : ['softland.nwcotiza', 'CotNum'];
+
+        $doc = $this->conn()->table($tabla)->where($clave, $fila->numero)->first(['FechaHoraCreacion']);
+
+        if (! $doc) {
+            return false;
+        }
+
+        if (! $fila->creado_en || ! $doc->FechaHoraCreacion) {
+            return true;
+        }
+
+        return $this->instante($doc->FechaHoraCreacion) === $this->instante($fila->creado_en);
+    }
+
+    /** Al segundo: SQL Server y PHP no siempre devuelven la misma precisión. */
+    private function instante($v): string
+    {
+        return \Carbon\Carbon::parse($v)->format('Y-m-d H:i:s');
     }
 
     // ---------------------------------------------------------------- armado
@@ -303,7 +558,15 @@ class Ventas
         ];
     }
 
-    private function cabeceraCotizacion(array $doc, Usuario $u): array
+    /**
+     * La cabecera, para insertar o para reescribir.
+     *
+     * `$creado` sólo llega al crear, y es lo que separa los dos casos: las
+     * columnas de creación — quién la hizo y cuándo — se escriben una vez y no
+     * se vuelven a tocar. Reescribirlas en cada corrección le cambiaba el autor
+     * y la fecha de nacimiento al documento, y dejaba sin huella al mapa.
+     */
+    private function cabeceraCotizacion(array $doc, Usuario $u, $creado = null): array
     {
         $d = $doc['datos'];
         $t = $doc['totales'];
@@ -335,10 +598,11 @@ class Ventas
             'CtNetoAfecto' => $t['afecto'],
             'CtNetoExento' => $t['exento'],
             'CtMonto' => $t['total'],
-        ] + $this->auditoria($u);
+        ] + $this->auditoria($u, $creado !== null, $creado);
     }
 
-    private function cabeceraNotaVenta(array $doc, Usuario $u, ?int $cotizacion): array
+    /** Igual que la cotización: `$creado` sólo viene al crear. Ver allá el porqué. */
+    private function cabeceraNotaVenta(array $doc, Usuario $u, ?int $cotizacion, $creado = null): array
     {
         $d = $doc['datos'];
         $t = $doc['totales'];
@@ -374,7 +638,7 @@ class Ventas
             'nvMonto' => $t['total'],
             'NumReq' => 0,
             'FechaUlMod' => now(),
-        ] + $this->auditoria($u);
+        ] + $this->auditoria($u, $creado !== null, $creado);
     }
 
     private function escribirDetalleCotizacion(int $numero, array $doc): void
@@ -500,7 +764,7 @@ class Ventas
         }
     }
 
-    private function marcarEscrito(?string $uuid, string $tipo, int $numero, Usuario $u): void
+    private function marcarEscrito(?string $uuid, string $tipo, int $numero, Usuario $u, $creado = null): void
     {
         if (! $uuid) {
             return;
@@ -510,6 +774,8 @@ class Ventas
             'client_uuid' => $uuid,
             'tipo' => $tipo,
             'numero' => $numero,
+            // La huella: el mismo valor que quedó en `FechaHoraCreacion`.
+            'creado_en' => $creado ?? now(),
             'usuario_id' => $u->id,
             'created_at' => now(),
             'updated_at' => now(),
@@ -528,7 +794,7 @@ class Ventas
      * Es varchar(8), como el usuario de `wisusuarios`: el nombre largo se
      * corta, que es lo que hace el ERP.
      */
-    private function auditoria(Usuario $u, bool $creando = true): array
+    private function auditoria(Usuario $u, bool $creando = true, $creado = null): array
     {
         // Las dos marcas que deja el ERP: el módulo que escribió y desde
         // dónde. Sirven para reconocer en Softland lo que vino del teléfono
@@ -541,7 +807,7 @@ class Ventas
 
         return $cols + [
             'UsuarioGeneraDocto' => substr((string) ($u->softland_user ?: $u->email), 0, 8),
-            'FechaHoraCreacion' => now(),
+            'FechaHoraCreacion' => $creado ?? now(),
         ];
     }
 

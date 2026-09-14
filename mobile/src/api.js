@@ -163,6 +163,8 @@ export const api = {
     editarCotizacion: (numero, c) => pedir(`/cotizaciones/${numero}`, { method: 'PUT', body: c }),
     enviarCotizacion: (numero) => pedir(`/cotizaciones/${numero}/enviar`, { method: 'POST' }),
     perderCotizacion: (numero, m) => pedir(`/cotizaciones/${numero}/perder`, { method: 'POST', body: m }),
+    anularCotizacion: (numero) => pedir(`/cotizaciones/${numero}/anular`, { method: 'POST' }),
+    eliminarCotizacion: (numero) => pedir(`/cotizaciones/${numero}`, { method: 'DELETE' }),
     seguirCotizacion: (numero, s) => pedir(`/cotizaciones/${numero}/seguimientos`, { method: 'POST', body: s }),
     convertirCotizacion: (numero, nv) => pedir(`/cotizaciones/${numero}/nota-venta`, { method: 'POST', body: nv }),
 
@@ -188,6 +190,8 @@ export const api = {
     editarNotaVenta: (numero, nv) => pedir(`/notas-venta/${numero}`, { method: 'PUT', body: nv }),
     aprobaciones: () => pedir('/notas-venta/aprobaciones'),
     resolverAprobacion: (numero, r) => pedir(`/notas-venta/${numero}/aprobacion`, { method: 'POST', body: r }),
+    anularNotaVenta: (numero) => pedir(`/notas-venta/${numero}/anular`, { method: 'POST' }),
+    eliminarNotaVenta: (numero) => pedir(`/notas-venta/${numero}`, { method: 'DELETE' }),
 
     // Administración (rol admin)
     usuarios: () => pedir('/admin/usuarios'),

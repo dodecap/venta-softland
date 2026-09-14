@@ -155,6 +155,28 @@ class Emision
         return File::exists($ruta) ? File::get($ruta) : null;
     }
 
+    /**
+     * Tira las versiones de un documento que se eliminó de Softland.
+     *
+     * Sólo se llega aquí cuando el documento **nunca salió** — una emisión con
+     * `enviado_at` impide eliminar, y por eso lo que se borra aquí no es «lo
+     * entregado al cliente» sino previas que ya no tienen documento detrás.
+     * Dejarlas sería peor que borrarlas: el número se reparte de nuevo, y la
+     * versión 3 de la cotización vieja aparecería como historial de la nueva.
+     */
+    public function borrar(TipoDocumento $tipo, int $numero): int
+    {
+        $versiones = $this->tabla()
+            ->where('tipo', $tipo->value)->where('numero', $numero)
+            ->get(['id', 'archivo']);
+
+        foreach ($versiones as $v) {
+            File::delete(storage_path('app/private/'.$v->archivo));
+        }
+
+        return $this->tabla()->where('tipo', $tipo->value)->where('numero', $numero)->delete();
+    }
+
     private function tabla()
     {
         return DB::connection('softland')->table('ventas.documento_emision');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Usuario;
 use App\Services\Notificaciones\Eventos;
 use App\Services\Notificaciones\Notificador;
 use Illuminate\Http\Request;
@@ -51,6 +52,21 @@ class CotizacionController extends DocumentoController
     protected function noEncontrado(): string
     {
         return 'Esa cotización no existe o no es tuya.';
+    }
+
+    protected function anularEnSoftland(int $numero, Usuario $u): void
+    {
+        $this->ventas->anularCotizacion($numero, $u);
+    }
+
+    protected function eliminarDeSoftland(int $numero): void
+    {
+        $this->ventas->eliminarCotizacion($numero);
+    }
+
+    protected function impedimentosParaEliminar(int $numero): array
+    {
+        return $this->ventas->impedimentosCotizacion($numero);
     }
 
     protected function eventoEnvio(): string
@@ -215,7 +231,7 @@ class CotizacionController extends DocumentoController
             ])->all();
     }
 
-    private function respuesta(int $numero): array
+    protected function respuesta(int $numero): array
     {
         return [
             'cotizacion' => $this->documentoDe($numero),

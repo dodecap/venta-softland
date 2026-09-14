@@ -7,7 +7,7 @@ import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
 import { TIPOS, estado, lineasDe, avanceFacturacion } from '../documentos';
 import { conectado } from '../red';
-import { compartirPdf, pdfGuardado, verPdf } from '../pdf';
+import { compartirPdf, olvidarPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
@@ -39,15 +39,21 @@ const trabajando = ref(false);
 // Si el PDF ya está en el teléfono, verlo y mandarlo funcionan sin señal.
 const papelGuardado = ref(null);
 
-// Las hojas de cerrar por pérdida y de anotar un seguimiento.
+// Las hojas de cerrar por pérdida, anotar un seguimiento y eliminar.
 const perdiendo = ref(false);
 const siguiendo = ref(false);
+const borrando = ref(false);
 const formPerdida = ref({ motivo: '', observacion: '' });
 const formSeguimiento = ref({ descripcion: '', proximo_contacto: '' });
 
-useCapa(computed(() => perdiendo.value || siguiendo.value), () => {
+// Por qué el servidor no dejó eliminar. Sólo él lo sabe: en el teléfono no
+// está si el documento se facturó, si generó picking o si ya salió al cliente.
+const impedimentos = ref([]);
+
+useCapa(computed(() => perdiendo.value || siguiendo.value || borrando.value), () => {
     perdiendo.value = false;
     siguiendo.value = false;
+    borrando.value = false;
 });
 
 onMounted(cargar);
@@ -94,6 +100,22 @@ const esCotizacion = computed(() => tipo.value === 'cotizacion');
 const editable = computed(() => ['P', ''].includes((doc.value?.estado || '').trim()));
 
 const puedeConvertir = computed(() => esCotizacion.value && editable.value);
+
+/**
+ * Anular deja el documento donde está, con su número, fuera de juego. Sólo
+ * desde pendiente: lo que ya se convirtió, se perdió, se aprobó o se concluyó
+ * tuvo un desenlace, y anularlo lo borraría de la historia en vez de cerrarlo.
+ */
+const anulable = computed(() => editable.value);
+
+/**
+ * Eliminar borra la fila de Softland. Aquí sólo se sabe lo que se ve — que el
+ * documento esté pendiente o ya anulado — y con eso basta para no ofrecer el
+ * botón donde seguro no va a funcionar. El resto de las condiciones las
+ * contesta el servidor, que es el único que sabe si esto se facturó, si generó
+ * picking o si el PDF ya salió al cliente.
+ */
+const borrable = computed(() => ['P', 'N', ''].includes((doc.value?.estado || '').trim()));
 
 async function perder() {
     if (! formPerdida.value.motivo) return;
@@ -166,6 +188,62 @@ async function compartirPapel() {
         aviso.value = r.compartido ? 'Documento entregado a la app que elegiste.' : 'Documento descargado.';
     } catch (e) {
         error.value = e.message;
+    } finally {
+        trabajando.value = false;
+    }
+}
+
+async function anular() {
+    const que = esCotizacion.value ? 'esta cotización' : 'esta nota de venta';
+    if (! confirm(`¿Anular ${que}? Se queda en Softland con su número, pero deja de contar.`)) return;
+
+    await conServidor(async () => {
+        const r = esCotizacion.value
+            ? await api.anularCotizacion(numero.value)
+            : await api.anularNotaVenta(numero.value);
+        await idb.guardar(def.value.almacen, [JSON.parse(JSON.stringify(r.cotizacion ?? r.nota_venta))]);
+        aviso.value = 'Anulada en Softland.';
+        await cargar();
+    });
+}
+
+/**
+ * Eliminar de verdad. Es irreversible y **el número vuelve al pozo**: el
+ * correlativo de Softland es el máximo más uno, así que el siguiente documento
+ * que se cree puede quedarse con él.
+ *
+ * Si el servidor dice que no, devuelve las razones en vez de un mensaje suelto,
+ * y se muestran todas: al vendedor le sirve saber de una vez qué estorba.
+ */
+async function eliminar() {
+    trabajando.value = true;
+    error.value = '';
+    impedimentos.value = [];
+
+    try {
+        if (esCotizacion.value) {
+            await api.eliminarCotizacion(numero.value);
+        } else {
+            await api.eliminarNotaVenta(numero.value);
+        }
+
+        // Del teléfono también: la ficha, sus líneas y el PDF guardado. Si no,
+        // el documento sigue apareciendo en la lista hasta la próxima descarga
+        // completa, y el papel se abriría sin nada detrás.
+        await olvidarPdf(tipo.value, numero.value);
+        for (const l of lineas.value) {
+            await idb.borrar(def.value.lineas, [numero.value, l.linea]);
+        }
+        await idb.borrar(def.value.almacen, numero.value);
+
+        borrando.value = false;
+        router.replace(def.value.ruta);
+    } catch (e) {
+        impedimentos.value = e?.datos?.razones ?? [];
+        if (! impedimentos.value.length) {
+            error.value = e.message;
+            borrando.value = false;
+        }
     } finally {
         trabajando.value = false;
     }
@@ -338,6 +416,19 @@ function cantidad(n) {
                     Sin señal solo se puede mirar: cambiar un documento que ya está en Softland necesita red.
                 </p>
 
+                <!-- Anular y eliminar. Aparte del resto a propósito: son las
+                     dos acciones que no se deshacen. -->
+                <div class="acciones-doc riesgo" v-if="anulable || borrable">
+                    <button class="chip-accion peligro" v-if="anulable" :disabled="! conectado || trabajando"
+                            @click="anular">
+                        <AppIcon name="anular" :size="17" color="currentColor" /> Anular
+                    </button>
+                    <button class="chip-accion peligro" v-if="borrable" :disabled="! conectado || trabajando"
+                            @click="impedimentos = []; borrando = true">
+                        <AppIcon name="borrar" :size="17" color="currentColor" /> Eliminar
+                    </button>
+                </div>
+
                 <!-- La aprobación del jefe no existe en Softland: la pone la app
                      cuando la venta pasa el tope del vendedor. -->
                 <div class="tarjeta" v-if="aprobacion">
@@ -457,6 +548,42 @@ function cantidad(n) {
 
                     <button class="boton peligro" :disabled="! formPerdida.motivo || trabajando" @click="perder">
                         {{ trabajando ? 'Cerrando…' : 'Cerrar como perdida' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Eliminar de Softland -->
+        <div class="velo" v-if="borrando" @click.self="borrando = false">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Eliminar de Softland</h2>
+                    <button class="icono-barra" @click="borrando = false"><AppIcon name="cerrar" :size="21" /></button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <Aviso v-if="impedimentos.length" tipo="error">
+                        <ul class="motivos">
+                            <li v-for="(m, i) in impedimentos" :key="i">{{ m }}</li>
+                        </ul>
+                    </Aviso>
+
+                    <template v-else>
+                        <p class="ayuda">
+                            {{ esCotizacion ? 'La cotización' : 'La nota de venta' }} N° {{ numero }} desaparece de
+                            Softland con todo su detalle. No se puede deshacer, y el número queda libre: el
+                            siguiente documento que se cree puede quedarse con él.
+                        </p>
+                        <p class="ayuda">
+                            Si ya salió al cliente, anúlala en vez de eliminarla: así conserva su número.
+                        </p>
+
+                        <button class="boton peligro" :disabled="trabajando" @click="eliminar">
+                            {{ trabajando ? 'Eliminando…' : 'Eliminar definitivamente' }}
+                        </button>
+                    </template>
+
+                    <button class="boton-texto peligro" v-if="anulable" @click="borrando = false; anular()">
+                        Anular en vez de eliminar
                     </button>
                 </div>
             </div>

@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-13
+2026-09-14
 
 ## Resumen del estado actual
 **Fases 1, 2 y 3 terminadas, más el motor de documentos comerciales.** El servidor (API Laravel) está en
@@ -387,6 +387,33 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       a la nota de venta. Sin fecha pactada va la del documento: en las 2.351
       cotizaciones de INNOVAGES no hay una sola con `CtFeEnt` nulo.
 
+### Anular, eliminar y el número que se repartía dos veces
+- [x] **Anular** (`CtEstado`/`nvEstado` = `N`): el documento se queda, conserva
+      su número y deja de contar. Es lo que corresponde si el papel ya salió —
+      el cliente tiene un PDF con ese número. Sólo desde pendiente.
+- [x] **Eliminar**: borra la fila de Softland. **Casi todo el barrido lo hacen
+      los triggers del ERP** — detalle, impuestos, adjuntos, aprobaciones y el
+      evento `Elimina` en la bitácora, que sobrevive al borrado. Lo único que
+      hay que barrer a mano en la cotización son los seguimientos y los
+      adjuntos, que tienen FK `NO_ACTION` y si no bloquean el borrado.
+- [x] **Cuatro condiciones para eliminar**: que la haya creado la app, que nunca
+      saliera al cliente, que no haya avanzado a nada (nota de venta, factura,
+      picking, compra) y que esté pendiente o anulada. El 409 devuelve **todas**
+      las razones y si todavía se puede anular. En la pantalla los dos botones
+      sólo aparecen donde van a funcionar: una cotización perdida o ya
+      convertida no los muestra.
+- [x] **El mapa de idempotencia ya no puede apuntar al documento de otro.**
+      `MAX + 1` reparte de nuevo el número de lo que se borró — en INNOVAGES hay
+      4.453 huecos en las cotizaciones, y en las pruebas el 8553 llegó a estar
+      asignado a tres documentos seguidos. `documento_app.creado_en` guarda el
+      mismo instante que `FechaHoraCreacion`; si no coinciden, la fila está
+      muerta y el documento se escribe de nuevo con número nuevo. Probado: el
+      `client_uuid` de un documento borrado escribe uno nuevo (201) y el de uno
+      vivo devuelve el mismo sin duplicar (200).
+- [x] **Corregir ya no le cambia la fecha de nacimiento al documento.** Las
+      columnas de creación se escribían también al actualizar, así que cada
+      corrección le ponía `FechaHoraCreacion` de hoy y reasignaba el autor.
+
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
   tiene filas porque el SMTP todavía no está configurado, y el único usuario
@@ -422,11 +449,17 @@ vendibles, 12 meses de documentos y solo los del vendedor).
   13-09-2026 por una prueba de la fase 2. El dato de negocio se restauró (su
   teléfono volvió a quedar vacío, como estaba); lo que no se pudo devolver es
   quién lo había tocado antes, porque la columna se sobrescribe.
-- **Quedan seis documentos de prueba en INNOVAGES**: cotizaciones 8553, 8554 y
-  8555 y notas de venta 2064, 2065 y 2066. Las dos primeras de cada par son las
-  que nacieron mal — sirven de contraste para comprobar en el ERP que el
-  arreglo funciona — y el resto son las de la verificación. Hay que anularlas
-  (`CtEstado`/`nvEstado` = `N`) o borrarlas cuando estén revisadas.
+- **Quedan dos documentos de prueba en INNOVAGES**: la cotización 8553 y las
+  notas de venta 2064 y 2065. La **2064 es la del contraste**: se dejó con el
+  vendedor en nulo a propósito, para comprobar en el ERP que es eso lo que la
+  saca de las ventanas de búsqueda. Las demás se borraron con la función nueva.
+- **La emisión de la cotización 8553 quedó marcada como entregada por WhatsApp**
+  (13-09 23:23). Es de las pruebas de la sesión anterior, no salió nada de
+  verdad, pero mientras esté ahí esa cotización no se puede eliminar desde la
+  app — sólo anular.
+- **La bitácora de Softland nombra al creador, no a quien borró.** El trigger
+  `Elimina` copia `UsuarioGeneraDocto` de la fila que desaparece. Si alguna vez
+  hace falta saber quién apretó el botón, hay que anotarlo aparte en `ventas`.
 - **El usuario administrador no tiene vendedor** (`ven_cod` en blanco), así que
   desde él no se puede grabar sin elegir vendedor a mano en cada documento. Es
   correcto que sea así — un administrador no vende — pero conviene tenerlo

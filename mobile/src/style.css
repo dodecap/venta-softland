@@ -1342,6 +1342,20 @@ select.filtro-grupo { margin-bottom: 12px; }
 
 .chip-accion:disabled { opacity: .45; cursor: default; }
 
+/* Las dos que no se deshacen. Van en su propia fila, abajo, y en rojo: no se
+   pulsan por error queriendo pulsar «Corregir». */
+.chip-accion.peligro {
+    color: var(--ic-peligro-fg);
+    border-color: var(--ic-peligro-fg);
+}
+
+.acciones-doc.riesgo { margin-top: calc(4px * var(--d)); }
+
+/* Las razones por las que el servidor no dejó eliminar. Van todas, no la
+   primera: al vendedor le sirve saber de una vez qué estorba. */
+.motivos { margin: 0; padding-left: 18px; }
+.motivos li { margin-bottom: 3px; }
+
 /* Aviso de que hay ventas detenidas esperando al jefe. Es una fila pulsable,
    no una tarjeta: lo que se espera de ella es que se toque. */
 .pendiente-aprobar {

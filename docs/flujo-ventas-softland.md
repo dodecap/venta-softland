@@ -98,6 +98,71 @@ Motivos de pérdida (`nwperdida`): `01` compra competencia, `02` cliente se
 retracta *(marcado «no usar»)*, `03` sin interés, `04` no contesta, `05` no
 compra por caro, `06` no cumple funcionalidades.
 
+### Anular y eliminar
+
+Son dos cosas distintas y el ERP admite las dos.
+
+**Anular** es poner el estado en `N`. El documento se queda, conserva su número
+y deja de contar. Es lo único correcto si el papel ya salió: el cliente tiene un
+PDF que dice «Cotización N° 8551», y que ese número no exista después es peor
+que que exista anulado.
+
+**Eliminar** es borrar la fila. Softland de escritorio lo hace — la bitácora
+`nw_lognwcotiza` guarda el evento `Elimina`, y en INNOVAGES hay **4.453 huecos**
+en la numeración de cotizaciones y 906 en la de notas de venta. No es raro: es
+práctica normal en esta instalación.
+
+#### Lo que se borra solo, y lo que no
+
+La base trae triggers `FOR DELETE`. **El barrido lo hace Softland**, y repetirlo
+a mano es mantener dos veces la misma lógica:
+
+| Al borrar | Se llevan los triggers | Hay que borrarlo antes |
+|---|---|---|
+| `nwcotiza` | `nwdetcot`, `NWCtImpto`, `SoCtDocAsociado`, y escribe `Elimina` en `nw_lognwcotiza` | `nwtsegui`, `nwctdoctos` — tienen FK `NO_ACTION` y bloquean el borrado |
+| `nw_nventa` | `nw_detnv`, `NW_Impto`, `nw_nvdoctos`, `SoNwDocAsociado`, `NWSoliApr`, `NW_aprobDetalle`, los tres `NW_NventaTVAtr*`, y la bitácora | nada: no tiene ninguna FK apuntándole |
+
+Las bitácoras `nw_lognwcotiza` y `nw_lognwnventa` **no se tocan nunca**: tienen
+10.397 y 1.829 filas de documentos que ya no existen, y así debe seguir. El
+`Usuario` de la fila `Elimina` lo copia el trigger de `UsuarioGeneraDocto`, o
+sea que nombra a quien creó el documento, no a quien lo borró.
+
+#### Las cuatro condiciones que pone la app
+
+Softland deja borrar más de lo que conviene — hay 14 notas de venta apuntando a
+una cotización que ya no existe. La app es más estricta: sólo elimina si
+
+1. **la creó la app** — hay fila viva en `ventas.documento_app`;
+2. **nunca salió al cliente** — ninguna emisión con `enviado_at`;
+3. **no avanzó a nada** — la cotización, que no tenga nota de venta; la nota de
+   venta, que no esté en `iw_gsaen` (facturada), `iw_encpicking`, `owordencom`
+   ni `owrequisicion`;
+4. **está pendiente o ya anulada** (`P` o `N`), y quien lo pide la tiene a su
+   alcance por vendedor.
+
+Si algo falla, el servidor responde 409 con **todas** las razones, no la
+primera, y dice si todavía se puede anular.
+
+### El número vuelve al pozo
+
+`MAX(numero) + 1` sobre una tabla con huecos **reparte de nuevo el número del
+documento borrado**. Durante las pruebas de este proyecto el 8553 llegó a estar
+asignado a tres documentos seguidos.
+
+Por eso el mapa `client_uuid` → número no basta: un número no identifica nada de
+forma permanente. `ventas.documento_app.creado_en` guarda el mismo instante que
+se escribió en `FechaHoraCreacion`, y `Ventas::yaEscrito()` compara los dos. Si
+no coinciden, la fila del mapa está muerta: se borra y el documento se escribe
+de nuevo, con número nuevo.
+
+Sin esa comprobación, un teléfono que estuvo un día sin red y reintenta un
+`client_uuid` viejo recibía «ya está escrita, es la 8553» y se traía a la
+pantalla la cotización de otra persona.
+
+Se declara muerto **sólo lo que se puede demostrar muerto** — o el documento ya
+no está, o las dos huellas existen y difieren. Equivocarse por exceso escribiría
+el documento dos veces, que es peor que un puntero viejo.
+
 ## 2. Nota de venta — `nw_nventa` + `nw_detnv`
 
 Encabezado (`nw_nventa`, 67 columnas):
