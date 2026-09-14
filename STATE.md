@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-14 — versión **0.6.0**
+2026-09-14 — versión **0.6.1**
 
 ## Resumen del estado actual
-**Versión 0.6.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.6.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -564,6 +564,32 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] El gesto sólo arranca con la lista arriba del todo, tiene resistencia de
       un medio, tope de 104 px y umbral de 68. Probado con eventos táctiles:
       tirón corto, lista desplazada y arrastre hacia arriba no disparan nada.
+
+### La app detrás del proxy HTTPS
+- [x] **`venta.netdomain.cl` (IIS/ARR en el 443) hacia
+      `http://172.30.205.106:8086/venta-softland/`.** La dirección para la app
+      es `https://venta.netdomain.cl`, **sin la carpeta**: la pone el proxy.
+      Comprobado de punta a punta: `Authorization` pasa, el inventario de 22
+      maestros tarda 0,13 s, una página de 500 clientes son 160 KB, el PDF
+      llega entero con sus cabeceras y la sincronización completa baja los
+      14.139 registros.
+- [x] **Arreglado por qué la app no llegaba y el navegador sí.** La pantalla
+      Servidor suponía `http://` cuando no se escribía el esquema. El puerto 80
+      del proxy responde **301 a https**, y ahí se rompen dos cosas a la vez: la
+      respuesta de redirección no lleva `Access-Control-Allow-Origin`, así que
+      ni el ping pasa; y **una redirección en la comprobación previa de CORS no
+      se sigue nunca** («Redirect is not allowed for a preflight request»), así
+      que el login habría muerto igual. Ahora se prueban los dos esquemas —https
+      primero si la dirección parece un dominio público, http primero si es una
+      IP o lleva puerto— y se guarda `res.url`, la dirección ya resuelta.
+      Probado escribiendo `venta.netdomain.cl` a secas: queda guardada
+      `https://venta.netdomain.cl` y el login responde.
+- [x] **Las cabeceras propias del PDF volvieron a leerse.** `config/cors.php`
+      tenía `exposed_headers` vacío, y con `allow-origin: *` el navegador sólo
+      entrega las siete de la lista segura: `X-Documento-Version` y
+      `X-Documento-Hash` llegaban nulas desde siempre, así que el teléfono
+      archivaba todos los PDF como «versión 1, sin huella». No daba error, sólo
+      dejaba de saber si el PDF guardado seguía siendo el vigente.
 
 ### Buscar en Softland un documento más viejo
 - [x] **La ventana de 12 meses y el alcance por vendedor se separaron.** Eran

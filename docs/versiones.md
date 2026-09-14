@@ -42,6 +42,24 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.6.1 — La app resuelve sola http o https, y el proxy deja de romper el login
+*2026-09-14*
+
+- **La pantalla Servidor prueba los dos esquemas y guarda el que contestó.**
+  Antes suponía `http://` cuando no se escribía ninguno, y eso rompe cualquier
+  instalación detrás de un proxy HTTPS: `venta.netdomain.cl` se guardaba como
+  `http://venta.netdomain.cl`, IIS responde a eso con un 301 a https, y el
+  navegador del teléfono **no sigue una redirección en una comprobación previa
+  de CORS**. Consecuencia exacta: por el navegador se llegaba y por la app no.
+  Ahora se prueban `https` y `http` —en el orden que corresponde según si la
+  dirección parece interna o pública— y se guarda `res.url`, la dirección ya
+  resuelta.
+- **Las cabeceras del PDF vuelven a leerse** (`exposed_headers` en
+  `config/cors.php`). Con `allow-origin: *` el navegador sólo entrega las siete
+  cabeceras de la lista segura, así que `X-Documento-Version` y
+  `X-Documento-Hash` llegaban vacías y el teléfono archivaba todos los PDF como
+  «versión 1, sin huella», sin forma de saber si el que tenía seguía vigente.
+
 ### 0.6.0 — Venta es la nota aprobada, y cada lista se actualiza sola
 *2026-09-14*
 

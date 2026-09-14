@@ -18,6 +18,18 @@ replicarse a otra empresa Softland cambiando la configuración de conexión.
 **Repositorio local:** `/home/ddecap/GIT/Ventas-Softland` (Linux, solo desarrollo)
 **Repositorio remoto:** `git@github.com:dodecap/venta-softland.git`
 
+**Dos caminos a la API, y no dan lo mismo:**
+- `http://192.168.1.55:8086/venta-softland` — la instalación, desde el WiFi de
+  la oficina.
+- `https://venta.netdomain.cl` — proxy IIS (ARR) en el 443, hacia la anterior.
+  **Sin la carpeta al final**, que la pone el proxy. Es la que sirve fuera de
+  la oficina.
+
+El puerto 80 de ese nombre responde 301 a https, y una redirección en la
+comprobación previa de CORS **no se sigue**: una dirección guardada con
+`http://` deja la app muerta aunque el navegador llegue. Por eso la pantalla
+Servidor prueba los dos esquemas y guarda `res.url`, no lo que se escribió.
+
 **Servidores** (usar siempre el alias SSH):
 - `srv` — Windows Server 2022, `172.30.205.106`. **Producción y SQL Server 2022**
   en la misma máquina. XAMPP con PHP 8.4.24 (`sqlsrv`/`pdo_sqlsrv` instalados) y
@@ -298,7 +310,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.6.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
+Versión **0.6.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
 panel comercial hasta el paso 4. Ver `STATE.md`. El mapa de tablas del flujo de
 ventas está en `docs/flujo-ventas-softland.md`, el motor de documentos en
 `docs/motor-documentos.md`, la auditoría del panel comercial en
