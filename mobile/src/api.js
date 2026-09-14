@@ -12,6 +12,30 @@ export class ErrorApi extends Error {
     }
 }
 
+/*
+ * Plazos. Ninguna petición espera para siempre.
+ *
+ * Sin esto, una conexión que se queda a medias —el teléfono pasa del WiFi de
+ * la oficina a datos móviles a mitad de descarga, el proxy corta y no avisa—
+ * deja un `fetch` colgado que no resuelve nunca. Y como la sincronización
+ * espera esa página para pedir la siguiente, la descarga se queda quieta con
+ * la barra a medio llenar y sin nada que decir.
+ *
+ * Los números son generosos a propósito: no están para apurar a un servidor
+ * lento, sino para que algo que ya no va a llegar se dé por perdido y se pueda
+ * reintentar. Una página de 500 filas por datos móviles no pasa de tres
+ * segundos; el PDF lo dibuja el servidor y por eso tiene el doble.
+ */
+const PLAZO = 30000;
+const PLAZO_LARGO = 60000;
+
+/** El mismo error, dicho por su nombre: se acabó el tiempo, no es que no haya red. */
+function errorDeRed(e) {
+    return e?.name === 'TimeoutError'
+        ? new ErrorApi('El servidor tardó demasiado en responder. Vuelve a intentarlo.', 0)
+        : new ErrorApi('No se pudo llegar al servidor. Revisa la conexión.', 0);
+}
+
 async function pedir(ruta, { method = 'GET', body = null, auth = true } = {}) {
     const servidor = await db.getServidor();
     if (!servidor) throw new ErrorApi('Falta configurar la dirección del servidor.', 0);
@@ -29,9 +53,10 @@ async function pedir(ruta, { method = 'GET', body = null, auth = true } = {}) {
             method,
             headers,
             body: body ? JSON.stringify(body) : null,
+            signal: AbortSignal.timeout(PLAZO),
         });
-    } catch {
-        throw new ErrorApi('No se pudo llegar al servidor. Revisa la conexión.', 0);
+    } catch (e) {
+        throw errorDeRed(e);
     }
 
     let json = null;
@@ -64,9 +89,10 @@ async function pedirPdf(ruta) {
     try {
         res = await fetch(servidor + '/api' + ruta, {
             headers: { Accept: 'application/pdf', ...(t ? { Authorization: 'Bearer ' + t } : {}) },
+            signal: AbortSignal.timeout(PLAZO_LARGO),
         });
-    } catch {
-        throw new ErrorApi('No se pudo llegar al servidor. Revisa la conexión.', 0);
+    } catch (e) {
+        throw errorDeRed(e);
     }
 
     if (!res.ok) {
@@ -102,9 +128,10 @@ async function subir(ruta, campo, archivo) {
             method: 'POST',
             headers: { Accept: 'application/json', ...(t ? { Authorization: 'Bearer ' + t } : {}) },
             body: cuerpo,
+            signal: AbortSignal.timeout(PLAZO_LARGO),
         });
-    } catch {
-        throw new ErrorApi('No se pudo llegar al servidor. Revisa la conexión.', 0);
+    } catch (e) {
+        throw errorDeRed(e);
     }
 
     let json = null;

@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-14 — versión **0.6.1**
+2026-09-14 — versión **0.6.2**
 
 ## Resumen del estado actual
-**Versión 0.6.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.6.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -590,6 +590,37 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       `X-Documento-Hash` llegaban nulas desde siempre, así que el teléfono
       archivaba todos los PDF como «versión 1, sin huella». No daba error, sólo
       dejaba de saber si el PDF guardado seguía siendo el vigente.
+
+### La primera descarga se veía no terminar
+- [x] **El panel no se enteraba de que la sincronización había acabado.** Al
+      entrar por primera vez, la descarga arranca sola desde el login y tarda
+      medio minuto; el panel se dibuja antes y cuenta el almacén una sola vez,
+      cuando todavía está vacío. Resultado: «Todavía no te has traído los
+      datos» y «Actualizado nunca» encima de un teléfono con 14.139 filas
+      dentro. Parecía que la descarga no terminaba nunca y había que
+      sincronizar otra vez —la manual sí releía— para que aparecieran.
+      Reproducido de cero en el navegador contra el proxy: 14.139 registros
+      bajados, `sincronizado_at` escrito, panel en blanco.
+- [x] **`sync.js` avisa al terminar** con `corridas`, un contador reactivo que
+      sube una vez por corrida completada. Panel y Cuenta lo miran y vuelven a
+      leer solos, venga la descarga del login, del botón o de la otra pantalla.
+- [x] **Una corrida a la vez, pero esperable.** `sincronizar()` devolvía `null`
+      si ya había otra en curso: la pantalla lo tomaba por «listo» sin haber
+      bajado nada, y la tarjeta de «cambios sin enviar» —que no está
+      deshabilitada durante la descarga— reventaba al leer `r.errores` de un
+      `null`. Ahora el segundo espera a la primera y recibe su mismo resumen.
+- [x] **Los traductores de código a nombre se recargan con los datos.**
+      `cargarCatalogos()` pasó del login a `sync.js`: se cargaban en memoria
+      antes de que existieran las filas y el panel decía «vendedor 2» donde va
+      el nombre hasta reiniciar la app.
+- [x] **Ninguna petición espera para siempre.** 30 s las normales y 60 s el PDF
+      y la subida del logo, en `mobile/src/api.js`. Un `fetch` colgado —el
+      teléfono pasa del WiFi de la oficina a datos móviles a mitad de descarga—
+      dejaba la sincronización detenida esperando una página que no iba a
+      llegar. El plazo agotado se distingue de la falta de red en el mensaje.
+- [x] Comprobado tres veces de cero contra `https://venta.netdomain.cl` con un
+      usuario de prueba del vendedor 2 (1.874 cotizaciones): login, descarga de
+      14.139 registros en ~35 s y el panel llenándose solo, sin tocar nada.
 
 ### Buscar en Softland un documento más viejo
 - [x] **La ventana de 12 meses y el alcance por vendedor se separaron.** Eran

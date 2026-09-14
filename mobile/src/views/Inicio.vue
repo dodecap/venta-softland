@@ -4,10 +4,10 @@ import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { db } from '../db';
 import { refrescarAvisos } from '../avisos';
-import { cargarCatalogos, fecha as fechaCorta, monto } from '../catalogos';
+import { fecha as fechaCorta, monto } from '../catalogos';
 import { px } from '../densidad';
 import { conectado } from '../red';
-import { contarRegistros, progreso, sincronizando, sincronizar, cancelarSincronizacion } from '../sync';
+import { contarRegistros, corridas, progreso, sincronizando, sincronizar, cancelarSincronizacion } from '../sync';
 import { enviarPendientes, contarPendientes, porEnviar } from '../pendientes';
 import { dias, diferenciaDias, dinero, porcentaje, puntos, variacion, SIN_DATO } from '../dinero';
 import { PERIODOS, POR_DEFECTO, anterior, dia, rango } from '../panel/periodo';
@@ -324,17 +324,34 @@ const atencion = computed(() => {
 
 onMounted(async () => {
     usuario.value = await db.getUsuario();
-    sincronizado.value = await db.getSincronizado();
     vigencia.value = (await db.getServidorInfo())?.vigencia_cotizacion_dias || 30;
-    registros.value = await contarRegistros();
     ambito.value = ambitos.value[0]?.id ?? 'todos';
-    await calcularPanel();
-    await contarPendientes();
+    await releerAlmacen();
     // El punto rojo de la barra inferior sale de aquí: si se pidiera recién al
     // abrir el buzón, nunca habría aviso de que hay algo que mirar.
     refrescarAvisos();
     cargarAprobaciones();
 });
+
+/**
+ * Todo lo que el panel cuenta del almacén, leído de nuevo.
+ *
+ * El panel no consulta al servidor: cuenta lo que hay en IndexedDB. Y la
+ * primera vez lo cuenta cuando todavía no hay nada, porque la descarga arranca
+ * en el login y tarda medio minuto: el vendedor se quedaba mirando «Todavía no
+ * te has traído los datos» encima de un teléfono con catorce mil filas dentro,
+ * y sincronizaba otra vez para que aparecieran.
+ */
+async function releerAlmacen() {
+    registros.value = await contarRegistros();
+    sincronizado.value = await db.getSincronizado();
+    await calcularPanel();
+    await contarPendientes();
+}
+
+// Da igual quién haya pedido la descarga —el login, el botón de aquí, la
+// pantalla Cuenta—: cuando termina, el panel vuelve a contar.
+watch(corridas, releerAlmacen);
 
 /**
  * Lo que este usuario tiene que aprobar.
@@ -368,10 +385,7 @@ async function sincronizarTodo() {
         vigencia.value = b.servidor?.vigencia_cotizacion_dias || 30;
 
         const r = await sincronizar();
-        await cargarCatalogos();
-        registros.value = await contarRegistros();
-        sincronizado.value = await db.getSincronizado();
-        await calcularPanel();
+        await releerAlmacen();
 
         aviso.value = r.errores.length
             ? `Se actualizó casi todo, pero ${r.errores[0]}`

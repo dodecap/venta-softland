@@ -42,6 +42,29 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.6.2 — La primera descarga se ve terminar
+*2026-09-14*
+
+- **El panel se entera de que la descarga terminó.** Al entrar por primera vez,
+  la sincronización arranca sola desde el login y tarda medio minuto; el panel,
+  mientras tanto, ya había contado el almacén —vacío— y se quedaba diciendo
+  «Todavía no te has traído los datos» y «Actualizado nunca» encima de un
+  teléfono con 14.139 filas dentro. Parecía que la descarga no terminaba nunca,
+  y el vendedor sincronizaba otra vez para que aparecieran. Ahora `sync.js`
+  avisa al terminar (`corridas`) y el panel y Cuenta vuelven a leer solos.
+- **Sincronizar mientras se sincroniza ya no miente.** Pedir una descarga con
+  otra en curso devolvía `null` de inmediato: la pantalla entendía «listo» sin
+  que hubiera bajado nada, y en la tarjeta de «cambios sin enviar» reventaba
+  con un error de programación. Ahora el segundo espera a la primera y recibe
+  su mismo resumen.
+- **Los traductores de código a nombre se recargan con los datos.** Se cargan
+  en memoria una vez, y en la primera sesión se cargaban vacíos: el panel decía
+  «vendedor 2» donde va el nombre hasta reiniciar la app.
+- **Ninguna petición espera para siempre.** 30 s las normales, 60 s el PDF y la
+  subida del logo. Un `fetch` que se queda colgado —cambio de WiFi a datos
+  móviles a mitad de descarga— dejaba la sincronización detenida sin nada que
+  decir. El plazo agotado se distingue de la falta de red en el mensaje.
+
 ### 0.6.1 — La app resuelve sola http o https, y el proxy deja de romper el login
 *2026-09-14*
 

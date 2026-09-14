@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { db } from '../db';
@@ -7,8 +7,7 @@ import { olvidarAvisos } from '../avisos';
 import { cambiarDensidad, densidad, ETIQUETAS } from '../densidad';
 import { conectado } from '../red';
 import { abrirSoporte, NUMERO_VISIBLE } from '../soporte';
-import { cargarCatalogos } from '../catalogos';
-import { contarRegistros, inventarioLocal, progreso, sincronizando, sincronizar as sincronizarMaestros } from '../sync';
+import { contarRegistros, corridas, inventarioLocal, progreso, sincronizando, sincronizar as sincronizarMaestros } from '../sync';
 import { contarPendientes, descartar, enviarPendientes, porEnviar } from '../pendientes';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
@@ -58,14 +57,19 @@ onMounted(async () => {
     usuario.value = await db.getUsuario();
     servidor.value = await db.getServidor();
     info.value = await db.getServidorInfo();
-    sincronizado.value = await db.getSincronizado();
     await refrescar();
 });
 
 async function refrescar() {
     registros.value = await contarRegistros();
     pendientes.value = await contarPendientes();
+    sincronizado.value = await db.getSincronizado();
 }
+
+// La descarga puede haberla arrancado el login y estar todavía corriendo
+// cuando se abre esta pantalla. Cuando termina, la cuenta de registros y el
+// «última vez» se ponen al día solos, sin tener que salir y volver a entrar.
+watch(corridas, refrescar);
 
 const iniciales = computed(() => (usuario.value?.nombre || '')
     .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || 'VS');
@@ -99,9 +103,7 @@ async function sincronizar(completa = false) {
         info.value = b.servidor;
 
         const r = await sincronizarMaestros({ completa });
-        await cargarCatalogos();
         await refrescar();
-        sincronizado.value = await db.getSincronizado();
 
         aviso.value = r.errores.length
             ? `Casi todo actualizado, pero ${r.errores[0]}`

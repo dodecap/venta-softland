@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router';
 import { api, ErrorApi } from '../api';
 import { db } from '../db';
 import { sincronizar } from '../sync';
-import { cargarCatalogos } from '../catalogos';
 import Aviso from '../components/Aviso.vue';
 
 const router = useRouter();
@@ -42,9 +41,10 @@ async function entrar() {
         // 12.000 filas: esperarlas con la pantalla de login congelada haría que
         // el vendedor creyera que la clave no sirvió y volviera a intentar.
         router.replace('/inicio');
-        sincronizar()
-            .then(() => cargarCatalogos())
-            .catch(() => { /* sin señal se reintenta desde el panel */ });
+        // Sólo se arranca. Lo de después —recargar los traductores y avisar a
+        // las pantallas de que ya hay datos— lo hace `sync.js` al terminar,
+        // porque también tiene que pasar cuando la descarga la pide otro.
+        sincronizar().catch(() => { /* sin señal se reintenta desde el panel */ });
     } catch (e) {
         error.value = e.message;
         if (e instanceof ErrorApi && e.status === 0) {

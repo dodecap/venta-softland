@@ -171,6 +171,12 @@ tocar nada de esto:
   `nwcotiza` sólo guarda `FechaHoraCreacion`, que no se mueve al cambiar de
   estado, y el `FechaUlMod` de `nw_nventa` lo escribe esta app, no el ERP.
   Como es completo, el barrido por sello se entera también de lo borrado.
+- **La descarga avisa cuando termina, y sólo corre una.** Arranca sola en el
+  login, con el panel ya dibujado contando un almacén vacío: por eso `sync.js`
+  sube `corridas` al acabar y quien muestre números leídos de IndexedDB vuelve
+  a leerlos ahí. Y pedir una descarga con otra en curso **espera a la que va**
+  y recibe su resumen; devolver `null` era decirle «listo» a una pantalla que
+  no había bajado nada.
 - **La ventana de 12 meses y el alcance por vendedor son cosas distintas.** La
   primera es equipaje y se puede levantar (`Maestros::uno(..., ventana: false)`)
   para buscar un documento viejo por su número; el segundo es permiso y no se
@@ -310,7 +316,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.6.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
+Versión **0.6.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
 panel comercial hasta el paso 4. Ver `STATE.md`. El mapa de tablas del flujo de
 ventas está en `docs/flujo-ventas-softland.md`, el motor de documentos en
 `docs/motor-documentos.md`, la auditoría del panel comercial en

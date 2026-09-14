@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import { api } from './api';
+import { cargarCatalogos } from './catalogos';
 import { db } from './db';
 import { idb } from './idb';
 
@@ -36,7 +37,20 @@ export const ultimoError = ref('');
 /** Cuántas filas hay hoy en el teléfono, por maestro. */
 export const inventarioLocal = ref({});
 
+/**
+ * Sube uno cada vez que termina una corrida.
+ *
+ * Es el aviso de «ya hay datos nuevos en el almacén». Las pantallas que
+ * muestran números contados de IndexedDB —el panel, sobre todo— lo miran para
+ * volver a leerlos, porque la descarga no arranca donde se dibujan: empieza en
+ * el login y termina medio minuto después, con el vendedor ya mirando el panel.
+ */
+export const corridas = ref(0);
+
 let cancelado = false;
+
+/** La corrida en curso, si la hay. Ver `sincronizar()`. */
+let enCurso = null;
 
 /**
  * Qué maestros hay detrás de cada pantalla.
@@ -81,9 +95,21 @@ export function refrescarGrupo(nombre) {
  * @param {string[]|null} solo Sólo estos maestros. El resto ni se cuenta en el
  *                           servidor. `null` es todo, que es lo normal.
  */
-export async function sincronizar({ completa = false, solo = null } = {}) {
-    if (sincronizando.value) return null;
+export function sincronizar({ completa = false, solo = null } = {}) {
+    // Una sola corrida a la vez: dos se pisarían el estado por maestro. Pero el
+    // que llega segundo **espera a la primera** en vez de irse con las manos
+    // vacías, que es lo que hacía antes: el vendedor entra, la descarga arranca
+    // sola desde el login, él aprieta sincronizar y se le respondía «listo» sin
+    // haber bajado nada. Lo que recibe es el resumen de la corrida en curso,
+    // aunque la haya pedido con otras opciones.
+    if (enCurso) return enCurso;
 
+    enCurso = correr({ completa, solo }).finally(() => { enCurso = null; });
+
+    return enCurso;
+}
+
+async function correr({ completa, solo }) {
     cancelado = false;
     ultimoError.value = '';
     progreso.value = { titulo: 'Preparando', hechas: 0, total: 0, recurso: null, indice: 0, recursos: 0 };
@@ -122,7 +148,16 @@ export async function sincronizar({ completa = false, solo = null } = {}) {
         if (! solo) await db.setSincronizado(new Date().toISOString());
         await refrescarInventarioLocal();
 
+        // Los traductores de código a nombre viven en memoria y se cargaron
+        // cuando el almacén estaba vacío: sin volver a leerlos, el panel de la
+        // primera sesión dice «vendedor 2» donde tiene que decir el nombre.
+        if (! solo) await cargarCatalogos();
+
         if (resumen.errores.length) ultimoError.value = resumen.errores[0];
+
+        // Lo último, y sólo si se llegó hasta aquí: quien escucha cuenta filas,
+        // y contarlas a mitad de descarga es enseñar un número que va a cambiar.
+        corridas.value++;
 
         return resumen;
     } catch (e) {
