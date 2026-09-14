@@ -42,6 +42,24 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.6.3 — El icono del vendedor
+*2026-09-14*
+
+- **La app se instala con su icono.** Hasta aquí el teléfono la mostraba con el
+  icono por defecto de Capacitor. Ahora lleva el mundo azul de la empresa en
+  las cinco densidades de Android, en las tres formas que pide —el cuadrado
+  antiguo, el redondo y la capa de adelante del icono adaptable— y recortado
+  bien en cualquier lanzador: el logo ocupa exactamente los 72 dp visibles de
+  la lámina de 108, así que en máscara redonda queda a ras y en máscara
+  cuadrada el blanco le hace de marco.
+- **La pantalla de arranque también.** Mostraba el logo celeste de Capacitor
+  cada vez que se abría la app. Ahora es el mismo mundo, centrado sobre blanco,
+  en las once pantallas de vertical y horizontal.
+- **Un icono nuevo es un archivo, no veintiséis.** `mobile/recursos/icono.png`
+  es la fuente y `python3 mobile/scripts/icono-app.py` escribe el resto. Se
+  fueron también los dos recursos por defecto de Android Studio que nadie
+  usaba y que estaban ahí para que alguien editara el archivo equivocado.
+
 ### 0.6.2 — La primera descarga se ve terminar
 *2026-09-14*
 

@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-14 — versión **0.6.2**
+2026-09-14 — versión **0.6.3**
 
 ## Resumen del estado actual
-**Versión 0.6.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.6.3. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -590,6 +590,24 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       `X-Documento-Hash` llegaban nulas desde siempre, así que el teléfono
       archivaba todos los PDF como «versión 1, sin huella». No daba error, sólo
       dejaba de saber si el PDF guardado seguía siendo el vigente.
+
+### El icono y la pantalla de arranque
+- [x] **La app dejó de instalarse con el icono de Capacitor.** El logo de la
+      empresa —el mundo azul— está en `mobile/recursos/icono.png` y de ahí
+      salen las 26 imágenes que pide Android: cinco densidades por tres formas
+      de icono y once pantallas de arranque, con
+      `python3 mobile/scripts/icono-app.py`.
+- [x] **El icono adaptable está a la medida de la máscara.** La lámina es de
+      108 dp pero sólo se ven los 72 centrales; el resto lo usa el lanzador
+      para el efecto de movimiento. El logo se dibuja justo de esos 72 dp: en
+      máscara redonda queda a ras y en cuadrada el blanco del fondo
+      (`@color/ic_launcher_background`, ya estaba en `#FFFFFF`) le hace marco.
+      Comprobado abriendo el APK y recortándolo con las dos máscaras.
+- [x] **Fuera los recursos por defecto de Android Studio.**
+      `drawable/ic_launcher_background.xml` (el vector verde azulado) y
+      `drawable-v24/ic_launcher_foreground.xml` (el robot) no los referenciaba
+      nadie —el icono adaptable apunta a `@color/…` y `@mipmap/…`— pero seguían
+      viajando en el APK y eran el archivo equivocado que alguien iba a editar.
 
 ### La primera descarga se veía no terminar
 - [x] **El panel no se enteraba de que la sincronización había acabado.** Al

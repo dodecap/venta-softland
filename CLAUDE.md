@@ -139,6 +139,11 @@ conectada al ERP.
   estado. El color nunca es la única señal.
 - Los estados vacíos van con `<Vacio icono="…" titulo="…">`: nunca texto
   pelado, que se confunde con una pantalla que no cargó.
+- **El icono de la app es otra cosa y vive aparte.** La fuente es
+  `mobile/recursos/icono.png`, una sola, y
+  `python3 mobile/scripts/icono-app.py` escribe las 26 imágenes que pide
+  Android —los tres iconos en cinco densidades y las once pantallas de
+  arranque—. Nunca se editan los PNG de `mipmap-*` a mano.
 - `npm run build` falla si aparece un emoji, una forma geométrica haciendo de
   icono o un import suelto de Lucide (`mobile/scripts/sin-emojis.mjs`). Para
   revisar sin compilar: `npm run iconos`.
@@ -316,7 +321,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.6.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
+Versión **0.6.3**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
 panel comercial hasta el paso 4. Ver `STATE.md`. El mapa de tablas del flujo de
 ventas está en `docs/flujo-ventas-softland.md`, el motor de documentos en
 `docs/motor-documentos.md`, la auditoría del panel comercial en
