@@ -736,6 +736,29 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       Android real desde aquí, la confirmación definitiva queda pendiente de
       que el vendedor lo pruebe en el teléfono.
 
+### Aprobar la nota de venta desde su propia ficha
+- [x] **Switch de aprobar en `Documento.vue`, sobre el endpoint que ya
+      existía.** La aprobación del jefe es de la fase 3 —`NotaVentaController`,
+      `ventas.aprobacion`, el endpoint `resolver()`— pero sólo se usaba desde
+      `Aprobaciones.vue`, la cola aparte. Se agregó un switch en la tarjeta de
+      Aprobación de la ficha, visible sólo cuando `aprobacion.estado ===
+      'pendiente'` y quien mira es el `jefe_id` de esa aprobación o un admin
+      (`puedeAprobar`, `Documento.vue`) — la misma regla que ya exige
+      `resolver()` en el servidor con 403. `aprobacionDe()` en
+      `NotaVentaController.php` ahora devuelve también `jefe_id`, que antes no
+      viajaba al teléfono y sin él no había cómo decidir a quién mostrárselo.
+      Confirma con `confirm()` (número y monto), llama a
+      `resolverAprobacion()` y **guarda el documento que devuelve el servidor
+      en IndexedDB**, igual que `anular()` — sin eso `doc.value` se quedaba con
+      el `P` viejo de IndexedDB hasta la próxima sincronización, y «Corregir»
+      seguía apareciendo aunque la tarjeta ya dijera «aprobada» (se encontró
+      así en la primera prueba, con la escritura a `idb` faltando). Probado
+      con `fetch` interceptado en el navegador: el jefe ve el switch y lo
+      autorizado se aplica solo, cancelar no cambia nada y no queda marcado, y
+      un vendedor mirando su propia nota con otro `jefe_id` no ve el switch en
+      absoluto — sólo la tarjeta de sólo lectura. Sin poder probarlo con el
+      backend real desde aquí, contra `ventas.aprobacion` de verdad.
+
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
   tiene filas porque el SMTP todavía no está configurado, y el único usuario

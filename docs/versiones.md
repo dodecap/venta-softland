@@ -42,6 +42,21 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.8.0 — Aprobar la nota de venta desde su propia ficha
+*2026-09-14*
+
+- **Switch de aprobar en la ficha de la nota de venta.** La aprobación del
+  jefe ya existía de la fase 3 —la nota que pasa el tope del vendedor queda
+  `P` y espera—, pero sólo se resolvía desde la cola aparte de Aprobaciones.
+  Ahora también se aprueba mirando la nota misma: un switch pide confirmación
+  con el número y el monto, y llama al mismo endpoint de siempre
+  (`resolverAprobacion`) — no hay backend nuevo. Sólo lo ve el jefe asignado a
+  esa aprobación, o un admin: un vendedor mirando su propia nota pendiente no
+  lo ve, porque si lo viera podría soltarse el freno solo y el tope dejaría
+  de servir. Una vez aprobada, la ficha se bloquea sola — «Corregir» y
+  «Anular» ya miran `fecha_aprobacion`, sin ninguna regla nueva — y el switch
+  desaparece: la tarjeta de Aprobación ya dice «aprobada» sin él.
+
 ### 0.7.2 — El autocorrector de Android bloqueaba la búsqueda instantánea
 *2026-09-14*
 

@@ -32,6 +32,7 @@ const cliente = ref(null);
 const cargando = ref(true);
 const seguimientos = ref([]);
 const aprobacion = ref(null);
+const usuario = ref(null);
 const error = ref('');
 const aviso = ref('');
 const trabajando = ref(false);
@@ -73,6 +74,7 @@ useCapa(computed(() => perdiendo.value || siguiendo.value || borrando.value), ()
 });
 
 onMounted(cargar);
+onMounted(async () => { usuario.value = await db.getUsuario(); });
 watch(numero, cargar);
 
 async function cargar() {
@@ -159,6 +161,17 @@ const editable = computed(() => {
 });
 
 const puedeConvertir = computed(() => esCotizacion.value && editable.value);
+
+/**
+ * El switch de aprobar sólo lo ve el jefe asignado —o un admin—, nunca el
+ * vendedor que la escribió. Si lo viera cualquiera, el tope por vendedor que
+ * pone la app dejaría de servir de nada: cualquiera se soltaría el freno solo.
+ * Es la misma regla que ya exige `resolver()` en el servidor; esto sólo evita
+ * mostrar un botón que el servidor de todos modos va a rechazar con 403.
+ */
+const puedeAprobar = computed(() => aprobacion.value?.estado === 'pendiente'
+    && !! usuario.value
+    && (usuario.value.es_admin || usuario.value.id === aprobacion.value.jefe_id));
 
 /**
  * Anular deja el documento donde está, con su número, fuera de juego. Sólo
@@ -251,6 +264,34 @@ async function compartirPapel() {
     } finally {
         trabajando.value = false;
     }
+}
+
+/**
+ * Suelta el freno del tope: la nota de venta pasa al estado que le habría
+ * dado el ERP de entrada, y `nvFeAprob` queda estampada. Igual que `anular()`,
+ * el documento que devuelve el servidor se guarda en el teléfono — si no,
+ * `doc.value` se queda con el `P` de IndexedDB hasta la próxima sincronización
+ * y «Corregir» sigue apareciendo aunque la tarjeta de arriba ya diga aprobada.
+ * De ahí para adelante ya no es corregible: `editable` lo lee de
+ * `fecha_aprobacion`, sin ninguna regla nueva.
+ *
+ * El switch se resetea a mano si se cancela: está atado a `false` a propósito
+ * (la tarjeta desaparece en cuanto se aprueba, así que nunca hace falta
+ * dibujarlo en `true`), y sin este reseteo el tilde nativo del navegador se
+ * quedaría marcado aunque no se haya confirmado nada.
+ */
+async function aprobar(event) {
+    const que = `la nota de venta Nº ${numero.value} por ${monto(doc.value.total, doc.value.moneda)}`;
+    if (! confirm(`¿Aprobar ${que}? Después no se va a poder corregir.`)) {
+        event.target.checked = false;
+        return;
+    }
+    await conServidor(async () => {
+        const r = await api.resolverAprobacion(numero.value, { aprobar: true });
+        await idb.guardar(def.value.almacen, [JSON.parse(JSON.stringify(r.nota_venta))]);
+        aviso.value = 'Nota de venta aprobada.';
+        await cargar();
+    });
 }
 
 async function anular() {
@@ -540,6 +581,16 @@ function cantidad(n) {
                         <div><span>Motivo</span><b>{{ aprobacion.motivo }}</b></div>
                         <div v-if="aprobacion.comentario"><span>Comentario</span><b>{{ aprobacion.comentario }}</b></div>
                     </div>
+                    <template v-if="puedeAprobar">
+                        <div class="switch-fila">
+                            <label class="switch">
+                                <input type="checkbox" :checked="false" :disabled="trabajando" @change="aprobar($event)">
+                                <span class="switch-riel"></span>
+                            </label>
+                            <span>Aprobar</span>
+                        </div>
+                        <p class="ayuda switch-ayuda">Al aprobarla, deja de poder corregirse.</p>
+                    </template>
                 </div>
 
                 <!-- El avance real de una NV se lee línea por línea: los flags del

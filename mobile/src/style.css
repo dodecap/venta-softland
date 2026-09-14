@@ -192,6 +192,71 @@ html.con-barra .contenido {
 .tarjeta-cuerpo { padding: 14px; }
 
 /*
+ * Switch de aprobar una nota de venta. El riel se ve angosto, pero el área
+ * pulsable del `<label>` son los 44px de siempre — eso no se escala con --d,
+ * es la regla dura de toda la app.
+ */
+.switch-fila {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 14px;
+    min-height: 44px;
+    border-top: 1px solid var(--fondo);
+}
+
+.switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 46px;
+    height: 44px;
+    flex: 0 0 auto;
+}
+
+.switch input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.switch input:disabled { cursor: default; }
+
+.switch-riel {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 46px;
+    height: 26px;
+    transform: translateY(-50%);
+    background: var(--borde);
+    border-radius: 999px;
+    transition: background .15s;
+    pointer-events: none;
+}
+
+.switch-riel::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    background: var(--blanco);
+    border-radius: 50%;
+    box-shadow: var(--sombra);
+    transition: transform .15s;
+}
+
+.switch input:checked + .switch-riel { background: var(--verde); }
+.switch input:checked + .switch-riel::before { transform: translateX(20px); }
+.switch input:disabled + .switch-riel { opacity: .5; }
+
+.switch-ayuda { padding: 0 14px 12px; margin: 0; }
+
+/*
  * Ítem de lista con dos franjas verticales, como en la app anterior:
  * a la izquierda el estado del documento, a la derecha el estado de
  * sincronización. Se leen de un vistazo sin tener que abrir nada.

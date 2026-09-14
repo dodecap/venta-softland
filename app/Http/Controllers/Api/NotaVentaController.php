@@ -379,6 +379,10 @@ class NotaVentaController extends DocumentoController
             'motivo' => $a->motivo,
             'comentario' => $a->comentario,
             'resuelta' => $a->resuelto_at,
+            // Para que el teléfono decida si le muestra el switch de aprobar
+            // a quien está mirando: sólo al jefe asignado o a un admin, la
+            // misma regla que ya exige `resolver()`.
+            'jefe_id' => (int) $a->jefe_id,
         ] : null;
     }
 
