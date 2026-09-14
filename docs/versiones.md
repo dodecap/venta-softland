@@ -42,6 +42,25 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.7.2 — El autocorrector de Android bloqueaba la búsqueda instantánea
+*2026-09-14*
+
+- **El arreglo de la 0.7.1 no era la causa — o no toda.** Cambiar `type="search"`
+  por `type="text"` no bastó: seguía sin filtrar solo. La causa real es que
+  `v-model` en un `<input>` nativo ignora a propósito los eventos mientras el
+  navegador está «componiendo» texto —así evita capturar texto a medias de un
+  IME de chino o japonés—, y el teclado predictivo de Android usa esa misma
+  composición para el autocorrector **en cualquier idioma**: escribir una
+  palabra de corrido es una sola composición de principio a fin, y `v-model`
+  no la suelta hasta que se confirma con un espacio, una puntuación o la lupa
+  del teclado. El campo se veía escrito igual porque eso lo pinta el
+  navegador, no Vue. Comprobado simulando la secuencia real de eventos de
+  composición de Android —cosa que ninguna prueba anterior en el navegador de
+  escritorio hacía, por eso no se había visto—. `Buscador.vue` ya no usa
+  `v-model` en el `<input>`: lee `value` y escribe en `@input` a mano, sin
+  mirar si está componiendo. Mismo cambio en el buscador propio de
+  `Usuarios.vue`.
+
 ### 0.7.1 — El teclado de Android impedía que la búsqueda filtrara sola
 *2026-09-14*
 

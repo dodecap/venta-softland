@@ -171,7 +171,8 @@ function color(u) {
 
             <div class="campo-buscar">
                 <AppIcon name="buscar" :size="18" />
-                <input v-model="busqueda" type="text" inputmode="search" enterkeyhint="search"
+                <input :value="busqueda" @input="busqueda = $event.target.value"
+                       type="text" inputmode="search" enterkeyhint="search"
                        placeholder="Buscar por nombre, correo o vendedor" autocapitalize="off">
             </div>
 

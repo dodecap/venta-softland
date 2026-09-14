@@ -9,13 +9,20 @@ import AppIcon from './AppIcon.vue';
  * cincuenta fichas en cada letra no lo es, y quien escribe «rojas» genera cinco
  * búsquedas de las que solo importa la última.
  *
- * El `<input>` es `type="text"`, no `type="search"`. Con `search` el teclado de
- * Android muestra el mismo ícono de lupa, pero en el WebView del teléfono el
- * evento `input` no llega mientras se compone la palabra — el navegador pinta
- * lo que se escribe, mas Vue no se entera hasta que se toca el botón de buscar
- * del teclado o el campo pierde el foco. Es decir: el filtro parecía manual
- * porque, para ese `type`, *lo era*. `inputmode` y `enterkeyhint` bastan para
- * el mismo teclado y el mismo ícono, sin el problema.
+ * El `<input>` no lleva `v-model`: lee `value` y escribe a mano en `@input`.
+ *
+ * `v-model` en un elemento nativo ignora a propósito los eventos de tecla
+ * mientras el navegador está «componiendo» — así evita capturar texto a
+ * medias en un IME de chino o japonés (mira `target.composing` en el propio
+ * runtime de Vue). El teclado predictivo de Android usa la misma composición
+ * para el autocorrector **en cualquier idioma**: escribir «netdomain» de
+ * corrido es una sola composición de principio a fin, y `v-model` no la
+ * suelta hasta que termina —con un espacio, una puntuación, o el botón de
+ * buscar del teclado, que es justo lo que parecía «haber que apretar»—. El
+ * campo se veía escrito igual porque eso lo pinta el navegador, no Vue. La
+ * búsqueda instantánea prefiere el texto a medio componer al texto exacto, así
+ * que aquí conviene perder esa garantía: se lee `event.target.value` en cada
+ * `input`, tal cual, sin mirar si está componiendo.
  */
 const props = defineProps({
     modelValue: { type: String, default: '' },
@@ -46,7 +53,8 @@ function limpiar() {
 <template>
     <div class="campo-buscar">
         <AppIcon name="buscar" :size="18" />
-        <input v-model="texto" type="text" inputmode="search" enterkeyhint="search" :placeholder="placeholder"
+        <input :value="texto" @input="texto = $event.target.value"
+               type="text" inputmode="search" enterkeyhint="search" :placeholder="placeholder"
                autocapitalize="off" autocomplete="off" spellcheck="false">
         <!-- La X aparece solo cuando hay algo que borrar: un botón que no hace
              nada es peor que no tener botón. -->

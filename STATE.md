@@ -705,29 +705,36 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       navegador simulando `visibilitychange`: la sincronización se dispara al
       volver y el plazo la frena si se repite antes de los 5 minutos.
 
-### El teclado de Android impedía que la búsqueda filtrara sola
-- [x] **`type="search"` no dispara el evento de cada tecla en el WebView del
-      teléfono.** La corrección de arriba (el número de turno) era real, pero
-      no era la causa de lo que reportó el vendedor: en el navegador de
-      escritorio la búsqueda instantánea funcionaba de punta a punta, y en el
-      teléfono seguía sin filtrar sola. Un video de pantalla lo mostró: el
-      texto se ve escrito letra por letra —el navegador lo pinta igual,
-      escuche Vue o no— pero la lista sólo se actualiza cuando se toca la lupa
-      del teclado. Con `type="search"`, Android compone la palabra completa
-      antes de avisarle a la página; el `input` de Vue no se entera hasta que
-      se confirma con la lupa o el campo pierde el foco. Se reprodujo también
-      con un campo que ni siquiera toca IndexedDB —centro de costo, que filtra
-      en memoria— y se comportaba igual, lo que descartó IndexedDB o la
-      sincronización de fondo como culpables y apuntó al `<input>` mismo.
-      `Buscador.vue` es el único componente detrás de cliente, producto,
-      centro de costo, cotizaciones, notas de venta y clientes/productos en
-      lista, así que arreglarlo ahí alcanza para los seis. Ahora es
-      `type="text"` con `inputmode="search"` y `enterkeyhint="search"`: mismo
-      teclado, mismo ícono de lupa, sin el problema. `Usuarios.vue` tenía su
-      propio campo con el mismo `type="search"` suelto y se corrigió igual.
-      Sin poder probarlo en un WebView de Android real desde aquí, la
-      confirmación definitiva queda pendiente de que el vendedor lo pruebe en
-      el teléfono.
+### El autocorrector de Android bloqueaba la búsqueda instantánea
+- [x] **`v-model` ignora a propósito las teclas mientras se compone una
+      palabra, y el autocorrector de Android compone hasta en español.** Un
+      video de pantalla mostró que el texto se ve escrito letra por letra
+      —eso lo pinta el navegador igual, escuche Vue o no— pero la lista sólo
+      se actualiza cuando se toca la lupa del teclado. Primer intento:
+      cambiar `type="search"` por `type="text"` — no era eso, seguía igual en
+      la 0.7.1. La causa de verdad es más profunda: `v-model` en un `<input>`
+      nativo trae un guardia contra IME de chino o japonés (`if
+      (target.composing) return` en el runtime de Vue) que descarta los
+      eventos `input` disparados mientras el navegador está componiendo. El
+      teclado predictivo de Android usa esa misma composición para el
+      autocorrector en cualquier idioma: escribir «netdomain» de corrido es
+      una sola composición de principio a fin, y no se suelta hasta un
+      espacio, una puntuación o la lupa del teclado —que es justo lo que
+      parecía «haber que apretar»—. Se reprodujo también en centro de costo,
+      que filtra en memoria sin tocar IndexedDB, lo que descartó la base de
+      datos y la sincronización de fondo como culpables y apuntó al `<input>`
+      mismo. Y explica por qué nunca se vio antes: ninguna prueba en el
+      navegador de escritorio —ni escribiendo directo, ni fijando el valor
+      por JavaScript— dispara `compositionstart`/`compositionend`, así que el
+      bug era invisible desde ahí. Se confirmó recién simulando esa secuencia
+      exacta de eventos. `Buscador.vue` es el único componente detrás de
+      cliente, producto, centro de costo, cotizaciones, notas de venta y
+      clientes/productos en lista, así que arreglarlo ahí alcanza para los
+      seis: el `<input>` ya no lleva `v-model`, lee `value` y escribe en
+      `@input` a mano, sin mirar si está componiendo. Mismo cambio en el
+      campo propio de `Usuarios.vue`. Sin poder probarlo en un WebView de
+      Android real desde aquí, la confirmación definitiva queda pendiente de
+      que el vendedor lo pruebe en el teléfono.
 
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
