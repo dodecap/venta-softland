@@ -7,7 +7,7 @@ import {
     dinero, dineroExacto, leyenda, variacion, puntos, porcentaje, dias, hayDato, SIN_DATO,
 } from '../src/dinero.js';
 import { rango, anterior, largoEnDias, dia } from '../src/panel/periodo.js';
-import { calcular, pendientes } from '../src/panel/metricas.js';
+import { calcular, pendientes, situacion } from '../src/panel/metricas.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -173,6 +173,22 @@ es(P.por_vencer.n, 1, 'la del 20-08 vence en 5 días');
 es(P.vencidas.n, 0, 'ninguna vencida todavía');
 es(pendientes({ cotizaciones: COT, hoy: '2026-09-14', vendedores: ['19'] }).total.n, 0,
    'el vendedor 19 no tiene pendientes');
+
+es(P.abiertas.n, 1, 'la otra sigue abierta y con tiempo');
+es(P.por_vencer.n + P.vencidas.n + P.abiertas.n, P.total.n, 'cada pendiente cae en un grupo y en uno solo');
+
+// ---- situación: la misma regla que usa la lista para filtrar
+const REGLA = { hoy: '2026-09-14', vigencia: 30 };
+es(situacion({ estado: 'P', fecha: '2026-09-12T00:00:00' }, REGLA), 'abierta', 'recién hecha');
+es(situacion({ estado: 'P', fecha: '2026-08-20T00:00:00' }, REGLA), 'por_vencer', 'le quedan 5 días');
+es(situacion({ estado: 'P', fecha: '2026-07-01T00:00:00' }, REGLA), 'vencida', 'pasó la vigencia');
+es(situacion({ estado: 'P', fecha: '2026-08-15T00:00:00' }, REGLA), 'por_vencer', 'el día 30 vence hoy, todavía no está vencida');
+es(situacion({ estado: 'P', fecha: '2026-08-14T00:00:00' }, REGLA), 'vencida', 'el día 31 sí');
+es(situacion({ estado: 'V', fecha: '2026-07-01T00:00:00' }, REGLA), null, 'una vendida no está pendiente');
+es(situacion({ estado: 'R', fecha: '2026-07-01T00:00:00' }, REGLA), null, 'una perdida tampoco');
+es(situacion({ estado: 'P', fecha: null }, REGLA), null, 'sin fecha no se puede saber');
+es(situacion({ estado: 'P', fecha: '2026-09-12T00:00:00' }, { hoy: '2026-09-14', vigencia: 3 }),
+   'por_vencer', 'la vigencia manda: con 3 días, la de anteayer ya avisa');
 
 const Pviejo = pendientes({ cotizaciones: COT, hoy: '2026-12-31', vigencia: 30 });
 es(Pviejo.viejas.n, 2, 'en diciembre las dos pasan de 90 días');

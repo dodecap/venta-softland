@@ -1358,26 +1358,42 @@ select.filtro-grupo { margin-bottom: 12px; }
 
 /* Aviso de que hay ventas detenidas esperando al jefe. Es una fila pulsable,
    no una tarjeta: lo que se espera de ella es que se toque. */
-.pendiente-aprobar {
+/*
+ * Requiere tu atención. Una fila por cosa que hacer, con la franja izquierda
+ * diciendo cuánto corre: rojo lo que detiene una venta, ámbar lo que se puede
+ * salvar, cian lo que ya se enfrió. El color no va solo — el texto de cada
+ * fila dice lo mismo con palabras.
+ */
+.atencion {
+    display: flex;
+    flex-direction: column;
+    gap: calc(8px * var(--d));
+}
+
+.fila-atencion {
     display: flex;
     align-items: center;
     gap: calc(11px * var(--d));
     width: 100%;
     min-height: 44px;
     padding: calc(11px * var(--d)) calc(13px * var(--d));
-    margin-bottom: calc(14px * var(--d));
     text-align: left;
     font-family: inherit;
     background: var(--blanco);
     border: 1px solid var(--borde);
-    border-left: 4px solid var(--amarillo);
+    border-left: 4px solid var(--borde);
     border-radius: 10px;
     cursor: pointer;
 }
+.fila-atencion.urgente { border-left-color: var(--rojo); }
+.fila-atencion.aviso { border-left-color: var(--amarillo); }
+.fila-atencion.frio { border-left-color: var(--cian); }
+/* Sin acción posible no se finge un botón: la fila informa y no se pulsa. */
+.fila-atencion:disabled { cursor: default; }
 
-.pendiente-aprobar .texto { flex: 1; min-width: 0; }
-.pendiente-aprobar b { display: block; font-size: calc(14px * var(--d)); color: var(--texto); }
-.pendiente-aprobar small { display: block; margin-top: 2px; font-size: 12px; color: var(--texto-medio); }
+.fila-atencion .texto { flex: 1; min-width: 0; }
+.fila-atencion b { display: block; font-size: calc(14px * var(--d)); color: var(--texto); }
+.fila-atencion small { display: block; margin-top: 2px; font-size: 12px; color: var(--texto-medio); }
 
 /* ---------- Identidad corporativa ---------- */
 
@@ -1649,4 +1665,22 @@ select.filtro-grupo { margin-bottom: 12px; }
     font-size: 12px;
     color: var(--texto-suave);
     padding: 18px 0 4px;
+}
+
+/* El filtro que la lista recibió del panel. Va arriba, se ve y se quita. */
+.filtro-traido {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin-top: 10px;
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: calc(13px * var(--d));
+    font-weight: 600;
+    color: var(--indigo);
+    background: var(--indigo-suave);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
 }

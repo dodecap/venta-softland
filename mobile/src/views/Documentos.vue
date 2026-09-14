@@ -1,8 +1,11 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { db } from '../db';
 import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe } from '../catalogos';
+import { dia } from '../panel/periodo';
+import { situacion } from '../panel/metricas';
 import { TIPOS, estado } from '../documentos';
 import { useAccionCrear } from '../crear';
 import { contarPendientes, porEnviar } from '../pendientes';
@@ -26,13 +29,33 @@ const def = computed(() => TIPOS[tipo.value]);
 
 const busqueda = ref('');
 const filtroEstado = ref('');
+const vigencia = ref(30);
+
+/*
+ * De dónde viene el vendedor. El panel manda `?atencion=por_vencer` y aquí se
+ * abre la lista ya filtrada: tocar «3 cotizaciones por vencer» y aterrizar en
+ * las 185 de siempre sería obligar a buscarlas a mano.
+ *
+ * La regla que decide cuál es cuál no se repite: es `situacion()`, la misma
+ * que usó el panel para contarlas. Si cada pantalla tuviera su copia, el panel
+ * diría tres y la lista mostraría cuatro.
+ */
+const ATENCION = {
+    por_vencer: 'Por vencer',
+    vencida: 'Vencidas',
+};
+
+const atencion = computed(() => (ATENCION[route.query.atencion] ? route.query.atencion : ''));
 const documentos = ref([]);
 const sinEnviar = ref([]);
 const nombres = ref({});
 const cargando = ref(true);
 
-onMounted(cargar);
-watch([busqueda, filtroEstado, tipo], cargar);
+onMounted(async () => {
+    vigencia.value = (await db.getServidorInfo())?.vigencia_cotizacion_dias || 30;
+    await cargar();
+});
+watch([busqueda, filtroEstado, tipo, atencion], cargar);
 // La bandeja se vacía sola al volver la red, estando en otra pantalla: sin esto
 // el documento seguiría apareciendo como «sin enviar» después de haber salido.
 watch(porEnviar, cargar);
@@ -44,9 +67,15 @@ useAccionCrear(`Nueva ${def.value.singular.toLowerCase()}`, () => router.push(`$
 async function cargar() {
     cargando.value = true;
     try {
+        const regla = { hoy: dia(new Date()), vigencia: vigencia.value };
+        const filtros = [];
+
+        if (filtroEstado.value) filtros.push((d) => d.estado === filtroEstado.value);
+        if (atencion.value) filtros.push((d) => situacion(d, regla) === atencion.value);
+
         const filas = await idb.buscar(def.value.almacen, busqueda.value, {
             limite: 200,
-            filtro: filtroEstado.value ? (d) => d.estado === filtroEstado.value : null,
+            filtro: filtros.length ? (d) => filtros.every((f) => f(d)) : null,
         });
         // El más nuevo arriba: es el que se está mirando en la reunión.
         documentos.value = filas.sort((a, b) => b.numero - a.numero);
@@ -93,6 +122,10 @@ const estadosPresentes = computed(() => {
 
 const vacio = computed(() =>
     ! cargando.value && ! documentos.value.length && ! sinEnviar.value.length);
+
+function quitarAtencion() {
+    router.replace({ path: route.path });
+}
 </script>
 
 <template>
@@ -105,6 +138,15 @@ const vacio = computed(() =>
         <div class="contenido">
             <Buscador v-model="busqueda" placeholder="Número, cliente o contacto" />
 
+            <!-- El filtro que trajo el vendedor desde el panel, a la vista y
+                 con su salida: un filtro que no se ve es una lista incompleta
+                 sin explicación. -->
+            <button class="filtro-traido" v-if="atencion" @click="quitarAtencion">
+                <AppIcon name="cotizacion" :size="16" color="currentColor" />
+                {{ ATENCION[atencion] }}
+                <AppIcon name="cerrar" :size="16" color="currentColor" />
+            </button>
+
             <div class="pestanas en-linea">
                 <button :class="{ activa: filtroEstado === '' }" @click="filtroEstado = ''">Todo</button>
                 <button v-for="e in estadosPresentes" :key="e.codigo"
@@ -112,7 +154,7 @@ const vacio = computed(() =>
                         @click="filtroEstado = e.codigo">{{ e.rotulo }}</button>
             </div>
 
-            <Vacio v-if="vacio && ! busqueda && ! filtroEstado" :icono="def.icono"
+            <Vacio v-if="vacio && ! busqueda && ! filtroEstado && ! atencion" :icono="def.icono"
                    :titulo="`Sin ${def.titulo.toLowerCase()}`">
                 Aquí aparecen las de los últimos 12 meses, una vez que sincronices.
             </Vacio>

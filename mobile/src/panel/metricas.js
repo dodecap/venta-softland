@@ -114,21 +114,50 @@ export function calcular({ cotizaciones = [], notas = [], rango, vendedores = nu
     };
 }
 
+/*
+ * La cotización no tiene columna de vencimiento en Softland: se calcula.
+ */
+export const AVISO_VENCIMIENTO_DIAS = 7;
+
+/**
+ * En qué situación está una cotización abierta. Devuelve `null` si no es una
+ * cotización abierta, o si no se puede saber.
+ *
+ * Es **la misma función** que usa el panel para contar y la lista para
+ * filtrar. Si cada una tuviera su copia de la regla, el panel diría «3 por
+ * vencer» y al tocarlo saldrían cuatro.
+ *
+ * El corte no es un número inventado: es la **vigencia que la empresa le pone
+ * a su cotización** (`identidad.vigencia_cotizacion_dias`, 30 por defecto, y
+ * es el mismo número que sale impreso en el PDF). Pasada esa fecha la
+ * cotización dejó de estar en pie; lo que el vendedor hace con ella —insistir,
+ * renovarla o cerrarla como perdida— es decisión suya, pero seguir contándola
+ * como oportunidad abierta sería contarse un cuento.
+ */
+export function situacion(f, { hoy, vigencia = 30, avisoDias = AVISO_VENCIMIENTO_DIAS }) {
+    if (est(f) !== 'P') return null;
+
+    const edad = diasEntre(f.fecha, hoy);
+    if (edad === null) return null;
+
+    const faltan = vigencia - edad;
+
+    if (faltan < 0) return 'vencida';
+    if (faltan <= avisoDias) return 'por_vencer';
+
+    return 'abierta';
+}
+
 /**
  * Lo pendiente, que no depende del período: una cotización abierta de hace
  * ocho meses sigue abierta hoy, mire uno el mes que mire.
- *
- * `vigencia` son los días que la empresa da por buena una cotización
- * (`identidad.vigencia_cotizacion_dias`, 30 por defecto). La cotización no
- * tiene columna de vencimiento en Softland: se calcula.
  */
-export function pendientes({ cotizaciones = [], vendedores = null, hoy, vigencia = 30, avisoDias = 7 }) {
+export function pendientes({ cotizaciones = [], vendedores = null, hoy, vigencia = 30, avisoDias = AVISO_VENCIMIENTO_DIAS }) {
     const suyo = (f) => ! vendedores || vendedores.includes((f.vendedor || '').trim());
     const abiertas = cotizaciones.filter((f) => suyo(f) && est(f) === 'P');
 
     const tramos = { reciente: [], mes: [], trimestre: [], viejas: [] };
-    const porVencer = [];
-    const vencidas = [];
+    const grupos = { por_vencer: [], vencida: [], abierta: [] };
 
     for (const f of abiertas) {
         const edad = diasEntre(f.fecha, hoy);
@@ -139,9 +168,7 @@ export function pendientes({ cotizaciones = [], vendedores = null, hoy, vigencia
         else if (edad <= 90) tramos.trimestre.push(f);
         else tramos.viejas.push(f);
 
-        const faltan = vigencia - edad;
-        if (faltan < 0) vencidas.push(f);
-        else if (faltan <= avisoDias) porVencer.push(f);
+        grupos[situacion(f, { hoy, vigencia, avisoDias })].push(f);
     }
 
     return {
@@ -150,7 +177,8 @@ export function pendientes({ cotizaciones = [], vendedores = null, hoy, vigencia
         mes: agregar(tramos.mes),
         trimestre: agregar(tramos.trimestre),
         viejas: agregar(tramos.viejas),
-        por_vencer: agregar(porVencer),
-        vencidas: agregar(vencidas),
+        por_vencer: agregar(grupos.por_vencer),
+        vencidas: agregar(grupos.vencida),
+        abiertas: agregar(grupos.abierta),
     };
 }

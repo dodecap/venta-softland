@@ -88,7 +88,7 @@ class AuthController extends Controller
      * productos no caben en una respuesta de login, y sobre todo no se pueden
      * buscar si llegan como un solo bloque.
      */
-    public function bootstrap(Request $request, \App\Services\Softland\Ventas $ventas)
+    public function bootstrap(Request $request, \App\Services\Softland\Ventas $ventas, \App\Services\Documentos\Identidad $identidad)
     {
         $u = $request->attributes->get('usuario');
 
@@ -108,6 +108,11 @@ class AuthController extends Controller
                 // que el documento se guarde con ellos.
                 'iva_pct' => $ventas->ivaPct(),
                 'uf' => $this->uf(),
+                // Cuántos días la empresa da por buena una cotización. Es el
+                // mismo número que sale impreso en el PDF, y con él el panel
+                // sabe cuáles están por vencer sin preguntar: la cotización no
+                // tiene fecha de vencimiento en Softland, se calcula.
+                'vigencia_cotizacion_dias' => $identidad->actual()['vigencia_cotizacion_dias'],
             ],
             'sincronizado_at' => now()->toIso8601String(),
         ]);

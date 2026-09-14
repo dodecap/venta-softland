@@ -453,6 +453,20 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       de venta por $79,3 MM, y el ámbito «Yo» del vendedor 2 da 126 y 6. Sin
       desplazamiento horizontal en 360×640 en las tres escalas de interfaz, con
       montos de hasta `$1.250 MM`.
+- [x] **Paso 3 — «Requiere tu atención»**: el panel deja de informar y empieza
+      a repartir trabajo. Una fila por cosa que hacer, ordenadas por lo que
+      pasa si nadie las toca —el visto bueno que detiene una venta, lo que
+      está escrito en el teléfono y todavía no en Softland, lo que vence en
+      días y todavía se puede cerrar, lo que ya venció— con la franja izquierda
+      diciendo cuánto corre y el texto diciendo lo mismo con palabras. Sólo
+      aparece lo que existe, y cuando no hay nada lo dice: «Nada pendiente».
+      **El corte de vencimiento no es un número inventado**: es
+      `identidad.vigencia_cotizacion_dias`, el mismo que sale impreso en el
+      PDF, que ahora viaja en el bootstrap junto al IVA y la UF.
+      Cada fila **abre la lista ya filtrada** (`?atencion=por_vencer`), y la
+      regla que decide cuál es cuál está en una sola función —`situacion()`—
+      que usan el panel para contar y la lista para filtrar. Comprobado: el
+      panel dice 6 por vencer y 77 vencidas, y la lista muestra 6 y 77.
 - [x] Diagnosticado por qué «Actividad reciente» se ve vacía: lee los correos
       enviados y `ventas.notificacion` tiene 0 filas. La fuente buena es la
       bitácora de Softland — `nw_lognwcotiza` (15.795 filas) y

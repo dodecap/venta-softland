@@ -4,10 +4,11 @@
 > la base `INNOVAGES` el 2026-09-14; cada cifra sale de una consulta, no de
 > una estimación.
 >
-> **Pasos 1 y 2 hechos** (§16): el motor de métricas con sus pruebas, y el
-> panel con ámbito, período, KPI protagonista y embudo. Comprobado contra el
-> ERP: el año 2026 del ámbito empresa da 134 cotizaciones y 34 notas de venta
-> por $79,3 MM, exactamente lo que devuelve SQL Server.
+> **Pasos 1, 2 y 3 hechos** (§16): el motor de métricas con sus pruebas, el
+> panel con ámbito, período, KPI protagonista y embudo, y «Requiere tu
+> atención» con su drill-down. Comprobado contra el ERP: el año 2026 del ámbito
+> empresa da 134 cotizaciones y 34 notas de venta por $79,3 MM, exactamente lo
+> que devuelve SQL Server.
 
 ## 0. La conclusión, antes del detalle
 
@@ -481,10 +482,21 @@ denominador 0 no hay comparación: se omite el indicador, no se muestra `∞`.
 ```
 pendiente       = CtEstado = 'P'
 vence_en        = CtFem + identidad.vigencia_cotizacion_dias   (hoy 30)
-por_vencer      = pendiente y 0 ≤ vence_en − hoy ≤ panel.vencimiento_desde_dias
+por_vencer      = pendiente y 0 ≤ vence_en − hoy ≤ 7
 vencida         = pendiente y vence_en < hoy
-sin_seguimiento = pendiente y (hoy − CtFem) > panel.riesgo.dias_critico
+abierta         = pendiente y el resto
 ```
+
+**El corte no es un número inventado**: es la vigencia que la empresa le pone a
+su propia cotización, la misma que sale impresa en el PDF y que el
+administrador ya edita en Identidad. Pasada esa fecha la cotización dejó de
+estar en pie; seguir contándola como oportunidad abierta sería contarse un
+cuento. Lo único elegido a mano son los 7 días de aviso previo, que pasan a
+`ventas.config` en el paso 9.
+
+La regla vive en **una sola función**, `situacion()` de `metricas.js`, y la
+usan el panel para contar y la lista para filtrar. Con una copia en cada sitio,
+el panel diría «6 por vencer» y al tocarlo saldrían siete.
 
 **Meta** (cuando exista `ventas.meta`):
 
@@ -576,7 +588,7 @@ Cada paso deja la app funcionando y demostrable. Nada de esto toca las fases
 |---|---|---|
 | ~~**1**~~ | ~~`dinero.js` + `periodo.js` + `metricas.js`, con pruebas. Sin UI.~~ **Hecho**, 98 comprobaciones en `npm run pruebas`. | nulo: código nuevo, nadie lo llama todavía |
 | ~~**2**~~ | ~~Encabezado con ámbito y período. KPI protagonista + embudo hasta NV, todo offline. Los tres KPI técnicos se van a Cuenta.~~ **Hecho.** | medio: cambia lo primero que ve el vendedor |
-| **3** | «Requiere tu atención» con drill-down a las listas ya existentes, filtradas. | bajo |
+| ~~**3**~~ | ~~«Requiere tu atención» con drill-down a las listas ya existentes, filtradas.~~ **Hecho.** | bajo |
 | **4** | «Mi rendimiento» (conversión, cierre, ticket) con comparación al período anterior. | bajo |
 | **5** | Actividad reciente de verdad: `GET /api/panel/actividad` sobre `nw_lognwcotiza` + `nw_lognwnventa`. **Arregla lo que hoy está vacío.** | bajo |
 | **6** | Maestro `facturas` (`iw_gsaen`) en `Maestros.php` + almacén en `idb.js` → el embudo llega a «Facturado» **sin señal**. | bajo: un maestro más, patrón conocido |

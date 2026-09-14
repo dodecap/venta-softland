@@ -21,6 +21,14 @@ const router = useRouter();
 const usuario = ref(null);
 const sincronizado = ref(null);
 const registros = ref(0);
+
+/*
+ * Cuántos días la empresa da por buena una cotización. Lo pone el
+ * administrador en la identidad y es el mismo número que sale impreso en el
+ * PDF; llega en el bootstrap porque no hay maestro donde ponerlo. Los 30 son
+ * el mismo valor por defecto que usa el servidor.
+ */
+const vigencia = ref(30);
 const actividad = ref([]);
 const aviso = ref('');
 const error = ref('');
@@ -103,6 +111,7 @@ async function calcularPanel() {
         comparar: rangoPrevio.value,
         vendedores: vendedores.value,
         hoy: dia(new Date()),
+        vigencia: vigencia.value,
     });
 }
 
@@ -129,9 +138,80 @@ const embudo = computed(() => {
     ];
 });
 
+/**
+ * Requiere tu atención — lo que convierte el panel en una lista de trabajo.
+ *
+ * El orden no es por monto, es por lo que pasa si nadie lo toca:
+ *
+ *   1. Una venta detenida esperando la firma de una persona.
+ *   2. Algo escrito en el teléfono que todavía no está en Softland.
+ *   3. Una cotización que vence en días y todavía se puede salvar.
+ *   4. Una que ya venció: es la de más plata y la más fría.
+ *
+ * Sólo aparece lo que existe. Una lista con cuatro ceros no es un panel de
+ * trabajo, es un formulario en blanco.
+ */
+const atencion = computed(() => {
+    const p = m.value?.pendientes;
+    const lista = [];
+
+    if (porAprobar.value) {
+        lista.push({
+            id: 'aprobar',
+            icono: 'alerta',
+            nivel: 'urgente',
+            titulo: `${porAprobar.value} ${porAprobar.value === 1 ? 'nota de venta espera' : 'notas de venta esperan'} tu visto bueno`,
+            sub: 'Pasaron el tope de descuento o de monto de su vendedor',
+            ir: () => router.push('/aprobaciones'),
+        });
+    }
+
+    if (porEnviar.value) {
+        lista.push({
+            id: 'enviar',
+            icono: 'subir',
+            nivel: 'urgente',
+            titulo: `${porEnviar.value} ${porEnviar.value === 1 ? 'cambio' : 'cambios'} sin enviar`,
+            sub: conectado.value
+                ? (porEnviar.value === 1
+                    ? 'Está en el teléfono y todavía no en Softland'
+                    : 'Están en el teléfono y todavía no en Softland')
+                : (porEnviar.value === 1
+                    ? 'Sale solo cuando vuelva la señal'
+                    : 'Salen solos cuando vuelva la señal'),
+            ir: conectado.value ? sincronizarTodo : null,
+        });
+    }
+
+    if (p?.por_vencer.n) {
+        lista.push({
+            id: 'por-vencer',
+            icono: 'cotizacion',
+            nivel: 'aviso',
+            titulo: `${p.por_vencer.n} ${p.por_vencer.n === 1 ? 'cotización' : 'cotizaciones'} por vencer`,
+            sub: `${dinero(p.por_vencer.monto)} · todavía se pueden cerrar`,
+            ir: () => router.push('/cotizaciones?atencion=por_vencer'),
+        });
+    }
+
+    if (p?.vencidas.n) {
+        lista.push({
+            id: 'vencidas',
+            icono: 'cotizacion',
+            nivel: 'frio',
+            titulo: `${p.vencidas.n} ${p.vencidas.n === 1 ? 'cotización vencida' : 'cotizaciones vencidas'}`,
+            sub: `${dinero(p.vencidas.monto)} · pasaron los ${vigencia.value} días de vigencia`,
+            ir: () => router.push('/cotizaciones?atencion=vencida'),
+        });
+    }
+
+    return lista;
+});
+
 onMounted(async () => {
     usuario.value = await db.getUsuario();
     sincronizado.value = await db.getSincronizado();
+    vigencia.value = (await db.getServidorInfo())?.vigencia_cotizacion_dias || 30;
     registros.value = await contarRegistros();
     ambito.value = ambitos.value[0]?.id ?? 'todos';
     await calcularPanel();
@@ -182,6 +262,7 @@ async function sincronizarTodo() {
         await db.setUsuario(b.usuario);
         await db.setServidorInfo(b.servidor);
         usuario.value = b.usuario;
+        vigencia.value = b.servidor?.vigencia_cotizacion_dias || 30;
 
         const r = await sincronizar();
         await cargarCatalogos();
@@ -337,15 +418,30 @@ function fecha(n) {
             </template>
 
             <!-- Va antes que las acciones porque pide una decisión, no una
-                 consulta: hay una venta detenida esperando a esta persona. -->
-            <button class="pendiente-aprobar" v-if="porAprobar" @click="router.push('/aprobaciones')">
-                <AppIcon name="alerta" :caja="px(40)" :size="px(20)" variant="aviso" />
-                <span class="texto">
-                    <b>{{ porAprobar }} {{ porAprobar === 1 ? 'nota de venta espera' : 'notas de venta esperan' }} tu visto bueno</b>
-                    <small>Pasaron el tope de descuento o de monto de su vendedor</small>
-                </span>
-                <AppIcon name="avanzar" :size="18" color="var(--texto-suave)" />
-            </button>
+                 consulta: cada línea es una venta esperando a esta persona. -->
+            <template v-if="!sinDatos">
+                <div class="seccion">
+                    <h2>Requiere tu atención</h2>
+                </div>
+
+                <div class="atencion" v-if="atencion.length">
+                    <button v-for="a in atencion" :key="a.id" class="fila-atencion" :class="a.nivel"
+                            :disabled="!a.ir" @click="a.ir && a.ir()">
+                        <AppIcon :name="a.icono" :caja="px(40)" :size="px(20)" />
+                        <span class="texto">
+                            <b>{{ a.titulo }}</b>
+                            <small>{{ a.sub }}</small>
+                        </span>
+                        <AppIcon v-if="a.ir" name="avanzar" :size="18" color="var(--texto-suave)" />
+                    </button>
+                </div>
+
+                <!-- Decir «no hay nada» también es informar: el vendedor cierra
+                     el panel sabiendo que está al día, no dudando. -->
+                <Vacio v-else icono="alDia" titulo="Nada pendiente">
+                    Ninguna cotización por vencer y nada esperando salir del teléfono.
+                </Vacio>
+            </template>
 
             <div class="seccion">
                 <h2>Acciones rápidas</h2>
