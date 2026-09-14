@@ -85,8 +85,13 @@ async function refrescarDelServidor() {
 
 const esCotizacion = computed(() => tipo.value === 'cotizacion');
 
-/** En qué estados el documento todavía admite cambios. Igual que en el servidor. */
-const editable = computed(() => ['N', 'P', ''].includes((doc.value?.estado || '').trim()));
+/**
+ * En qué estados el documento todavía admite cambios. Igual que en el servidor
+ * (`CotizacionController::EDITABLES`).
+ *
+ * Sólo el pendiente. Ojo: `N` **no** entra, porque en Softland es «nula».
+ */
+const editable = computed(() => ['P', ''].includes((doc.value?.estado || '').trim()));
 
 const puedeConvertir = computed(() => esCotizacion.value && editable.value);
 
@@ -183,6 +188,11 @@ async function anotarSeguimiento() {
  * Se manda el mismo detalle que tiene la cotización: el vendedor puede
  * corregirlo después en la nota de venta, pero convertir no debe ser una
  * ocasión de volver a teclear diez líneas.
+ *
+ * Lo que se arrastra de la cotización es todo lo que el cliente ya aceptó: el
+ * vendedor a cuyo nombre está, la fecha de entrega pactada y el texto de cada
+ * línea. Volver a deducirlos del usuario que aprieta el botón cambiaría el
+ * documento sin que nadie lo haya pedido.
  */
 async function convertir() {
     await conServidor(async () => {
@@ -190,12 +200,15 @@ async function convertir() {
         const r = await api.convertirCotizacion(numero.value, {
             client_uuid: crypto.randomUUID?.() ?? `nv-${numero.value}-${Date.now()}`,
             cliente: doc.value.cliente,
+            vendedor: doc.value.vendedor || u?.ven_cod || null,
             contacto: doc.value.contacto || null,
             moneda: doc.value.moneda,
             lista: doc.value.lista || null,
             condicion: doc.value.condicion || null,
             centro_costo: doc.value.centro_costo || u?.cod_cc || null,
             bodega: u?.cod_bode || null,
+            fecha_entrega: (doc.value.fecha_entrega || '').slice(0, 10) || null,
+            oc: doc.value.oc && doc.value.oc !== '0' ? doc.value.oc : null,
             observacion: doc.value.observacion || null,
             lineas: lineas.value.map((l) => ({
                 producto: l.producto,

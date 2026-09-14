@@ -1229,6 +1229,24 @@ select.filtro-grupo { margin-bottom: 12px; }
     gap: 8px;
 }
 
+/* El detalle que ve el cliente: una línea de texto larga, así que va entero a
+   lo ancho y no dentro de la rejilla de cantidad · precio · descuento. */
+.linea-detalle {
+    display: block;
+    margin: 10px 0 0;
+}
+
+.linea-detalle span {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--texto-medio);
+}
+
+.linea-detalle textarea { margin: 0; }
+
 .linea-campos {
     display: grid;
     grid-template-columns: 1fr 1.3fr 1fr;

@@ -186,6 +186,14 @@ tocar nada de esto:
 - **El teléfono no decide impuestos.** Si un producto es afecto a IVA lo dice el
   maestro, en el servidor, aunque el teléfono mande otra cosa.
 - **Guardar no es enviar**: el correo al cliente es un camino aparte.
+- **`N` es «nula», no «nueva»**, en la cotización y en la nota de venta. Los
+  estados son los cuatro que admite el ERP y ningún otro — `TipoDocumento`
+  los declara y `mobile/src/documentos.js` los repite con su color.
+- **Un documento sin vendedor no existe para Softland**: no sale en las
+  ventanas de búsqueda del ERP. `VenCod` nunca va en nulo; antes de escribir
+  uno así, el servidor devuelve 422.
+- **Quien crea el documento va en `UsuarioGeneraDocto`**, y `Usuario` se deja
+  vacío. Es al revés de lo que parece, y es como lo escribe el ERP.
 
 ## El papel que ve el cliente
 

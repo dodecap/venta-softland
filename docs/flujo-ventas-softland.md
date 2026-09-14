@@ -53,19 +53,46 @@ Detalle (`nwdetcot`): `CotNum` + `CtLinea`, `CodProd`, `CtCant`, `CtPrecio`,
 
 ### Estados de la cotización (`CtEstado`)
 
-Medido sobre las 2.350 cotizaciones reales, cruzado con qué cotizaciones
-tienen nota de venta:
+Son **cuatro y no hay más**. No es una lectura de los datos: es el vocabulario
+del ERP, confirmado por el cliente.
 
-| Estado | Filas | Con nota de venta | Lectura |
-|---|---|---|---|
-| `N` | 1.000 | 2 | Nueva / en curso |
-| `V` | 678 | **678 (todas)** | Vendida: pasó a nota de venta |
-| `R` | 482 | 1 | Rechazada / perdida (casi todas con `CodPerd`) |
-| `P` | 189 | 0 | **Pendiente de confirmar**: ninguna tiene motivo ni NV |
-| `A` | 1 | 0 | Caso aislado |
+| Estado | Filas | Qué es |
+|---|---|---|
+| `P` | 189 | **Pendiente.** Con este nace una cotización |
+| `V` | 679 | En nota de venta: se convirtió |
+| `N` | 1.000 | **Nula.** Anulada, no «nueva» |
+| `R` | 482 | Perdida (casi todas con `CodPerd`) |
 
-La correlación de `V` es perfecta: **`V` es la marca de que la cotización se
+> **`N` es «nula».** Es el error que costó tres meses de documentos
+> invisibles: la app nacía las cotizaciones en `N` leyendo el estado más
+> frecuente como «nueva». Un documento anulado no se lista en el ERP.
+
+La correlación de `V` es perfecta — las 679 cotizaciones en `V` son exactamente
+las que tienen nota de venta —: **`V` es la marca de que la cotización se
 convirtió**. Al generar la NV hay que dejar la cotización en `V`.
+
+### Lo que un documento necesita para que Softland lo liste
+
+Se descubrió por diferencia: una cotización y una nota de venta escritas por la
+app no aparecían en las ventanas de búsqueda del Softland de escritorio.
+Comparadas columna a columna contra un documento escrito por el ERP, lo único
+que las distinguía era lo que la app dejaba en nulo — y eran, literalmente, las
+únicas filas nulas de toda la base.
+
+| Columna | Nulos en la base | Qué va |
+|---|---|---|
+| `VenCod` | 1 de 2.351 (la de la app) | El vendedor. **Sin él el documento no se lista** |
+| `UsuarioGeneraDocto` | 1 de 2.351 (la de la app) | Quien lo creó, `varchar(8)` como `wisusuarios.Usuario` |
+| `Usuario` | 1.679 de 2.351 | **Se deja vacío**: el autor va en la columna de arriba |
+| `CtFeEnt` / `nvFeEnt` | 0 | Si no hay entrega pactada, la fecha del documento |
+| `numOC` / `NumOC` | 0 | Vacío cuando no hay OC. Un `0` se lee como «OC número cero» |
+| `nwdetcot.CtFecCompr` | 2 (las de la app) | La fecha del documento |
+| `nw_detnv.nvFecCompr` | 2 (las de la app) | La fecha del documento |
+| `nw_detnv.nvCorrela` | — | **Cero**, no el número de línea: lo mueve el despacho |
+| `DetProd` | 2 (las de la app) | Lo que lee el cliente. Si el vendedor no escribe, la descripción del maestro |
+
+`nvCanalNV` sí puede ir en nulo — está así en 1.308 de 2.351 — porque
+`nwparam.CheckCanalCot` y `CheckCanalNv` están en `N`.
 
 Motivos de pérdida (`nwperdida`): `01` compra competencia, `02` cliente se
 retracta *(marcado «no usar»)*, `03` sin interés, `04` no contesta, `05` no
@@ -79,7 +106,7 @@ Encabezado (`nw_nventa`, 67 columnas):
 |---|---|
 | `NVNumero` | PK, entero. |
 | `CotNum` | Cotización de origen (0 o NULL si nació directa). |
-| `nvEstado` | Estado: `A` 736, `N` 45, `P` 16, `C` 3. |
+| `nvEstado` | Estado: `P` pendiente, `A` aprobada, `N` **nula**, `C` concluida. Ver abajo. |
 | `nvEstFact`, `nvEstDesp`, `nvEstRese`, `nvEstConc` | Flags. **Están todos en 0 en las 800 filas**: Softland no los usa aquí. |
 | `CodAux`, `VenCod`, `CodMon`, `CodLista`, `CveCod`, `CodiCC`, `CodBode` | Mismos maestros que la cotización, más bodega. |
 | `NumOC` | Orden de compra del cliente. `NOT NULL`. |
@@ -92,6 +119,17 @@ Detalle (`nw_detnv`): además de precio y cantidad, lleva el **avance del
 despacho y la facturación** línea a línea — `nvCantDesp`, `nvCantFact`,
 `nvCantBoleta`, `nvCantNC`, `nvCantDevuelto`. Es ahí donde se ve qué falta por
 facturar de una NV, no en los flags del encabezado.
+
+#### Con qué estado nace una nota de venta
+
+Lo decide el ERP, no la app: **`nwparam.CheckApruebaNv`**. Con `S` la NV nace
+aprobada (`A`); con `N`, pendiente (`P`), esperando que alguien la apruebe en
+Softland. En INNOVAGES está en `N`, así que toda nota de venta nace en `P`.
+
+Eso convive con la aprobación por topes que aporta la app: una NV que pasa el
+tope del vendedor queda en `P` pase lo que pase, y el visto bueno del jefe la
+deja en el estado que el ERP le habría dado de entrada. El freno es de la app;
+la aprobación sigue siendo de Softland.
 
 Aprobaciones: `nw_aprob` (nombre/cargo/email de quien aprueba) y
 `NW_aprobDetalle` (`NvNumero`, `FechaHora`, `Usuario`, `Ap_Desap`, `Comentario`).

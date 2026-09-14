@@ -22,8 +22,14 @@ class CotizacionController extends DocumentoController
         return 'cotizaciones';
     }
 
-    /** Los estados en que todavía se puede editar. */
-    private const EDITABLES = ['N', 'P', ''];
+    /**
+     * Los estados en que todavía se puede editar: sólo `P`, pendiente.
+     *
+     * `N` es **nula** y `R` perdida — un documento cerrado no se corrige, se
+     * hace otro — y `V` ya pasó a nota de venta. El vacío se admite porque en
+     * INNOVAGES hay cotizaciones viejas sin estado.
+     */
+    private const EDITABLES = ['P', ''];
 
     // ------------------------------------------------ lo que pide la base
 
@@ -101,7 +107,7 @@ class CotizacionController extends DocumentoController
         if (! in_array(trim((string) $actual->CtEstado), self::EDITABLES, true)) {
             return response()->json([
                 'message' => 'Esta cotización ya no se puede cambiar: está '.
-                    (trim($actual->CtEstado) === 'V' ? 'vendida.' : 'cerrada.'),
+                    strtolower($this->tipoDoc()->estado($actual->CtEstado)).'.',
             ], 409);
         }
 

@@ -37,7 +37,13 @@ class NotaVentaController extends DocumentoController
     }
 
     /** Estados en que una NV todavía se puede corregir. */
-    private const EDITABLES = ['N', 'P', ''];
+    /**
+     * Los estados en que todavía se puede corregir desde el teléfono.
+     *
+     * Sólo la pendiente. `A` ya está aprobada, `C` concluida y `N` **nula** —
+     * ojo con esa, que no es «nueva».
+     */
+    private const EDITABLES = ['P', ''];
 
     // ------------------------------------------------ lo que pide la base
 
@@ -71,14 +77,23 @@ class NotaVentaController extends DocumentoController
      *
      * Se puede imprimir — a veces hay que mostrarla — pero no idéntica a una
      * aprobada: dejar que salgan iguales es preparar el día en que alguien
-     * despache contra un documento que nadie autorizó. La marca desaparece sola
-     * cuando `nvEstado` pasa a `A`.
+     * despache contra un documento que nadie autorizó.
+     *
+     * La marca la pone la **aprobación pendiente de la app**, no `nvEstado`.
+     * Con `nwparam.CheckApruebaNv = N` toda nota de venta nace en `P`, así que
+     * mirar el estado marcaría todas por igual y la marca dejaría de decir
+     * nada. Desaparece sola cuando el jefe resuelve.
      */
     protected function contextoDocumento(array $doc, array $lineas): array
     {
         $ctx = parent::contextoDocumento($doc, $lineas);
 
-        if (trim((string) ($doc['estado'] ?? '')) === 'P') {
+        $pendiente = DB::connection('softland')->table('ventas.aprobacion')
+            ->where('nv_numero', $doc['numero'] ?? 0)
+            ->where('estado', 'pendiente')
+            ->exists();
+
+        if ($pendiente) {
             $ctx['sello'] = 'Pendiente de aprobación — no válida para despacho';
         }
 
@@ -116,8 +131,13 @@ class NotaVentaController extends DocumentoController
 
         // Se decide antes de escribir: el estado con que nace la NV es parte
         // del documento, no un parche posterior.
+        //
+        // El estado normal lo manda el ERP (`nwparam.CheckApruebaNv`), no la
+        // app. Lo único que aporta la app es que una NV que pasa el tope del
+        // vendedor **no** puede nacer aprobada aunque el ERP lo permita: queda
+        // pendiente hasta que el jefe la mire.
         $excede = $this->topesExcedidos($data, $u);
-        $data['estado'] = $excede ? 'P' : 'N';
+        $data['estado'] = $excede ? 'P' : $this->ventas->estadoInicialNotaVenta();
 
         $numero = $this->escribir(fn () => $this->ventas->crearNotaVenta($data, $u, $desdeCotizacion));
 
@@ -156,7 +176,7 @@ class NotaVentaController extends DocumentoController
         // debajo del tope tiene que quitar la aprobación pendiente, no dejarla
         // colgada esperando a un jefe que ya no hace falta.
         $excede = $this->topesExcedidos($data, $u);
-        $data['estado'] = $excede ? 'P' : 'N';
+        $data['estado'] = $excede ? 'P' : $this->ventas->estadoInicialNotaVenta();
 
         $this->escribir(fn () => $this->ventas->actualizarNotaVenta($numero, $data, $u));
 
@@ -222,10 +242,19 @@ class NotaVentaController extends DocumentoController
             'updated_at' => now(),
         ]);
 
-        // `C` es el estado cerrado de Softland: una NV rechazada no se borra,
-        // se cierra. Borrarla dejaría la cotización de origen marcada como
+        // Aprobada, sigue su curso normal: el estado que el ERP le habría dado
+        // de entrada. El visto bueno del jefe levanta el freno que puso la app,
+        // no le otorga una aprobación que Softland no había dado.
+        //
+        // Rechazada queda **nula** (`N`), que es el estado de baja de Softland.
+        // No se borra: borrarla dejaría la cotización de origen marcada como
         // vendida sin nada al otro lado.
-        $this->ventas->fijarEstadoNotaVenta($numero, $aprobada ? 'A' : 'C', $u, $aprobada);
+        $this->ventas->fijarEstadoNotaVenta(
+            $numero,
+            $aprobada ? $this->ventas->estadoInicialNotaVenta() : 'N',
+            $u,
+            $aprobada,
+        );
 
         $solicitante = Usuario::on('softland')->find($pendiente->solicitante_id);
         $this->avisar(

@@ -274,7 +274,12 @@ class Ventas
 
             $lineas[] = [
                 'producto' => $cod,
-                'detalle' => $l['detalle'] ?? null,
+                // `DetProd` es lo que lee el cliente en el papel y lo que
+                // Softland muestra en la línea. Nunca va vacío: si el vendedor
+                // no escribió nada, se copia la descripción del maestro, que es
+                // exactamente lo que hace el ERP — en las 9.585 líneas de
+                // INNOVAGES no hay una sola con `DetProd` nulo.
+                'detalle' => $this->detalleDe($l, $p),
                 'unidad' => $l['unidad'] ?? trim((string) $p->CodUMed),
                 'cantidad' => (float) $l['cantidad'],
                 // El precio vuelve a la moneda del producto, que es donde lo
@@ -311,11 +316,16 @@ class Ventas
             'CodLista' => $d['lista'] ?? $u->cod_lista,
             'CveCod' => $d['condicion'] ?? null,
             'CodiCC' => $d['centro_costo'] ?? null,
-            'CtEstado' => $d['estado'] ?? 'N',
+            // `P` de pendiente. **No `N`**, que en Softland es «nula»: una
+            // cotización que nace en `N` nace anulada y el ERP no la lista.
+            'CtEstado' => $d['estado'] ?? 'P',
             'CtFem' => $doc['fecha'],
-            'CtFeEnt' => $d['fecha_entrega'] ?? null,
-            // NOT NULL en Softland, con default 0. Nunca se deja en null.
-            'numOC' => (string) ($d['oc'] ?? '0'),
+            // Sin fecha de entrega pactada vale la del documento. En las 2.351
+            // cotizaciones de INNOVAGES no hay una sola con `CtFeEnt` nulo.
+            'CtFeEnt' => ($d['fecha_entrega'] ?? null) ?: $doc['fecha'],
+            // NOT NULL en Softland. Vacío es como escribe el ERP el «sin orden
+            // de compra»; un «0» ahí se lee como una OC número cero.
+            'numOC' => (string) ($d['oc'] ?? ''),
             'CtObser' => $d['observacion'] ?? null,
             'CtEquiv' => $doc['equiv_documento'],
             'CtSubTotal' => $t['subtotal'],
@@ -344,12 +354,15 @@ class Ventas
             // `nwparam.CheckExigeCCostoN = S`: en la nota de venta el centro de
             // costo es obligatorio. El controlador ya lo exigió; esto es el
             // último respaldo antes de escribir.
-            'CodiCC' => $d['centro_costo'] ?: $u->cod_cc,
+            'CodiCC' => ($d['centro_costo'] ?? null) ?: $u->cod_cc,
             'CodBode' => $d['bodega'] ?? $u->cod_bode,
-            'nvEstado' => $d['estado'] ?? 'N',
+            // Igual que en la cotización: `N` es «nula». El estado con que
+            // nace una NV lo decide la configuración del ERP, no la app.
+            'nvEstado' => $d['estado'] ?? $this->estadoInicialNotaVenta(),
             'nvFem' => $doc['fecha'],
-            'nvFeEnt' => $d['fecha_entrega'] ?? null,
-            'NumOC' => (string) ($d['oc'] ?? '0'),
+            // La que venga de la cotización; si no, la del documento.
+            'nvFeEnt' => ($d['fecha_entrega'] ?? null) ?: $doc['fecha'],
+            'NumOC' => (string) ($d['oc'] ?? ''),
             'nvObser' => $d['observacion'] ?? null,
             'nvEquiv' => $doc['equiv_documento'],
             'nvSubTotal' => $t['subtotal'],
@@ -373,6 +386,9 @@ class Ventas
                 'CtLinea' => ++$n,
                 'CodProd' => $l['producto'],
                 'DetProd' => $l['detalle'],
+                // La fecha de la línea es la del documento. Softland la llena
+                // siempre; dejarla nula deja la línea sin fecha de compra.
+                'CtFecCompr' => $doc['fecha'],
                 'CodUMed' => $l['unidad'],
                 'CtCant' => $l['cantidad'],
                 'CtPrecio' => $l['precio'],
@@ -399,9 +415,13 @@ class Ventas
             $this->conn()->table('softland.nw_detnv')->insert([
                 'NVNumero' => $numero,
                 'nvLinea' => ++$n,
-                'nvCorrela' => $n,
+                // Cero, no el número de línea: el correlativo de despacho
+                // arranca en cero y lo mueve Softland. Está en cero en 2.242 de
+                // las 2.244 líneas de INNOVAGES.
+                'nvCorrela' => 0,
                 'CodProd' => $l['producto'],
                 'DetProd' => $l['detalle'],
+                'nvFecCompr' => $doc['fecha'],
                 'CodUMed' => $l['unidad'],
                 'nvCant' => $l['cantidad'],
                 'nvPrecio' => $l['precio'],
@@ -497,20 +517,62 @@ class Ventas
     }
 
     /**
-     * Las columnas de auditoría, como las escribe Softland. `Usuario` es
-     * varchar(8): el nombre largo se corta, que es lo que hace el ERP.
+     * Las columnas de auditoría, como las escribe Softland.
+     *
+     * Son **dos columnas distintas y se llenan al revés de lo que parece**:
+     * quien crea el documento va en `UsuarioGeneraDocto`, y `Usuario` se deja
+     * vacío. Así lo escribe el ERP en sus 2.351 cotizaciones, y así hay que
+     * escribirlo: es la columna por la que el Softland de escritorio reconoce
+     * al autor del documento.
+     *
+     * Es varchar(8), como el usuario de `wisusuarios`: el nombre largo se
+     * corta, que es lo que hace el ERP.
      */
     private function auditoria(Usuario $u, bool $creando = true): array
     {
-        $cols = [
-            'Usuario' => substr((string) ($u->softland_user ?: $u->email), 0, 8),
-            // Las mismas dos marcas que deja el ERP: el módulo que escribió y
-            // desde dónde. Sirven para reconocer en Softland lo que vino del
-            // teléfono sin tener que cruzar con la tabla de la app.
-            'sistema' => 'NW',
-            'proceso' => 'App de ventas',
-        ];
+        // Las dos marcas que deja el ERP: el módulo que escribió y desde
+        // dónde. Sirven para reconocer en Softland lo que vino del teléfono
+        // sin tener que cruzar con la tabla de la app.
+        $cols = ['sistema' => 'NW', 'proceso' => 'App de ventas'];
 
-        return $creando ? $cols + ['FechaHoraCreacion' => now()] : $cols;
+        if (! $creando) {
+            return $cols;
+        }
+
+        return $cols + [
+            'UsuarioGeneraDocto' => substr((string) ($u->softland_user ?: $u->email), 0, 8),
+            'FechaHoraCreacion' => now(),
+        ];
+    }
+
+    /**
+     * El estado con que nace una nota de venta, según el ERP.
+     *
+     * Lo decide `nwparam.CheckApruebaNv`: con `S` la NV nace aprobada (`A`) y
+     * con `N` nace pendiente (`P`), a la espera de que alguien la apruebe en
+     * Softland. Es configuración del cliente, no una constante de la app: en
+     * INNOVAGES está en `N`, pero la siguiente empresa puede tenerlo al revés.
+     */
+    public function estadoInicialNotaVenta(): string
+    {
+        $v = $this->conn()->table('softland.nwparam')->value('CheckApruebaNv');
+
+        return strtoupper(trim((string) $v)) === 'S' ? 'A' : 'P';
+    }
+
+    /**
+     * Lo que va en `DetProd`: lo que escribió el vendedor o, si no escribió
+     * nada, la descripción del maestro.
+     *
+     * Es editable a propósito. En INNOVAGES hay líneas cuyo `DetProd` no es la
+     * descripción del producto — «Portal de RRHH ERP Rental **ADV**» donde el
+     * maestro dice «Business» — porque el vendedor ajusta a mano lo que va a
+     * leer el cliente. Lo que no puede quedar es vacío.
+     */
+    private function detalleDe(array $linea, object $producto): string
+    {
+        $escrito = trim((string) ($linea['detalle'] ?? ''));
+
+        return $escrito !== '' ? $escrito : trim((string) $producto->DesProd);
     }
 }

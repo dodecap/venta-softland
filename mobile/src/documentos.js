@@ -7,8 +7,15 @@ import { idb } from './idb';
  * convierte en nota de venta y la NV guarda de qué cotización vino — así que la
  * app las dibuja con la misma pantalla y solo cambia esta tabla.
  *
- * Los estados y su lectura están medidos contra las 2.350 cotizaciones y las
- * 800 notas de venta reales de INNOVAGES; están en `docs/flujo-ventas-softland.md`.
+ * ## Los estados son cuatro, y son los de Softland
+ *
+ * No son una lectura de los datos: son el vocabulario del ERP, y no hay más.
+ * Son también los que filtran las listas, porque filtrar por algo que Softland
+ * no reconoce es filtrar por nada.
+ *
+ * **`N` es «nula», no «nueva»**, en los dos documentos. Su gemelo en el
+ * servidor — el que escribe el PDF — está en `TipoDocumento::estados()`. Los
+ * dos tienen que decir lo mismo.
  */
 
 export const TIPOS = {
@@ -21,11 +28,10 @@ export const TIPOS = {
         lineas: 'cotizacion_lineas',
         indiceLineas: 'cotizacion',
         estados: {
-            N: { rotulo: 'En curso', color: 'cian' },
-            V: { rotulo: 'Vendida', color: 'verde' },
-            R: { rotulo: 'Perdida', color: 'rojo' },
             P: { rotulo: 'Pendiente', color: 'amarillo' },
-            A: { rotulo: 'Anulada', color: 'gris' },
+            V: { rotulo: 'En nota de venta', color: 'verde' },
+            R: { rotulo: 'Perdida', color: 'rojo' },
+            N: { rotulo: 'Nula', color: 'gris' },
         },
     },
     nota_venta: {
@@ -37,10 +43,10 @@ export const TIPOS = {
         lineas: 'nota_venta_lineas',
         indiceLineas: 'nota_venta',
         estados: {
-            A: { rotulo: 'Aprobada', color: 'verde' },
-            N: { rotulo: 'Nueva', color: 'cian' },
             P: { rotulo: 'Pendiente', color: 'amarillo' },
-            C: { rotulo: 'Cerrada', color: 'gris' },
+            A: { rotulo: 'Aprobada', color: 'verde' },
+            C: { rotulo: 'Concluida', color: 'cian' },
+            N: { rotulo: 'Nula', color: 'gris' },
         },
     },
 };
@@ -179,6 +185,7 @@ function redondear(n, decimales) {
 export function cuerpoDe(form) {
     return {
         cliente: form.cliente,
+        vendedor: form.vendedor || null,
         contacto: form.contacto || null,
         moneda: form.moneda || '01',
         lista: form.lista || null,
@@ -192,7 +199,9 @@ export function cuerpoDe(form) {
         descuento_pct: Number(form.descuento_pct || 0),
         lineas: form.lineas.map((l) => ({
             producto: l.producto,
-            detalle: l.detalle || null,
+            // Lo que va a leer el cliente en el papel. Va siempre: si el
+            // vendedor no lo tocó, es la descripción del maestro.
+            detalle: l.detalle || l.nombre || null,
             unidad: l.unidad || null,
             cantidad: Number(l.cantidad || 0),
             precio: Number(l.precio || 0),

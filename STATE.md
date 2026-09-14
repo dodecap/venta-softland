@@ -357,6 +357,36 @@ vendibles, 12 meses de documentos y solo los del vendedor).
   vendedor elige el chat. Y un enlace al PDF del servidor no sirve:
   `192.168.1.55:8086` no existe fuera de la oficina.
 
+### Documentos que Softland sí reconoce
+- [x] **Arreglado el estado con que nacen los documentos.** Se escribía `N`
+      leyendo el estado más frecuente de la base como «nueva». En Softland `N`
+      es **nula**: la app llevaba desde la fase 3 creando documentos anulados.
+      La cotización nace en `P`, y el estado de la nota de venta lo decide el
+      ERP (`nwparam.CheckApruebaNv`: `S` → `A`, `N` → `P`).
+- [x] **El vendedor nunca queda en nulo.** Era la causa de que la cotización y
+      la nota de venta no aparecieran en las ventanas de búsqueda del Softland
+      de escritorio: de las 2.351 cotizaciones de la base, las únicas con
+      `VenCod` nulo eran las que había escrito esta app, grabadas por un
+      administrador que no tiene vendedor asociado. Ahora el editor lleva su
+      propio campo **Vendedor**, y si no hay ninguno que poner el servidor
+      devuelve un 422 en vez de escribir un documento invisible.
+- [x] **La auditoría va donde la pone el ERP**: quien crea el documento en
+      `UsuarioGeneraDocto` y `Usuario` vacío, no al revés.
+- [x] **Campos del detalle que faltaban**: `CtFecCompr` / `nvFecCompr` con la
+      fecha del documento, `nvCorrela` en cero y `DetProd` siempre lleno — lo
+      que escriba el vendedor o, si no escribe, la descripción del maestro. El
+      detalle de cada línea es **editable** desde el teléfono, que es como
+      trabaja el ERP: en INNOVAGES hay líneas que dicen «ADV» donde el maestro
+      dice «Business».
+- [x] **Los filtros de las listas son los cuatro estados de Softland** y no
+      otros: pendiente · en nota de venta · nula · perdida en la cotización;
+      pendiente · aprobada · concluida · nula en la nota de venta.
+- [x] **El papel muestra el estado.** Quien recibe la cotización por correo no
+      tiene la app delante para distinguir una vigente de una perdida.
+- [x] **La fecha de entrega y la orden de compra se arrastran** de la cotización
+      a la nota de venta. Sin fecha pactada va la del documento: en las 2.351
+      cotizaciones de INNOVAGES no hay una sola con `CtFeEnt` nulo.
+
 ## Problemas conocidos / bloqueos
 - **El buzón de avisos está vacío en la práctica.** `ventas.notificacion` no
   tiene filas porque el SMTP todavía no está configurado, y el único usuario
@@ -392,6 +422,15 @@ vendibles, 12 meses de documentos y solo los del vendedor).
   13-09-2026 por una prueba de la fase 2. El dato de negocio se restauró (su
   teléfono volvió a quedar vacío, como estaba); lo que no se pudo devolver es
   quién lo había tocado antes, porque la columna se sobrescribe.
+- **Quedan seis documentos de prueba en INNOVAGES**: cotizaciones 8553, 8554 y
+  8555 y notas de venta 2064, 2065 y 2066. Las dos primeras de cada par son las
+  que nacieron mal — sirven de contraste para comprobar en el ERP que el
+  arreglo funciona — y el resto son las de la verificación. Hay que anularlas
+  (`CtEstado`/`nvEstado` = `N`) o borrarlas cuando estén revisadas.
+- **El usuario administrador no tiene vendedor** (`ven_cod` en blanco), así que
+  desde él no se puede grabar sin elegir vendedor a mano en cada documento. Es
+  correcto que sea así — un administrador no vende — pero conviene tenerlo
+  presente al probar.
 - **Flete y embalaje no se calculan.** Las columnas existen y se escriben en
   cero: de las 2.350 cotizaciones de INNOVAGES, **ninguna** los usa, así que no
   hay un solo caso real contra el que comprobar cómo entran en el total. El día

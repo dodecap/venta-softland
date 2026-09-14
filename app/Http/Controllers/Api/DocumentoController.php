@@ -99,8 +99,8 @@ abstract class DocumentoController extends Controller
             'lineas.*.descuento_pct' => 'nullable|numeric|min:0|max:100',
         ]);
 
-        $this->verificarCodigos($data, $request);
         $data['vendedor'] = $this->vendedorDe($data, $request);
+        $this->verificarCodigos($data, $request);
 
         return $data;
     }
@@ -152,14 +152,26 @@ abstract class DocumentoController extends Controller
      * a nombre de alguien de su gente — pasa en la práctica, cuando entra un
      * pedido por teléfono y lo carga el jefe — pero un vendedor no puede
      * atribuirle una venta a otro: eso descuadraría las comisiones de los dos.
+     *
+     * **Nunca devuelve null.** Un documento sin vendedor no aparece en las
+     * búsquedas del Softland de escritorio: de las 2.351 cotizaciones de
+     * INNOVAGES, la única con `VenCod` nulo era una escrita por esta app,
+     * grabada por un administrador que no tiene vendedor asociado. Antes que
+     * escribir un documento invisible, se rechaza y se dice qué falta.
      */
-    protected function vendedorDe(array $data, Request $request): ?string
+    protected function vendedorDe(array $data, Request $request): string
     {
         $u = $this->usuario($request);
         $pedido = trim((string) ($data['vendedor'] ?? ''));
 
         if ($pedido === '') {
-            return $u->ven_cod;
+            $propio = trim((string) $u->ven_cod);
+
+            if ($propio === '') {
+                $this->rechazar(['vendedor' => 'Elige el vendedor: tu usuario no tiene uno asociado.']);
+            }
+
+            return $propio;
         }
 
         if (! $this->alcanza($request, $pedido)) {
@@ -390,6 +402,10 @@ abstract class DocumentoController extends Controller
             'ciudad_cliente' => $t($conn->table('softland.cwtciud')
                 ->where('CiuCod', $cliente['ciudad'] ?? '')->value('CiuDes')),
             'contacto' => $this->contactoDe($doc),
+            // El estado en palabras. En el papel importa: una cotización
+            // perdida y una pendiente se imprimen igual, y quien la recibe por
+            // correo no tiene la app delante para distinguirlas.
+            'estado_nombre' => $this->tipoDoc()->estado($doc['estado'] ?? null),
             'vendedor' => $this->vendedorFicha($doc['vendedor'] ?? ''),
             'condicion' => $t($conn->table('softland.cwtconv')
                 ->where('CveCod', $doc['condicion'] ?? '')->value('CveDes')),

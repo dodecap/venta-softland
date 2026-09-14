@@ -109,6 +109,48 @@ enum TipoDocumento: string
         };
     }
 
+    /**
+     * Los estados que Softland admite en este documento, y cómo se leen.
+     *
+     * Es el **vocabulario entero**: en la cotización no hay más que estos
+     * cuatro, y en la nota de venta tampoco. Importa no inventarse ninguno,
+     * porque el código de estado no es decorativo — es lo que decide si el
+     * documento aparece en las búsquedas del Softland de escritorio.
+     *
+     * Ojo con `N`: **es «nula», no «nueva»**. Un documento que nace en `N` nace
+     * anulado. Los tres primeros meses de este proyecto se escribió así, y por
+     * eso ni la cotización ni la nota de venta se veían en el ERP.
+     *
+     * Su gemelo en el teléfono, que además les pone color, está en
+     * `mobile/src/documentos.js`. Los dos tienen que decir lo mismo.
+     */
+    public function estados(): array
+    {
+        return match ($this) {
+            self::COTIZACION => [
+                'P' => 'Pendiente',
+                'V' => 'En nota de venta',
+                'N' => 'Nula',
+                'R' => 'Perdida',
+            ],
+            self::NOTA_VENTA => [
+                'P' => 'Pendiente',
+                'A' => 'Aprobada',
+                'N' => 'Nula',
+                'C' => 'Concluida',
+            ],
+            default => [],
+        };
+    }
+
+    /** El estado en palabras. Un código que no esté en la tabla se muestra tal cual. */
+    public function estado(?string $codigo): string
+    {
+        $c = strtoupper(trim((string) $codigo));
+
+        return $this->estados()[$c] ?? $c;
+    }
+
     /** Cómo lo nombran el maestro y la app (`$this->recurso()` de los controladores). */
     public function recurso(): string
     {

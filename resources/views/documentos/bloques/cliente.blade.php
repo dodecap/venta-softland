@@ -52,6 +52,9 @@
         <td style="width:48%; vertical-align:top;">
             <h2>Condiciones</h2>
             <table class="ficha">
+                @if (! empty($estado_nombre))
+                    <tr><td class="rot">Estado</td><td><strong>{{ $estado_nombre }}</strong></td></tr>
+                @endif
                 @if (! empty($vendedor['nombre']))
                     <tr><td class="rot">Atendido por</td><td>{{ $vendedor['nombre'] }}</td></tr>
                 @endif

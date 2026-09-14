@@ -71,6 +71,7 @@ function vacio() {
     return {
         client_uuid: nuevoUuid(),
         cliente: '',
+        vendedor: '',
         contacto: '',
         moneda: '01',
         lista: '',
@@ -101,6 +102,10 @@ async function cargar() {
             // y su bodega. Son tres campos que casi nunca cambia y que, en
             // blanco, obligan a elegir en cada documento.
             const u = await db.getUsuario();
+            // El vendedor del documento es el del usuario. Se deja a la vista y
+            // se puede cambiar: el jefe carga pedidos que entran por teléfono a
+            // nombre de su gente, y un administrador no tiene vendedor propio.
+            form.value.vendedor = u?.ven_cod || '';
             form.value.lista = u?.cod_lista || '';
             form.value.centro_costo = u?.cod_cc || '';
             form.value.bodega = u?.cod_bode || '';
@@ -124,6 +129,7 @@ async function cargarDocumento() {
     form.value = {
         client_uuid: null,           // ya tiene número: esto no es un alta
         cliente: doc.cliente || '',
+        vendedor: doc.vendedor || '',
         contacto: doc.contacto || '',
         moneda: doc.moneda || '01',
         lista: doc.lista || '',
@@ -142,7 +148,7 @@ async function cargarDocumento() {
         form.value.lineas.push({
             producto: l.producto,
             nombre: p?.nombre || l.detalle || l.producto,
-            detalle: l.detalle || '',
+            detalle: l.detalle || p?.nombre || '',
             unidad: l.unidad || p?.unidad || '',
             afecto: p ? !! p.afecto : true,
             cantidad: l.cantidad,
@@ -230,7 +236,10 @@ async function agregarProducto(p) {
     form.value.lineas.push({
         producto: p.codigo,
         nombre: p.nombre,
-        detalle: '',
+        // Lo que va a leer el cliente. Se propone la descripción del maestro y
+        // el vendedor la corrige si hace falta: en INNOVAGES hay líneas donde
+        // dice «ADV» y el maestro dice «Business».
+        detalle: p.nombre || '',
         unidad: p.unidad || '',
         afecto: !! p.afecto,
         cantidad: 1,
@@ -259,6 +268,7 @@ const totales = computed(() => calcularTotales(
 
 const puedeGuardar = computed(() =>
     !! form.value.cliente
+    && !! form.value.vendedor
     && form.value.lineas.length > 0
     && form.value.lineas.every((l) => Number(l.cantidad) > 0)
     && (! esNV.value || !! form.value.centro_costo)
@@ -372,6 +382,16 @@ function cantidad(n) {
                     </select>
                 </template>
 
+                <label>Vendedor</label>
+                <Selector v-model="form.vendedor" maestro="vendedores"
+                          vacio="— elegir vendedor —" filtrar="Filtrar vendedores" />
+                <p class="ayuda">
+                    Queda a su nombre en Softland. Un documento sin vendedor no
+                    aparece en las búsquedas del ERP, así que va la opción en
+                    blanco a la vista: sin ella el desplegable mostraría al
+                    primero de la lista sin que nadie lo haya elegido.
+                </p>
+
                 <label>Condición de venta</label>
                 <Selector v-model="form.condicion" maestro="condiciones_venta" vacio="— sin elegir —" />
 
@@ -423,6 +443,11 @@ function cantidad(n) {
                             <AppIcon name="borrar" :size="18" variant="peligro" />
                         </button>
                     </div>
+                    <label class="linea-detalle">
+                        <span>Detalle que ve el cliente</span>
+                        <textarea v-model="l.detalle" rows="2"
+                                  :placeholder="l.nombre"></textarea>
+                    </label>
                     <div class="linea-campos">
                         <label>
                             <span>Cantidad</span>
@@ -465,6 +490,7 @@ function cantidad(n) {
                 </button>
                 <p class="ayuda centrado" v-if="! puedeGuardar">
                     <template v-if="! form.cliente">Falta elegir el cliente.</template>
+                    <template v-else-if="! form.vendedor">Falta elegir el vendedor.</template>
                     <template v-else-if="! form.lineas.length">Falta agregar al menos un producto.</template>
                     <template v-else-if="esNV && ! form.centro_costo">Falta el centro de costo.</template>
                     <template v-else>Hay una línea sin cantidad.</template>
