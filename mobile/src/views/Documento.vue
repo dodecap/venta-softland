@@ -11,6 +11,7 @@ import { compartirPdf, olvidarPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
+import Persiana from '../components/Persiana.vue';
 import Selector from '../components/Selector.vue';
 import Vacio from '../components/Vacio.vue';
 
@@ -135,6 +136,12 @@ async function refrescarDelServidor() {
 }
 
 const esCotizacion = computed(() => tipo.value === 'cotizacion');
+
+/** Comuna y ciudad juntas, como en la ficha de cliente. */
+const ubicacionCliente = computed(() => [
+    nombreDe('comunas', cliente.value?.comuna),
+    nombreDe('ciudades', cliente.value?.ciudad),
+].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · '));
 
 /**
  * En qué estados el documento todavía admite cambios.
@@ -298,17 +305,12 @@ async function compartirPapel() {
  * De ahí para adelante ya no es corregible: `editable` lo lee de
  * `fecha_aprobacion`, sin ninguna regla nueva.
  *
- * El switch se resetea a mano si se cancela: está atado a `false` a propósito
- * (la tarjeta desaparece en cuanto se aprueba, así que nunca hace falta
- * dibujarlo en `true`), y sin este reseteo el tilde nativo del navegador se
- * quedaría marcado aunque no se haya confirmado nada.
+ * Es un botón, no un switch: no hay estado que mantener si se cancela, y el
+ * botón deja de verse en cuanto `puedeAprobar` pasa a `false`.
  */
-async function aprobar(event) {
+async function aprobar() {
     const que = `la nota de venta Nº ${numero.value} por ${monto(doc.value.total, doc.value.moneda)}`;
-    if (! confirm(`¿Aprobar ${que}? Después no se va a poder corregir.`)) {
-        event.target.checked = false;
-        return;
-    }
+    if (! confirm(`¿Aprobar ${que}? Después no se va a poder corregir.`)) return;
     await conServidor(async () => {
         const r = await api.resolverAprobacion(numero.value, { aprobar: true });
         await idb.guardar(def.value.almacen, [JSON.parse(JSON.stringify(r.nota_venta))]);
@@ -507,12 +509,6 @@ function cantidad(n) {
 
                 <div class="ficha">
                     <h2>{{ monto(doc.total, doc.moneda) }}</h2>
-                    <div class="sub">
-                        <button class="enlace" v-if="cliente" @click="router.push(`/clientes/${cliente.codigo}`)">
-                            {{ cliente.nombre }}
-                        </button>
-                        <span v-else>Cliente {{ doc.cliente }}</span>
-                    </div>
                     <div class="etiquetas">
                         <span class="etiqueta" :class="estado(tipo, doc.estado).color === 'rojo' ? 'roja'
                               : estado(tipo, doc.estado).color === 'verde' ? 'verde' : ''">
@@ -525,20 +521,32 @@ function cantidad(n) {
                     </div>
                 </div>
 
+                <!-- El cliente se despliega aquí mismo: ya está en el teléfono
+                     (viene de IndexedDB con el documento), así que no hace
+                     falta saltar a su ficha para ver dos datos. -->
+                <Persiana v-if="cliente" class="cliente-persiana">
+                    <template #cabecera><span class="cliente-nombre">{{ cliente.nombre }}</span></template>
+                    <div class="tarjeta-cuerpo datos">
+                        <div><span>RUT</span><b>{{ cliente.rut }}</b></div>
+                        <div v-if="cliente.giro"><span>Giro</span><b>{{ nombreDe('giros', cliente.giro) }}</b></div>
+                        <div v-if="cliente.direccion"><span>Dirección</span><b>{{ cliente.direccion }}</b></div>
+                        <div v-if="ubicacionCliente"><span>Ubicación</span><b>{{ ubicacionCliente }}</b></div>
+                        <div v-if="cliente.fono"><span>Teléfono</span><b>{{ cliente.fono }}</b></div>
+                        <div v-if="cliente.email"><span>Correo</span><b>{{ cliente.email }}</b></div>
+                    </div>
+                    <button class="enlace cliente-ficha" @click="router.push(`/clientes/${cliente.codigo}`)">
+                        Ver ficha completa
+                    </button>
+                </Persiana>
+                <div class="sub" v-else>Cliente {{ doc.cliente }}</div>
+
                 <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
                 <Aviso tipo="ok" v-if="aviso">{{ aviso }}</Aviso>
 
-                <!-- Lo que se puede hacer con este documento, y solo lo que se
-                     puede: un botón que va a responder «ya no se puede» es peor
-                     que no tener el botón. -->
-                <!-- El papel. Va en su propia fila y siempre visible: ver o
-                     mandar el documento no depende de que todavía se pueda
-                     corregir, y con el PDF ya guardado tampoco de la señal. -->
+                <!-- El papel. Siempre visible: ver o mandar el documento no
+                     depende de que todavía se pueda corregir, y con el PDF ya
+                     guardado tampoco de la señal. -->
                 <div class="acciones-doc">
-                    <button class="chip-accion" :disabled="trabajando || (! conectado && ! papelGuardado)"
-                            @click="verPapel">
-                        <AppIcon name="pdf" :size="17" color="currentColor" /> Ver el documento
-                    </button>
                     <button class="chip-accion" :disabled="trabajando || (! conectado && ! papelGuardado)"
                             @click="compartirPapel">
                         <AppIcon name="compartir" :size="17" color="currentColor" /> Enviar por WhatsApp
@@ -547,20 +555,30 @@ function cantidad(n) {
                             @click="enviarPorCorreo">
                         <AppIcon name="correo" :size="17" color="currentColor" /> Enviar por correo
                     </button>
+                    <button class="chip-accion" :disabled="trabajando || (! conectado && ! papelGuardado)"
+                            @click="verPapel">
+                        <AppIcon name="pdf" :size="17" color="currentColor" /> Ver el documento
+                    </button>
                 </div>
                 <p class="ayuda" v-if="! conectado && ! papelGuardado">
                     El documento se dibuja en el servidor. Ábrelo una vez con señal y después queda en el teléfono.
                 </p>
 
-                <!-- Corregir, seguir, cerrar, convertir… y duplicar, que es la
-                     única de la fila que no toca este documento: crea otro. Va
-                     aquí porque es lo que se busca cuando se está mirando uno
-                     —la venta del mes pasado, la cotización que se perdió por
-                     precio— y es lo único de la fila que funciona sin señal. -->
-                <div class="acciones-doc">
+                <!-- Todo lo que se puede hacer con este documento, en una sola
+                     fila que se desplaza: sólo se ofrece lo que de verdad se
+                     puede, porque un botón que responde «ya no se puede» es
+                     peor que no tener el botón. Corregir y Duplicar van juntos
+                     porque se buscan juntos —la venta del mes pasado, la
+                     cotización que se perdió por precio—; Aprobar, Anular y
+                     Eliminar van al final porque son las que cierran el
+                     documento. -->
+                <div class="acciones-doc" v-if="editable || esCotizacion || puedeConvertir || puedeAprobar || anulable || borrable">
                     <button class="chip-accion" v-if="editable"
                             @click="router.push(`${def.ruta}/${numero}/editar`)">
                         <AppIcon name="configuracion" :size="17" color="currentColor" /> Corregir
+                    </button>
+                    <button class="chip-accion" @click="duplicar">
+                        <AppIcon name="duplicar" :size="17" color="currentColor" /> Duplicar
                     </button>
                     <button class="chip-accion" v-if="esCotizacion" :disabled="! conectado"
                             @click="siguiendo = true">
@@ -574,17 +592,10 @@ function cantidad(n) {
                             :disabled="! conectado || trabajando" @click="convertir">
                         <AppIcon name="notaVenta" :size="17" color="currentColor" /> Pasar a nota de venta
                     </button>
-                    <button class="chip-accion" @click="duplicar">
-                        <AppIcon name="duplicar" :size="17" color="currentColor" /> Duplicar
+                    <button class="chip-accion" v-if="puedeAprobar" :disabled="! conectado || trabajando"
+                            @click="aprobar">
+                        <AppIcon name="ok" :size="17" color="currentColor" /> Aprobar
                     </button>
-                </div>
-                <p class="ayuda" v-if="! conectado && (editable || puedeConvertir)">
-                    Sin señal solo se puede mirar: cambiar un documento que ya está en Softland necesita red.
-                </p>
-
-                <!-- Anular y eliminar. Aparte del resto a propósito: son las
-                     dos acciones que no se deshacen. -->
-                <div class="acciones-doc riesgo" v-if="anulable || borrable">
                     <button class="chip-accion peligro" v-if="anulable" :disabled="! conectado || trabajando"
                             @click="anular">
                         <AppIcon name="anular" :size="17" color="currentColor" /> Anular
@@ -594,37 +605,20 @@ function cantidad(n) {
                         <AppIcon name="borrar" :size="17" color="currentColor" /> Eliminar
                     </button>
                 </div>
+                <p class="ayuda" v-if="! conectado && (editable || puedeConvertir)">
+                    Sin señal solo se puede mirar: cambiar un documento que ya está en Softland necesita red.
+                </p>
 
                 <!-- La aprobación del jefe no existe en Softland: la pone la app
-                     cuando la venta pasa el tope del vendedor. -->
-                <!-- Sin fila en `ventas.aprobacion` no hay estado ni motivo que
-                     mostrar — pasa con las notas que quedaron en `P` desde
-                     Softland de escritorio, de antes de esta app—, pero si de
-                     todos modos se puede aprobar, la tarjeta aparece igual: un
-                     admin no tiene por qué saber que el motivo técnico es
-                     «no hay solicitud registrada». -->
-                <div class="tarjeta" v-if="aprobacion || puedeAprobar">
-                    <div class="tarjeta-cabecera">Aprobación</div>
-                    <div class="tarjeta-cuerpo datos" v-if="aprobacion">
-                        <div><span>Estado</span><b>{{ aprobacion.estado }}</b></div>
-                        <div><span>Motivo</span><b>{{ aprobacion.motivo }}</b></div>
-                        <div v-if="aprobacion.comentario"><span>Comentario</span><b>{{ aprobacion.comentario }}</b></div>
-                    </div>
-                    <div class="tarjeta-cuerpo datos" v-else>
-                        <div><span>Estado</span><b>Pendiente</b></div>
-                        <div><span>Motivo</span><b>Sin solicitud registrada en la app</b></div>
-                    </div>
-                    <template v-if="puedeAprobar">
-                        <div class="switch-fila">
-                            <label class="switch">
-                                <input type="checkbox" :checked="false" :disabled="trabajando" @change="aprobar($event)">
-                                <span class="switch-riel"></span>
-                            </label>
-                            <span>Aprobar</span>
-                        </div>
-                        <p class="ayuda switch-ayuda">Al aprobarla, deja de poder corregirse.</p>
-                    </template>
-                </div>
+                     cuando la venta pasa el tope del vendedor. Sin fila en
+                     `ventas.aprobacion` no hay estado que citar — pasa con las
+                     notas que quedaron en `P` desde Softland de escritorio, de
+                     antes de esta app —, pero si de todos modos se puede
+                     aprobar el aviso aparece igual con el motivo genérico. -->
+                <Aviso tipo="info" v-if="! esCotizacion && (aprobacion || puedeAprobar)">
+                    {{ aprobacion?.motivo || 'Pendiente, sin solicitud de aprobación registrada en la app.' }}
+                    <template v-if="aprobacion?.comentario"> — {{ aprobacion.comentario }}</template>
+                </Aviso>
 
                 <!-- El avance real de una NV se lee línea por línea: los flags del
                      encabezado están en 0 en las 800 notas de venta de INNOVAGES. -->
@@ -639,21 +633,23 @@ function cantidad(n) {
                     </div>
                 </div>
 
-                <div class="tarjeta">
-                    <div class="tarjeta-cabecera">Datos</div>
-                    <div class="tarjeta-cuerpo datos">
-                        <div v-if="doc.contacto"><span>Contacto</span><b>{{ doc.contacto }}</b></div>
-                        <div v-if="doc.vendedor"><span>Vendedor</span><b>{{ nombreDe('vendedores', doc.vendedor) }}</b></div>
-                        <div v-if="doc.condicion"><span>Condición</span><b>{{ nombreDe('condiciones_venta', doc.condicion) }}</b></div>
-                        <div v-if="doc.centro_costo"><span>Centro de costo</span><b>{{ nombreDe('centros_costo', doc.centro_costo) }}</b></div>
-                        <div v-if="doc.bodega"><span>Bodega</span><b>{{ nombreDe('bodegas', doc.bodega) }}</b></div>
-                        <div v-if="doc.fecha_entrega"><span>Entrega</span><b>{{ fecha(doc.fecha_entrega) }}</b></div>
-                        <div v-if="doc.cotizacion"><span>Viene de</span>
-                            <b><button class="enlace" @click="router.push(`/cotizaciones/${doc.cotizacion}`)">
-                                Cotización {{ doc.cotizacion }}</button></b>
+                <div class="tarjeta datos-persiana">
+                    <Persiana>
+                        <template #cabecera><b>Datos</b></template>
+                        <div class="tarjeta-cuerpo datos">
+                            <div v-if="doc.contacto"><span>Contacto</span><b>{{ doc.contacto }}</b></div>
+                            <div v-if="doc.vendedor"><span>Vendedor</span><b>{{ nombreDe('vendedores', doc.vendedor) }}</b></div>
+                            <div v-if="doc.condicion"><span>Condición</span><b>{{ nombreDe('condiciones_venta', doc.condicion) }}</b></div>
+                            <div v-if="doc.centro_costo"><span>Centro de costo</span><b>{{ nombreDe('centros_costo', doc.centro_costo) }}</b></div>
+                            <div v-if="doc.bodega"><span>Bodega</span><b>{{ nombreDe('bodegas', doc.bodega) }}</b></div>
+                            <div v-if="doc.fecha_entrega"><span>Entrega</span><b>{{ fecha(doc.fecha_entrega) }}</b></div>
+                            <div v-if="doc.cotizacion"><span>Viene de</span>
+                                <b><button class="enlace" @click="router.push(`/cotizaciones/${doc.cotizacion}`)">
+                                    Cotización {{ doc.cotizacion }}</button></b>
+                            </div>
+                            <div v-if="doc.observacion"><span>Observación</span><b>{{ doc.observacion }}</b></div>
                         </div>
-                        <div v-if="doc.observacion"><span>Observación</span><b>{{ doc.observacion }}</b></div>
-                    </div>
+                    </Persiana>
                 </div>
 
                 <div class="seccion">

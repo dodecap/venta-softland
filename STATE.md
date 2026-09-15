@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-14 — versión **0.7.0**
+2026-09-15 — versión **0.9.1**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -897,3 +897,29 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - **Contraseña de `sa` en texto plano** en `srv:E:\Servicio\Config\Config.js`
   (proyecto heredado, ya en su historial de git). Si se rota la clave, hay que
   acordarse de ese archivo.
+
+### Persianas: panel, cliente y datos; una sola fila de acciones
+- [x] **Cuatro pedidos de reordenamiento visual, todos por espacio.** El panel
+      tenía dos párrafos sueltos bajo el embudo comercial y "Tiempo de cierre"
+      / "Ticket promedio" sin explicación propia; la ficha de un documento
+      saltaba a otra pantalla para ver al cliente y siempre mostraba la
+      tarjeta "Datos" entera; el selector de producto cortaba el nombre a una
+      línea justo donde estaba la parte que distingue una variante de otra; y
+      el switch de aprobar, con su tarjeta propia, pesaba más que el resto de
+      la fila de acciones junta. Se resolvió con un componente nuevo,
+      `Persiana.vue` (cabecera + `<AppIcon name="desplegar">` que gira +
+      cuerpo que se pliega), usado en cuatro lugares: la frase de "Conversión"
+      y la de "cómo leer este panel" en `Inicio.vue`; las mismas dos medidas
+      de rendimiento que no tenían explicación plegable; el nombre del
+      cliente y la tarjeta "Datos" en `Documento.vue`; nada nuevo en
+      `Editor.vue`, ahí sólo bajó la letra del nombre del producto a 13px y
+      pasó a dos líneas (`-webkit-line-clamp`) en vez de cortarlo con «…».
+      El switch de aprobar se volvió un botón más (`chip-accion`) dentro de la
+      única fila de acciones que quedó — antes eran tres filas separadas — en
+      el orden Corregir → Duplicar → Aprobar → Anular → Eliminar, y la
+      tarjeta de Aprobación se redujo a un `<Aviso>` de una línea. Probado en
+      el navegador de escritorio sembrando IndexedDB a mano (sin API real
+      disponible desde aquí): las cuatro persianas abren y cierran, el orden
+      de la fila de acciones sale exacto, y el selector de producto limita el
+      nombre a dos líneas. `npm run build` y `npm run pruebas` (137
+      comprobaciones) pasan.

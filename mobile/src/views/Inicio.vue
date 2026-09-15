@@ -17,12 +17,17 @@ import { idb } from '../idb';
 import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
+import Persiana from '../components/Persiana.vue';
 import Vacio from '../components/Vacio.vue';
 
 const router = useRouter();
 const usuario = ref(null);
 const sincronizado = ref(null);
 const registros = ref(0);
+
+// Qué medida de rendimiento tiene su explicación desplegada. Una a la vez:
+// las tres compiten por el mismo pedazo de pantalla.
+const medidaAbierta = ref(null);
 
 /*
  * Cuántos días la empresa da por buena una cotización. Lo pone el
@@ -550,21 +555,31 @@ const pct = computed(() => {
                     </template>
                 </div>
 
-                <div class="embudo-pie" v-if="m.actual.conversion">
-                    Conversión <b>{{ porcentaje(m.actual.conversion.pct) }}</b> —
-                    {{ m.actual.conversion.n }} de {{ m.actual.conversion.base }}
-                    {{ m.actual.conversion.base === 1 ? 'cotización llegó' : 'cotizaciones llegaron' }}
-                    a nota de venta.
-                </div>
-                <div class="embudo-pie" v-else>
-                    Sin cotizaciones en el período: no hay conversión que medir.
-                </div>
-                <div class="embudo-pie">
-                    Todos los montos del panel van <b>netos</b>, sin IVA. En la lista y en
-                    la ficha de cada documento sale el total que paga el cliente.
-                    Y venta es la nota de venta <b>aprobada o concluida</b>: la que
-                    sigue pendiente aparece en la lista, pero no en esta cifra.
-                </div>
+                <Persiana class="embudo-persiana">
+                    <template #cabecera>
+                        <span v-if="m.actual.conversion">
+                            Conversión <b>{{ porcentaje(m.actual.conversion.pct) }}</b>
+                        </span>
+                        <span v-else>Conversión — sin datos</span>
+                    </template>
+                    <div class="embudo-pie" v-if="m.actual.conversion">
+                        {{ m.actual.conversion.n }} de {{ m.actual.conversion.base }}
+                        {{ m.actual.conversion.base === 1 ? 'cotización llegó' : 'cotizaciones llegaron' }}
+                        a nota de venta.
+                    </div>
+                    <div class="embudo-pie" v-else>
+                        Sin cotizaciones en el período: no hay conversión que medir.
+                    </div>
+                </Persiana>
+                <Persiana class="embudo-persiana">
+                    <template #cabecera>Cómo leer este panel</template>
+                    <div class="embudo-pie">
+                        Todos los montos del panel van <b>netos</b>, sin IVA. En la lista y en
+                        la ficha de cada documento sale el total que paga el cliente.
+                        Y venta es la nota de venta <b>aprobada o concluida</b>: la que
+                        sigue pendiente aparece en la lista, pero no en esta cifra.
+                    </div>
+                </Persiana>
 
                 <!-- Cómo se vende, no cuánto. Las tres van juntas porque se
                      leen juntas: un ticket que sube con una conversión que baja
@@ -575,20 +590,26 @@ const pct = computed(() => {
                 </div>
 
                 <div class="rendimiento">
-                    <div class="medida" v-for="r in rendimiento" :key="r.id">
-                        <AppIcon :name="r.icono" :caja="px(38)" :size="px(19)" />
-                        <div class="texto">
-                            <div class="rotulo">{{ r.rotulo }}</div>
-                            <div class="sub">{{ r.sub }}</div>
-                        </div>
-                        <div class="cifra">
-                            <div class="valor">{{ r.valor }}</div>
-                            <span class="tendencia" :class="tono(r.cambio, r.menosEsMejor)" v-if="r.cambio">
-                                <AppIcon :name="iconoTendencia(r.cambio)" :size="12" color="currentColor" />
-                                {{ r.cambio.texto }}
-                            </span>
-                        </div>
-                    </div>
+                    <template v-for="r in rendimiento" :key="r.id">
+                        <button type="button" class="medida"
+                                :aria-expanded="medidaAbierta === r.id"
+                                @click="medidaAbierta = medidaAbierta === r.id ? null : r.id">
+                            <AppIcon :name="r.icono" :caja="px(38)" :size="px(19)" />
+                            <div class="texto">
+                                <div class="rotulo">{{ r.rotulo }}</div>
+                            </div>
+                            <div class="cifra">
+                                <div class="valor">{{ r.valor }}</div>
+                                <span class="tendencia" :class="tono(r.cambio, r.menosEsMejor)" v-if="r.cambio">
+                                    <AppIcon :name="iconoTendencia(r.cambio)" :size="12" color="currentColor" />
+                                    {{ r.cambio.texto }}
+                                </span>
+                            </div>
+                            <AppIcon name="desplegar" :size="16" color="var(--texto-suave)"
+                                     class="persiana-flecha" :class="{ abierta: medidaAbierta === r.id }" />
+                        </button>
+                        <p class="medida-sub" v-if="medidaAbierta === r.id">{{ r.sub }}</p>
+                    </template>
                 </div>
             </template>
 

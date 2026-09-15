@@ -42,6 +42,24 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.9.1 — Persianas: panel, cliente y datos; una sola fila de acciones
+*2026-09-15*
+
+- Componente `Persiana.vue`: una fila que se despliega en el sitio en vez de
+  ocupar espacio fijo o saltar a otra pantalla.
+- Panel: la frase de "Conversión" y la de "cómo leer este panel" se pliegan
+  bajo su propia flecha; "Tiempo de cierre" y "Ticket promedio" ganan la misma
+  explicación plegada que ya tenía Conversión.
+- Ficha de documento: el nombre del cliente despliega sus datos ahí mismo
+  (ya estaban en el teléfono, no hacía falta saltar a su ficha) y la tarjeta
+  "Datos" se puede plegar.
+- Selector de producto: nombre en dos líneas y letra más chica, para que no se
+  esconda la parte que distingue un producto de otro.
+- Las tres filas de acciones de una nota de venta o cotización se juntan en
+  una sola, en el orden Corregir → Duplicar → Aprobar → Anular → Eliminar.
+  El switch de aprobar pasa a ser un botón más de esa fila — la tarjeta con
+  el switch ocupaba más de lo que valía la información que traía.
+
 ### 0.9.0 — Aprobar notas de venta pendientes que llegaron sin pasar por la app
 *2026-09-14*
 

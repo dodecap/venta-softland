@@ -690,7 +690,7 @@ function cantidad(n) {
                     <div class="item" v-for="p in productosHallados" :key="p.codigo" @click="agregarProducto(p)">
                         <div class="item-estado" :class="p.afecto ? 'cian' : 'amarillo'"></div>
                         <div class="item-cuerpo">
-                            <div class="item-titulo">{{ p.nombre }}</div>
+                            <div class="item-titulo item-titulo-producto">{{ p.nombre }}</div>
                             <div class="item-linea">{{ monto(p.precio, p.moneda) }} / {{ nombreDe('unidades', p.unidad) }}</div>
                             <div class="item-meta"><span class="etiqueta gris">{{ p.codigo }}</span></div>
                         </div>
