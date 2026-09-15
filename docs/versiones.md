@@ -42,6 +42,30 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.10.0 — Primer paso de la factura electrónica: el timbre
+*2026-09-15*
+
+- Se averiguó que **no hay camino soportado**: Softland no expone API en esta
+  instalación, `IWSerDTE.exe` recibe DTE en vez de emitirlos, y la cola por
+  carpeta no está montada. Si la app va a facturar, emite ella.
+- Se resolvió el mapeo Softland → SII, que no estaba en `cwttdoc` sino en
+  `dte_siitdoc` por `(Tipo, SubTipoDocto)`. Queda escrito en `TipoDte`, con los
+  cinco tipos: factura, factura exenta, **boleta, boleta exenta** y nota de
+  crédito.
+- `Caf` lee los folios autorizados desde `dte_siicaf` y firma sin que la llave
+  privada salga nunca de la memoria del servidor. `Timbre` arma el `<TED>`.
+- `php artisan dte:verifica-timbre` recalcula el timbre de documentos **ya
+  emitidos** y lo compara con el guardado. No emite, no escribe, no gasta un
+  folio. **615 documentos, cinco tipos, dos empresas con certificados distintos,
+  de 2009 a 2026: todos idénticos.**
+- El camino de la boleta queda preparado y probado contra la única boleta real
+  que existe, en NETDOMAIN. Emitirla sigue bloqueado por los folios CAF, que son
+  trámite con el SII.
+- De paso, dos rarezas de Softland quedan documentadas y detectadas: hay copias
+  archivadas recodificadas a UTF-8 que no validan contra su propio timbre, y
+  `dte_archivos` guarda versiones muertas con folios que ya no corresponden.
+- Todo en `docs/dte.md`.
+
 ### 0.9.1 — Persianas: panel, cliente y datos; una sola fila de acciones
 *2026-09-15*
 

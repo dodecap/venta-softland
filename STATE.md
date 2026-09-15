@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-15 — versión **0.9.1**
+2026-09-15 — versión **0.10.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -223,11 +223,19 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Cargar cargo y teléfono de los vendedores** (`ventas.usuario.cargo` y
       `.fono`, columnas nuevas): la firma del PDF sale sin ellos hasta que se
       llenen.
-- [ ] Empezar la fase 4 (facturación y DTE). Ver `docs/roadmap.md`.
-- [ ] **Solicitar al SII los folios CAF de boleta electrónica (DTE 39)** — es
-      el bloqueo de plazo más largo del proyecto, conviene iniciarlo ya.
-- [ ] Averiguar si la API REST oficial de Softland (`Softland.DteClient`) está
-      disponible para esta instalación, antes de diseñar la fase 4.
+- [ ] **Fase 4, paso 2**: escribir `iw_gsaen` / `iw_gmovi` desde una nota de
+      venta, en `INNOVAGES_TEST`, y contrastar columna por columna contra una
+      factura real. Ver `docs/dte.md`.
+- [ ] **Fase 4, paso 3**: emitir contra `maullin` (certificación del SII) con el
+      certificado real.
+- [ ] **Solicitar al SII los folios CAF de boleta electrónica (DTE 39 y 41)** a
+      nombre de 77828631-9 — es el bloqueo de plazo más largo del proyecto, y
+      es lo único que falta del lado de la boleta: el código ya está probado.
+      Los CAF de NETDOMAIN son de otro RUT y no se prestan.
+- [ ] **Renovar el certificado digital antes del 26 de diciembre de 2026.** Es
+      el mismo que usa Softland; cuando venza, deja de emitir la app y el ERP.
+- [ ] **Sacar la clave del `.pfx` del nombre del archivo** y llevarla al `.env`
+      del servidor. Hoy cualquiera que liste la carpeta la lee.
 
 ## Decisiones importantes tomadas
 - **Solo móvil, sin panel web.** El servidor es API pura; la administración se
@@ -923,3 +931,30 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       de la fila de acciones sale exacto, y el selector de producto limita el
       nombre a dos líneas. `npm run build` y `npm run pruebas` (137
       comprobaciones) pasan.
+
+### Fase 4, paso 1: el timbre electrónico
+- [x] **Averiguado antes de diseñar nada, y el resultado cambió el plan.** No
+      hay API REST oficial de Softland en esta instalación; `IWSerDTE.exe` no
+      emite sino que **recibe** DTE por correo (lo dice su propio `.ini`); el
+      emisor son formularios VB6 dentro de `IWS.EXE` que alguien abre a mano; y
+      la cola por carpeta de `Softland.DteEncolar.config` no está montada. No
+      hay proceso que disparar: si la app va a facturar, emite ella.
+- [x] **El mapeo Softland → SII estaba en otra tabla.** No en
+      `cwttdoc.DTEDocSII`, que viene vacío justo para los documentos de venta,
+      sino en `dte_siitdoc` por `(Tipo, SubTipoDocto)`. Escrito en `TipoDte`.
+- [x] **El folio lo reparte Softland**, con el procedimiento almacenado
+      `DTE_pdblEntregaFolioDTE`. Llamándolo no se le disputa el número al ERP.
+- [x] `Caf` + `Timbre` + `dte:verifica-timbre`: recalcular el timbre de
+      documentos ya emitidos y compararlo con el guardado, sin emitir ni gastar
+      un folio. **615 documentos, cinco tipos, dos empresas con RUT y
+      certificado distintos, de 2009 a 2026: todos idénticos.**
+- [x] **El camino de la boleta queda preparado y probado** contra la única
+      boleta electrónica real que existe, en NETDOMAIN (folio 2 del 2021-07-09).
+      Falta el transporte REST y los folios; el timbre ya calza.
+- [x] Alcance acordado con el cliente: la app llega **hasta inventario y
+      facturación con el DTE emitido**. La centralización a contabilidad,
+      registro de ventas y cuenta corriente es un procedimiento aparte que se
+      corre desde Softland. No se reproduce.
+- [x] Doce pruebas unitarias fijan las reglas que costó descubrir: ISO-8859-1,
+      el `<CAF>` sin espacios, el `MNT` sin signo, los recortes a 40. Todas
+      pasan (`phpunit`, 22 pruebas).

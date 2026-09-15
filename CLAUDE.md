@@ -320,6 +320,40 @@ de Softland que cambian las fórmulas. Tres que se olvidan:
   abajo y una buena noticia. Esa lectura la pone la pantalla (`tono()`), no el
   icono.
 
+## La factura electrónica
+
+Desde la fase 4 la app emite el DTE. Lo que hay que saber antes de tocar nada de
+esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
+
+- **La app llega hasta inventario y facturación, con el DTE emitido, y para
+  ahí.** La centralización —contabilidad, registro de ventas, cuenta corriente
+  del cliente— es un procedimiento aparte que se corre desde Softland, y no
+  ocurre al emitir. No se reproduce aquí.
+- **El timbre se firma en bytes, no en árboles.** Por eso `Timbre` concatena el
+  XML en vez de usar `DOMDocument`: la firma cubre el `<DD>` tal como está
+  escrito. Todo va en **ISO-8859-1**, el `<CAF>` se incrusta **pegado** —en
+  `dte_siicaf` está guardado con espacios y en el DTE va sin ellos— y el `MNT`
+  va **sin signo**, aunque el total de una nota de crédito sea negativo en
+  `iw_gsaen`.
+- **El folio lo reparte Softland**, con `DTE_pdblEntregaFolioDTE`. No se calcula
+  por nuestra cuenta: así no se le disputa el número al ERP. Y un folio gastado
+  no se devuelve.
+- **La boleta no viaja por donde la factura.** Factura y nota de crédito van por
+  SOAP a `palena`; la boleta va por la API REST `api.sii.cl/recursos/v1` y
+  además exige reporte diario de consumo de folios. Son dos integraciones. Hoy
+  está preparada y probada, pero **bloqueada**: INNOVAGES no tiene folios CAF de
+  boleta, y los de NETDOMAIN son de otro RUT.
+
+La llave privada del CAF **no sale de la base**: `Caf::firmar()` es lo único que
+se expone. El certificado digital va en `storage/app/private/`, fuera de git, y
+su clave en el `.env`.
+
+Para comprobar sin emitir ni gastar un folio:
+
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:verifica-timbre --todos"
+```
+
 ## La versión
 
 Vive en **un solo archivo**, `VERSION`, en la raíz. De ahí la leen la SPA
@@ -333,9 +367,10 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.7.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos y el
-panel comercial hasta el paso 4. Ver `STATE.md`. El mapa de tablas del flujo de
-ventas está en `docs/flujo-ventas-softland.md`, el motor de documentos en
-`docs/motor-documentos.md`, la auditoría del panel comercial en
-`docs/panel-comercial.md`, el historial de versiones en `docs/versiones.md` y
-el plan por fases en `docs/roadmap.md`.
+Versión **0.10.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+panel comercial hasta el paso 4 y el primer paso de la factura electrónica: el
+timbre, comprobado contra 615 documentos ya emitidos. Ver `STATE.md`. El mapa de
+tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
+documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
+`docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el historial de
+versiones en `docs/versiones.md` y el plan por fases en `docs/roadmap.md`.

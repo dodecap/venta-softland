@@ -324,22 +324,91 @@ ventas que Softland distribuye. Es Xamarin.Forms (Prism + Refit + Syncfusion) e
 incluye ensamblados **`Softland.ECommerceClient`** y **`Softland.DteClient`**.
 
 Que use Refit implica que habla con una **API REST oficial de Softland**, no con
-la base directamente. Antes de escribir a las tablas a mano conviene averiguar
-si esa API está disponible para esta instalación: sería el camino soportado.
-No pude extraer sus endpoints (los ensamblados vienen comprimidos en un blob).
+la base directamente. **Averiguado: esa API no está disponible aquí** — en `srv`
+no hay ningún componente de servidor de Softland escuchando. Ver «Quién emite el
+DTE». No pude extraer sus endpoints (los ensamblados vienen comprimidos en un
+blob), y da igual: no habría a quién llamar.
+
+## Quién emite el DTE — y no es esta app
+
+Averiguado en `srv` el 2026-09-15, porque de esto depende toda la fase 4.
+
+**No hay API REST oficial de Softland en esta instalación.** El emisor de DTE
+es `C:\SOFTLAND\PROGRAMA\IWSERDTE\IWSerDTE.exe`, un **programa de escritorio,
+no un servicio**: no está registrado en servicios de Windows ni corre solo.
+Hoy factura una persona (`jpalomin`) desde `IWS.EXE`, y el DTE sale entre 1 y 5
+minutos después — ese hueco es alguien haciendo clic, no un proceso.
+
+Consecuencia: si esta app insertara una fila en `iw_gsaen`, **nadie emitiría el
+DTE detrás**. Y `iw_gsaen` tiene 21 triggers encima y arrastra centralización
+contable, kardex, comisiones, cuotas y libro de ventas: una fila escrita a mano
+es una factura coja dentro del ERP, con riesgo de quemar un folio CAF — y un
+folio quemado ante el SII no se deshace.
+
+## Mapeo tipo Softland → tipo SII — resuelto
+
+No está en `cwttdoc.DTEDocSII` (por eso salía vacío para los documentos de
+venta). Está en **`dte_siitdoc`, por la pareja `(Tipo, SubTipoDocto)`**, que son
+las mismas dos columnas de `iw_gsaen`:
+
+| `Tipo` | `SubTipoDocto` | `DocCod` | Documento |
+|---|---|---|---|
+| `F` | `T` | 33 | Factura electrónica |
+| `F` | `S` | 34 | Factura exenta electrónica |
+| `N` | `T` | 61 | Nota de crédito electrónica |
+| `B` | `T` | 39 | Boleta afecta electrónica |
+| `B` | `S` | 41 | Boleta exenta electrónica |
+
+`dte_siitdoc.Electronico` dice si el tipo es electrónico. INNOVAGES usa hoy
+`F`+`T` (197 facturas) y `N`+`T` (12 notas de crédito), bodega `GEN`.
+
+## Se factura por suscripción, y se nota
+
+Una nota de venta genera **varias** facturas a lo largo de meses: la NV 2003
+tiene 9, la 1925 y la 1974 tienen 6 cada una. Y **799 de las 800 notas de venta
+tienen saldo por facturar** (`nw_detnv.nvCantFact < nvCant`). Por eso «saldo por
+facturar» no es una anomalía a resolver, es el estado normal de casi todo.
+
+## La base NETDOMAIN, como referencia
+
+En la misma instancia está `NETDOMAIN`, la matriz. Es **sólo lectura y está
+dormida** — su último documento es de enero de 2024 —, pero sirve de modelo
+para lo que INNOVAGES nunca ha emitido.
+
+- **No destraba la boleta.** Su CAF del DTE 39 (folios 1–100, autorizado el
+  2020-11-28) está a nombre del RUT **76469595-K**; INNOVAGES es
+  **77828631-9**. El CAF lo da el SII por RUT: no se presta entre empresas.
+- **Sí da el modelo.** Tiene una boleta electrónica real, emitida y aceptada:
+  folio 2 del 2021-07-09, nacida de la nota de venta 1534, TrackID
+  `1292919449`. La cadena completa está ahí — `iw_gsaen` (`B`+`T`) →
+  `dte_doccab` → el XML firmado en `dte_archivos` con su `<TED>` entero.
+  De ahí salen las diferencias de la boleta frente a la factura, que no se
+  deducen: receptor genérico `66666666-6` cuando no hay cliente, `<Totales>`
+  con `MntTotal` bruto y **sin desglose de IVA**, `IndServicio`, `FmaPago`.
+- También tiene 673 facturas exentas (DTE 34), 356 guías de despacho, notas de
+  crédito no electrónicas y 8.986 boletas manuales, por si hace falta el camino
+  exento o la guía.
+
+## El timbre PDF417 se lee, no se calcula
+
+El XML firmado de cada DTE queda guardado en `dte_archivos` (599 en INNOVAGES),
+con `TipoXML` = `D` para el documento y `SS` para el sobre de envío al SII.
+Dentro viene el `<TED>` completo. La representación impresa se dibuja **leyendo
+ese TED**, sin emitir nada ni consumir un folio.
 
 ## Bloqueos identificados
 
-1. **Boleta electrónica: no hay folios.** No hay CAF para el DTE 39 ni el 41, y
-   `dte_boletas` está vacía. El tipo `BE` (boleta habitual afecta electrónica)
-   sí existe en `cwttdoc`, así que Softland está preparado, pero faltan los
-   folios. Hay que **pedir CAF de boleta al SII** antes de poder emitir. Sin
-   eso, la parte de boleta del proyecto no se puede terminar, solo dejar lista.
+1. **Boleta electrónica: INNOVAGES no tiene folios.** No hay CAF para el DTE 39
+   ni el 41, y `dte_boletas` está vacía. El tipo `BE` sí existe en `cwttdoc`,
+   así que Softland está preparado, pero faltan los folios. Hay que **pedirle al
+   SII los CAF a nombre de 77828631-9**; los de NETDOMAIN no sirven. Es trámite,
+   no código.
 
-2. **Mapeo tipo Softland → tipo SII, para ventas.** En `cwttdoc` los documentos
-   de compra (`FT`, `FL`, `NT`) traen `DTEDocSII` = 33/34/61, pero los de venta
-   (`EL`, `NL`, `BE`) lo traen **vacío**, y `iw_gsaen.DTE_SiiTDoc` está en 0 en
-   las 209 filas. El mapeo se resuelve en otra parte. **Pendiente de confirmar**
-   antes de emitir cualquier DTE.
+2. ~~Mapeo tipo Softland → tipo SII~~ — **resuelto**, ver arriba: `dte_siitdoc`
+   por `(Tipo, SubTipoDocto)`.
 
 3. **Correlativo de nota de venta**, ver arriba.
+
+4. ~~¿Hay API REST oficial de Softland?~~ — **resuelto: no la hay** en esta
+   instalación, ver arriba. La emisión del DTE es de `IWSerDTE.exe` y de la
+   persona que lo abre.

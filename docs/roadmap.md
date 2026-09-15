@@ -78,7 +78,23 @@ rehacerlo. Detalle en `docs/motor-documentos.md`.
 - **Tres caminos al cliente**: verlo, correo con PDF adjunto, WhatsApp por la
   hoja de compartir de Android.
 
-## Fase 4 — Facturación y boleta electrónica
+## Fase 4 — Facturación y boleta electrónica  🔨 en curso
+
+**Alcance acordado**: la app llega **hasta inventario y facturación con el DTE
+emitido**. La centralización a contabilidad, registro de ventas y cuenta
+corriente es un procedimiento aparte que se corre desde Softland. No se
+reproduce.
+
+| Paso | Estado |
+|---|---|
+| 1. Reconstruir el timbre de documentos ya emitidos | **hecho** — 615 documentos, todos idénticos |
+| 2. Escribir `iw_gsaen` / `iw_gmovi` en la base de pruebas | pendiente |
+| 3. Emitir contra `maullin` (certificación) | pendiente |
+| 4. Producción, un documento acompañado | pendiente |
+| 5. Boleta por la API REST | preparada; bloqueada por los folios |
+
+Detalle en `docs/dte.md`.
+
 
 - Generar el documento de venta (`iw_gsaen` + `iw_gmovi`) desde la NV,
   respetando `nvCantFact` para las facturaciones parciales.
@@ -90,17 +106,25 @@ rehacerlo. Detalle en `docs/motor-documentos.md`.
   PDF417**, que sale del XML firmado. El PDF se dibuja a partir del DTE ya
   emitido, nunca al revés.
 
-**Bloqueos de esta fase, a destrabar ya:**
+**Bloqueos de esta fase — revisados el 2026-09-15:**
 
-1. **No hay folios CAF de boleta** (DTE 39 ni 41). Hay que solicitarlos al SII
-   y cargarlos en Softland. Sin eso la boleta queda construida pero inerte.
-2. **El mapeo tipo Softland → tipo SII para ventas no está resuelto**: en
-   `cwttdoc` los códigos de venta (`EL`, `NL`, `BE`) traen `DTEDocSII` vacío.
-3. **Decisión de arquitectura pendiente**: Softland distribuye su propia app de
-   ventas (`cl.softland.ventascrmmobile`) que habla con una API REST oficial
-   vía `Softland.DteClient`. Si esa API está disponible para esta instalación,
-   emitir DTE a través de ella es el camino soportado y evita reimplementar la
-   firma electrónica. Averiguarlo **antes** de empezar la fase 4.
+1. **No hay folios CAF de boleta** (DTE 39 ni 41) a nombre de INNOVAGES
+   (77828631-9). Hay que solicitarlos al SII y cargarlos en Softland. Los de
+   NETDOMAIN son de otro RUT y no se prestan. Sin eso la boleta queda
+   construida pero inerte. **Sigue abierto, y es trámite, no código.**
+2. ~~El mapeo tipo Softland → tipo SII~~ — **resuelto**: no vive en
+   `cwttdoc.DTEDocSII` sino en `dte_siitdoc`, por `(Tipo, SubTipoDocto)`.
+   `F`+`T` → 33, `F`+`S` → 34, `N`+`T` → 61, `B`+`T` → 39, `B`+`S` → 41.
+3. ~~¿Existe la API REST oficial de Softland?~~ — **resuelto: no**. En `srv` no
+   hay componente de servidor de Softland. El emisor de DTE es
+   `IWSerDTE.exe`, un programa de escritorio que alguien abre; hoy factura una
+   persona desde `IWS.EXE` y el DTE sale 1–5 minutos después.
+
+**Lo que ese hallazgo obliga a decidir**: si la app insertara en `iw_gsaen`,
+nadie emitiría el DTE detrás, y esa tabla arrastra 21 triggers, centralización
+contable, kardex, comisiones y libro de ventas. Escribir la factura a mano no
+es «una fase más»: es asumir riesgo fiscal. El alcance real de la fase 4 está
+por decidir — ver `docs/flujo-ventas-softland.md`.
 
 ## Fase 5 — Terreno
 
