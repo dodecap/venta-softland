@@ -42,6 +42,32 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.11.0 — Escribir la factura y la nota de crédito en inventario
+*2026-09-15*
+
+- **Se descubrió que la factura no es la nota de venta.** De 192 facturas
+  enlazadas a una NV, **190 van a otro cliente** —188 a Softland Ingeniería—,
+  196 de 197 tienen una sola línea de comisión, y `nvCantFact` está en cero en
+  todas las líneas de todas las notas de venta. Es un negocio de distribuidor.
+  Programar «facturar la NV línea por línea» habría sido entregar algo que no
+  se usa.
+- `Facturacion` escribe `iw_gsaen` + `iw_gmovi` + `IW_GSaEn_RefDTE`, pide el
+  folio al repartidor de Softland y **para ahí**: no centraliza.
+- `dte:base-de-pruebas` copia INNOVAGES entera (1.905 tablas, 24 triggers) a una
+  base desechable. Se niega a tocar nombres de producción.
+- `dte:verifica-documento` reescribe facturas reales en esa copia y compara las
+  168 columnas del encabezado y las 62 de cada línea. **199 documentos, 189
+  facturas y 10 notas de crédito**; los que no salen idénticos difieren solo en
+  dos columnas donde Softland es inconsistente consigo mismo. Escribe dentro de
+  una transacción y la deshace, para no gastar el único folio libre.
+- Reglas encontradas comparando, no leyendo: el IVA se calcula sobre el neto ya
+  redondeado; el signo vive en la cantidad; una equivalencia en cero significa
+  uno; el centro de costo va en la línea de la nota de crédito y no en la de la
+  factura; `SubTipDocRef` hay que escribirlo nulo a propósito porque la columna
+  trae `'A'` por defecto.
+- `Totales` no se tocó: se calcula en positivo y se aplica el signo al final.
+- Seis pruebas nuevas fijan esas reglas (`phpunit`, 28 en total).
+
 ### 0.10.0 — Primer paso de la factura electrónica: el timbre
 *2026-09-15*
 

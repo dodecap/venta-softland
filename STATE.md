@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-15 — versión **0.10.0**
+2026-09-15 — versión **0.11.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -223,9 +223,11 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Cargar cargo y teléfono de los vendedores** (`ventas.usuario.cargo` y
       `.fono`, columnas nuevas): la firma del PDF sale sin ellos hasta que se
       llenen.
-- [ ] **Fase 4, paso 2**: escribir `iw_gsaen` / `iw_gmovi` desde una nota de
-      venta, en `INNOVAGES_TEST`, y contrastar columna por columna contra una
-      factura real. Ver `docs/dte.md`.
+- [ ] **Fase 4, paso 2b**: el camino de conversión NV → factura línea por
+      línea. Solo hay 2 casos reales contra los que contrastarlo, y arrastran
+      los decimales de la NV en vez de redondear a peso.
+- [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
+      facturar (el caso de la comisión). Va en `ventas.config`.
 - [ ] **Fase 4, paso 3**: emitir contra `maullin` (certificación del SII) con el
       certificado real.
 - [ ] **Solicitar al SII los folios CAF de boleta electrónica (DTE 39 y 41)** a
@@ -958,3 +960,29 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] Doce pruebas unitarias fijan las reglas que costó descubrir: ISO-8859-1,
       el `<CAF>` sin espacios, el `MNT` sin signo, los recortes a 40. Todas
       pasan (`phpunit`, 22 pruebas).
+
+### Fase 4, paso 2: escribir el documento en inventario y facturación
+- [x] **Hallazgo que cambió el diseño: la factura no es la nota de venta.** De
+      192 facturas enlazadas a una NV, **190 van a un cliente distinto** —188 a
+      Softland Ingeniería—, 196 de 197 tienen una sola línea de comisión, y
+      `nvCantFact` está en cero en todas las líneas de todas las notas de venta.
+      Es un negocio de distribuidor: la NV registra la venta al cliente final y
+      la factura le cobra la comisión a Softland. El monto no se calcula —del
+      0,5 % al 77 %— y lo escribe quien factura.
+- [x] Alcance acordado con el cliente: una sola cañería para los tres casos —la
+      comisión, la factura al cliente de la NV y la factura suelta—, con el
+      receptor cambiable bajo llave de configuración.
+- [x] `Facturacion`: escribe `iw_gsaen` + `iw_gmovi` + `IW_GSaEn_RefDTE`, pide
+      el folio a `DTE_pdblEntregaFolioDTE` y **no centraliza**.
+- [x] `dte:base-de-pruebas`: copia INNOVAGES entera a `INNOVAGES_DTE`, con sus
+      1.905 tablas y 24 triggers. **`INNOVAGES_TEST` no se usa: es de otro
+      proyecto** (una app de rendiciones, esquema `rinde`).
+- [x] `dte:verifica-documento`: **199 documentos reescritos y comparados columna
+      por columna** —189 facturas y 10 notas de crédito—. Los que no salen
+      idénticos difieren solo en `CodiCC` de la línea y en el `NVCorrelaOC` que
+      Softland dejó de escribir en agosto de 2024.
+- [x] Escribe dentro de una transacción y la deshace: de factura queda **un solo
+      folio libre**, el 235, y sin deshacer la primera corrida se lo comía.
+- [x] `Totales` no se tocó. Su reparto se salta cuando el bruto no es positivo
+      —caso de toda nota de crédito—, así que se calcula en positivo y se aplica
+      el signo al final.

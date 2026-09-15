@@ -328,7 +328,14 @@ esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
 - **La app llega hasta inventario y facturación, con el DTE emitido, y para
   ahí.** La centralización —contabilidad, registro de ventas, cuenta corriente
   del cliente— es un procedimiento aparte que se corre desde Softland, y no
-  ocurre al emitir. No se reproduce aquí.
+  ocurre al emitir. Ninguna columna `Cpb*` ni `Contab*` se escribe aquí.
+- **La factura no es la nota de venta.** De 192 facturas enlazadas a una NV,
+  **190 van a otro cliente** —188 a Softland Ingeniería— con una sola línea de
+  comisión, y `nvCantFact` está en cero en todas las notas de venta. Es un
+  negocio de distribuidor. `Facturacion` escribe el documento que se le pida; la
+  NV entra como referencia y como sugerencia, no como fuente obligatoria, y el
+  receptor se puede cambiar. El monto de la comisión no se calcula: lo escribe
+  quien factura.
 - **El timbre se firma en bytes, no en árboles.** Por eso `Timbre` concatena el
   XML en vez de usar `DOMDocument`: la firma cubre el `<DD>` tal como está
   escrito. Todo va en **ISO-8859-1**, el `<CAF>` se incrusta **pegado** —en
@@ -367,9 +374,10 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.10.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
-panel comercial hasta el paso 4 y el primer paso de la factura electrónica: el
-timbre, comprobado contra 615 documentos ya emitidos. Ver `STATE.md`. El mapa de
+Versión **0.11.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+panel comercial hasta el paso 4 y la fase 4 hasta el paso 2: el timbre
+comprobado contra 615 documentos emitidos, y la escritura del documento en
+inventario contrastada columna por columna contra 199. Ver `STATE.md`. El mapa de
 tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
 documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
 `docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el historial de

@@ -166,12 +166,108 @@ nacida de la nota de venta 1534, TrackID `1292919449`. Por eso el comando acepta
   `NroInt` y folios distintos: son borradores anteriores. El folio que manda es
   el del propio timbre (`<F>`), no el de la columna.
 
+## Escribir el documento en IW
+
+`Facturacion` escribe `iw_gsaen` más `iw_gmovi`, y para ahí. **No centraliza**:
+no toca `CpbAnoVentas`, `CpbNumVentas` ni ninguna columna `Cpb*` o `Contab*`, ni
+`cwcpbte`, `cwmovim` o la cuenta corriente. Eso es otro procedimiento, se corre
+desde Softland y ocurre después. De las 197 facturas, 190 tienen el pago
+centralizado; ninguna lo tenía al nacer.
+
+### La factura no es la nota de venta
+
+Esto cambió el diseño y conviene que no se olvide. En INNOVAGES la factura casi
+nunca es la proyección de su nota de venta:
+
+| | |
+|---|---|
+| Facturas cuyo cliente **no** es el de la NV | **190 de 192** (188 a Softland Ingeniería) |
+| Facturas de una sola línea | 196 de 197 |
+| Lo que se factura | COMISION SOFTWARE (133), COMISION SERVICIO ASESORIA (43), COMISION SMS (19) |
+| Líneas de NV con `nvCantFact > 0` | **ninguna** |
+| Facturas nacidas convirtiendo una NV | **2 de 197** |
+
+Es un negocio de distribuidor: la nota de venta registra la venta al cliente
+final, y la factura le cobra la comisión a Softland, que es quien paga. El monto
+tampoco se calcula —el 30 % es lo más común, pero el rango va del 0,5 % al 77 %,
+y una misma NV genera varias facturas a porcentajes distintos—: viene de una
+liquidación que manda Softland, y lo escribe quien factura.
+
+Por eso no hay una función «facturar la nota de venta». Hay una que escribe el
+documento que se le pida; la NV entra como **referencia** (`nvnumero`) y como
+sugerencia de líneas y receptor, y el receptor se puede cambiar. El mismo camino
+sirve para los tres casos: la comisión, la factura al cliente de la NV y la
+factura suelta.
+
+### Las reglas de la escritura
+
+Salieron de reescribir 199 documentos reales y comparar las 168 columnas del
+encabezado y las 62 de cada línea, una por una:
+
+- **Los netos van redondeados a peso**, y el **IVA se calcula sobre el neto ya
+  redondeado**. Con un neto de 2.314.102,5 eso vale un peso en el IVA y otro en
+  el total.
+- **El signo vive en la cantidad**, no en el precio: la nota de crédito lleva
+  cantidad −1 y precio positivo.
+- **`Equivalencia` en cero significa uno.** Hay una línea así cuyo total no es
+  cero: para Softland un factor vacío es «misma moneda». Tomarlo literal deja la
+  línea en cero.
+- **`Equivalencia` del encabezado es 0 en la factura y 1 en la nota de crédito.**
+  Sin lógica aparente; es lo que escribe.
+- **El centro de costo va en la línea de la nota de crédito y no en la de la
+  factura** — 9 de 10 contra 5 de 199.
+- **`SubTipDocRef` hay que escribirlo nulo a propósito**: la columna tiene `'A'`
+  por defecto, así que omitirla no la deja vacía.
+- **Una nota de crédito sin referencia no es una nota de crédito.** Va dos
+  veces: en `AuxDocNum`/`AuxDocfec`/`TipDocRef`/`SubTipDocRef` para la ventana de
+  Softland, y en `IW_GSaEn_RefDTE` —con el código **del SII**, 33— para el XML.
+  Más `esDevolucion = -1`, que es lo que la distingue de una venta con el signo
+  cambiado.
+
+**`Totales` no se tocó.** Su reparto entre afecto y exento se salta cuando el
+bruto no es positivo, y una nota de crédito lo es siempre. Se calcula en positivo
+y se aplica el signo al final: es lo mismo y no mueve las 200 cotizaciones contra
+las que está contrastado.
+
+### Comprobar sin tocar producción
+
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:base-de-pruebas"
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:verifica-documento --todos --limite=200"
+```
+
+`dte:base-de-pruebas` copia INNOVAGES entera —1.905 tablas con sus 24 triggers—
+a `INNOVAGES_DTE`. Se niega a tocar nombres de producción, y `INNOVAGES_TEST`
+está en esa lista: existe, pero es de otro proyecto.
+
+`dte:verifica-documento` toma facturas reales, les saca sus datos de entrada,
+le pide a nuestro código que las escriba en la copia y compara columna por
+columna. **Escribe dentro de una transacción y la deshace**: así no queda el
+documento ni —sobre todo— el folio consumido. De factura queda **uno solo
+libre**, el 235; sin deshacer, la primera corrida se lo come.
+
+| Tipo | Documentos | Idénticos |
+|---|---|---|
+| 33 factura | 189 | 141 |
+| 61 nota de crédito | 10 | 8 |
+
+Los que no son idénticos difieren **solo** en dos columnas donde Softland es
+inconsistente consigo mismo: `CodiCC` de la línea, y el `NVCorrelaOC` en «0» que
+dejó de escribir en agosto de 2024. El comando las separa de una regresión de
+verdad, y tolera diferencias menores a un peso como lo que son: redondeo.
+
+Quedan fuera las **2 facturas nacidas convirtiendo una nota de venta**, que van
+por otro camino —arrastran los decimales de la NV en vez de redondear, y llevan
+`Orden` y `nvCorrela`—. Ese camino todavía no está escrito: `--incluir-convertidas`
+las muestra.
+
 ## Lo que falta
 
 | Paso | Estado |
 |---|---|
-| 1. Reconstruir el timbre de documentos ya emitidos | **hecho** |
-| 2. Escribir `iw_gsaen` / `iw_gmovi` en la base de pruebas | pendiente |
+| 1. Reconstruir el timbre de documentos ya emitidos | **hecho** — 615 documentos |
+| 2. Escribir `iw_gsaen` / `iw_gmovi` en la base de pruebas | **hecho** — 199 documentos |
+| 2b. El camino de conversión NV → factura línea por línea | pendiente (2 casos reales) |
 | 3. Emitir contra `maullin` (certificación) | pendiente |
 | 4. Producción, un documento acompañado | pendiente |
 | 5. Boleta por la API REST | bloqueado: faltan folios |
