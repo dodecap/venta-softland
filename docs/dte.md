@@ -261,6 +261,122 @@ por otro camino —arrastran los decimales de la NV en vez de redondear, y lleva
 `Orden` y `nvCorrela`—. Ese camino todavía no está escrito: `--incluir-convertidas`
 las muestra.
 
+## Generar el XML del DTE
+
+`Documento` arma el `<DTE>` a partir del documento **ya escrito** en `iw_gsaen`.
+Ese orden no se invierte: primero existe el documento y su folio, después se
+dibuja su XML.
+
+`FirmaXml` pone la firma electrónica, y `Certificado` guarda el certificado de
+la empresa —cosa distinta del CAF: el CAF timbra el folio, el certificado
+acredita al emisor—.
+
+### Por qué no se prueba contra maullin
+
+Porque no se puede, y resulta que no hace falta.
+
+El ambiente de certificación del SII **se cierra para el contribuyente** cuando
+termina su proceso de certificación y firma la declaración de cumplimiento.
+INNOVAGES lo cerró hace años: maullin ya no acepta su RUT, y tampoco habría CAF
+de certificación con que timbrar allí.
+
+El sustituto es mejor. En `dte_archivos` están los XML de **209 documentos que
+el SII aceptó de verdad, en producción**. Reproducirlos no simula lo que el SII
+habría dicho: usa lo que el SII efectivamente dijo.
+
+### La firma cubre la forma canónica, no el texto
+
+Es la idea de la que cuelga todo lo demás. La firma no cubre los bytes del
+archivo sino su **forma canónica** (C14N). De ahí tres consecuencias prácticas:
+
+- dos documentos escritos distinto pueden tener la misma forma canónica y por
+  tanto la misma firma;
+- **los comentarios no se firman** —pero los saltos de línea que los rodean, sí.
+  Por eso el generador escribe un comentario de versión, como hace Softland: sin
+  él el documento es el mismo y el resumen no;
+- **el espacio entre elementos sí se firma**, así que hay que escribir un
+  elemento por línea, con `\r\n`, igual que el ERP.
+
+Y todo va en **ISO-8859-1**. Leer un acento como UTF-8 da otra forma canónica,
+otra firma, y un rechazo del SII que aparece días después.
+
+### Lo que cambia de un tipo a otro
+
+| | Factura 33 | Exenta 34 | Boleta 39 | Nota de crédito 61 |
+|---|---|---|---|---|
+| Indicador en `IdDoc` | `TpoTranVenta` | `TpoTranVenta` | `IndServicio` | `TpoTranVenta` |
+| Forma de pago y glosa | sí | sí | **no** | sí |
+| Emisor | `RznSoc` / `GiroEmis` | igual | `RznSocEmisor` / `GiroEmisor` | igual |
+| Receptor | con giro y dirección | igual | admite `66666666-6` | igual |
+| Totales | `MntNeto`, `TasaIVA`, `IVA`, `MntTotal` | solo `MntExe` y `MntTotal` | solo `MntTotal` bruto | como la factura |
+| Líneas | — | `IndExe` en cada una | — | — |
+| Referencia | a la nota de venta, código 802 | igual | — | a la factura, **`CodRef` 1 «Anula Documento»** |
+
+Ese último no está en ninguna columna: Softland lo deduce de que el documento
+sea devolución, y aquí se deduce igual.
+
+### Cosas que costaron encontrarse
+
+Todas salieron de comparar contra documentos reales, ninguna de un manual:
+
+- **Giro, comuna y ciudad son códigos en `cwtauxi`**, no nombres. El DTE los
+  quiere escritos: «13123» es Providencia.
+- **El correo del receptor es `eMailDTE`**, no `EMail`. Son dos columnas
+  distintas y el intercambio va por la primera.
+- **La empresa puede tener varios giros**: `soempre` guarda hasta cuatro
+  `ACTECO` y van todos. INNOVAGES declara dos.
+- **`NmbItem` es el nombre del producto** y `DscItem` la glosa de la línea. Los
+  saltos de línea de la glosa se vuelven espacios.
+- **El folio de referencia es texto**, no un número: hay órdenes de compra como
+  «272-OC00008216». Convertirlo a entero daba 272.
+- **`RazonRef` vive en la columna `Glosa`** de `IW_GSaEn_RefDTE`; la columna que
+  se llama `RazonRef` está vacía en las 209.
+- **Una décima se escribe `.1`, no `0.1`.** Los dos valen para el SII; se
+  escribe como el ERP para que los documentos sean el mismo.
+- **Hay copias archivadas recodificadas**, que no validan contra su propia
+  firma. El comando las endereza antes de comparar y lo dice.
+
+### El resultado
+
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:verifica-xml --todos"
+```
+
+| Tipo | Base | Dicen lo mismo | Firma reproducida |
+|---|---|---|---|
+| 33 factura | INNOVAGES | **188 de 188** | **197 de 197** |
+| 61 nota de crédito | INNOVAGES | **12 de 12** | **12 de 12** |
+| 39 boleta | NETDOMAIN | 2 de 2 | — (otro certificado) |
+| 34 factura exenta | NETDOMAIN | 102 de 125 | — (otro certificado) |
+
+Los nueve documentos de INNOVAGES que no entran en la comparación difieren en
+cosas conocidas: cinco porque el Softland de entonces no escribía
+`CdgVendedor`, y cuatro porque el dato cambió en la base **después** de emitir
+—la glosa de una línea, el código de un producto—. El documento que viajó al SII
+decía lo que decía; regenerarlo desde la base de hoy no puede devolver lo que ya
+no está.
+
+**La firma se comprueba con el resumen guardado**, no con el nuestro: así se
+mide una cosa sola —si con la misma entrada sale la misma firma— y no se
+confunde un fallo de firma con un espacio de más en el documento. Sale idéntica
+en los 209.
+
+Los resúmenes no calzan en ninguno por una razón sola y verificada: Softland le
+pega un espacio al final a la dirección del receptor, que en `cwtauxi` no lo
+tiene. El SII valida el contenido, no ese espacio.
+
+### Lo que el generador no sabe escribir todavía
+
+- **`<DscRcgGlobal>`**, el descuento o recargo de pie. Ninguno de los 209
+  documentos de INNOVAGES lo usa. El generador **falla en vez de ignorarlo**: un
+  documento cuyas líneas suman una cosa y cuyo total dice otra es lo que el SII
+  rechaza, y para entonces el folio ya se gastó.
+- **`<RUTMandante>`**, la venta por cuenta de terceros. NETDOMAIN la usaba;
+  INNOVAGES no vende así.
+- **Documentos mixtos**, con líneas afectas y exentas a la vez. No hay ninguno
+  en las dos bases, así que no hay contra qué comprobarlo. `IndExe` se decide
+  hoy por el tipo de documento.
+
 ## Lo que falta
 
 | Paso | Estado |
@@ -268,7 +384,8 @@ las muestra.
 | 1. Reconstruir el timbre de documentos ya emitidos | **hecho** — 615 documentos |
 | 2. Escribir `iw_gsaen` / `iw_gmovi` en la base de pruebas | **hecho** — 199 documentos |
 | 2b. El camino de conversión NV → factura línea por línea | pendiente (2 casos reales) |
-| 3. Emitir contra `maullin` (certificación) | pendiente |
+| 3. Generar y firmar el XML | **hecho** — 209 documentos, firma idéntica |
+| 3b. Enviar al SII (semilla, token, upload, TrackID) | pendiente |
 | 4. Producción, un documento acompañado | pendiente |
 | 5. Boleta por la API REST | bloqueado: faltan folios |
 
@@ -282,8 +399,19 @@ Firma el documento y el sobre — cosa distinta del CAF, que solo timbra. Es de
 **Jorge Palominos Valenzuela**, emitido por E-Certchile, y es el mismo que usa
 Softland hoy.
 
-- **Vence el 26 de diciembre de 2026.** El emisor tiene que leerlo de una ruta
-  configurable, nunca cableado, para que renovarlo sea copiar un archivo.
-- Va en `storage/app/private/`, fuera de git, junto al `softland.json`. Su clave
-  va en el `.env` del servidor. **Nunca en el nombre del archivo**, que es donde
-  estaba: cualquiera que liste la carpeta la lee.
+- **Vence el 26 de diciembre de 2026.** `Certificado::avisaVencimiento()` avisa
+  desde 60 días antes. Cuando venza deja de emitir esta app **y también el
+  Softland de escritorio**, que usa el mismo.
+- Va en `storage/app/private/certificado.pfx`, fuera de git y fuera del
+  despliegue. Su clave va en `DTE_CERT_CLAVE`, en el `.env` del servidor.
+  **Nunca en el nombre del archivo**, que es donde estaba: cualquiera que liste
+  la carpeta la lee.
+- **Hubo que reconvertirlo.** El `.pfx` original venía cifrado con un algoritmo
+  antiguo que OpenSSL 3 ya no abre por defecto, y PHP fallaba con un
+  `digital envelope routines::unsupported` que no dice nada. Se reexportó con
+  AES-256, con la misma clave. Al renovarlo habrá que hacer lo mismo:
+
+  ```bash
+  openssl pkcs12 -legacy -in viejo.pfx -nodes -out paso.pem
+  openssl pkcs12 -export -in paso.pem -out certificado.pfx -keypbe AES-256-CBC -certpbe AES-256-CBC -macalg sha256
+  ```

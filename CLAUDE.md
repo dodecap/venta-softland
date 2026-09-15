@@ -345,6 +345,10 @@ esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
 - **El folio lo reparte Softland**, con `DTE_pdblEntregaFolioDTE`. No se calcula
   por nuestra cuenta: así no se le disputa el número al ERP. Y un folio gastado
   no se devuelve.
+- **La firma cubre la forma canónica del XML, no su texto.** De ahí que el
+  generador concatene en vez de serializar, que escriba un elemento por línea
+  con `\r\n`, que incluya un comentario de versión —los comentarios no se
+  firman, pero los saltos que los rodean sí— y que todo vaya en **ISO-8859-1**.
 - **La boleta no viaja por donde la factura.** Factura y nota de crédito van por
   SOAP a `palena`; la boleta va por la API REST `api.sii.cl/recursos/v1` y
   además exige reporte diario de consumo de folios. Son dos integraciones. Hoy
@@ -374,10 +378,11 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.11.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
-panel comercial hasta el paso 4 y la fase 4 hasta el paso 2: el timbre
-comprobado contra 615 documentos emitidos, y la escritura del documento en
-inventario contrastada columna por columna contra 199. Ver `STATE.md`. El mapa de
+Versión **0.12.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+panel comercial hasta el paso 4 y la fase 4 hasta el paso 3: el timbre
+comprobado contra 615 documentos emitidos, la escritura en inventario
+contrastada columna por columna contra 199, y el XML del DTE regenerado y
+firmado idéntico al de los 209 que el SII ya aceptó. Ver `STATE.md`. El mapa de
 tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
 documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
 `docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el historial de

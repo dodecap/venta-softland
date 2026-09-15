@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-15 — versión **0.11.0**
+2026-09-15 — versión **0.12.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -228,8 +228,10 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       los decimales de la NV en vez de redondear a peso.
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
-- [ ] **Fase 4, paso 3**: emitir contra `maullin` (certificación del SII) con el
-      certificado real.
+- [ ] **Fase 4, paso 3b**: enviar al SII — semilla, token, `DTEUpload`, y
+      seguimiento por `TrackID`. El XML ya se genera y se firma.
+- [ ] **Escribir el bloque `<DscRcgGlobal>`** si alguna vez hace falta descuento
+      de pie. Hoy el generador falla antes de emitir un documento así.
 - [ ] **Solicitar al SII los folios CAF de boleta electrónica (DTE 39 y 41)** a
       nombre de 77828631-9 — es el bloqueo de plazo más largo del proyecto, y
       es lo único que falta del lado de la boleta: el código ya está probado.
@@ -986,3 +988,23 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] `Totales` no se tocó. Su reparto se salta cuando el bruto no es positivo
       —caso de toda nota de crédito—, así que se calcula en positivo y se aplica
       el signo al final.
+
+### Fase 4, paso 3: generar y firmar el XML
+- [x] **Maullin descartado, y con razón**: el SII cierra el ambiente de
+      certificación cuando el contribuyente firma su declaración de
+      cumplimiento. INNOVAGES lo cerró. En su lugar se reproducen los **209
+      documentos que el SII ya aceptó en producción**, que es evidencia más
+      fuerte que un envío a un ambiente de juguete.
+- [x] `Documento` + `FirmaXml` + `Certificado`, y `dte:verifica-xml` para
+      contrastar. **Facturas 188 de 188, notas de crédito 12 de 12; la firma sale
+      idéntica en los 209.**
+- [x] La clave de la canonicalización, que es de lo que cuelga todo: la firma
+      cubre la **forma canónica**, no el texto. Los comentarios no se firman pero
+      los saltos que los rodean sí; el espacio entre elementos sí; y todo va en
+      ISO-8859-1.
+- [x] El certificado quedó instalado en `srv`, reconvertido a AES-256 porque el
+      original usaba un cifrado que OpenSSL 3 ya no abre, y su clave salió del
+      nombre del archivo y se fue al `.env`.
+- [x] Boleta y factura exenta probadas contra NETDOMAIN, que sí las emitió.
+- [x] El generador **se niega** a emitir un documento con descuento de pie: ese
+      bloque no está escrito y no hay caso real contra el que comprobarlo.

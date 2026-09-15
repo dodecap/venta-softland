@@ -42,6 +42,32 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.12.0 — Generar y firmar el XML del DTE
+*2026-09-15*
+
+- **No se prueba contra maullin, y no hace falta.** El SII cierra el ambiente de
+  certificación cuando el contribuyente firma su declaración de cumplimiento, e
+  INNOVAGES lo cerró hace años. En su lugar se reproducen los **209 documentos
+  que el SII ya aceptó en producción**, cuyo XML firmado está guardado.
+- `Documento` arma el `<DTE>` desde el documento ya escrito en `iw_gsaen`;
+  `FirmaXml` lo firma; `Certificado` guarda el certificado de la empresa.
+- `dte:verifica-xml` regenera esos documentos y compara. **Facturas 188 de 188,
+  notas de crédito 12 de 12**, y la firma sale **idéntica en los 209**.
+- Los nueve que no entran en la comparación difieren por cosas conocidas: cinco
+  porque el Softland de entonces no escribía `CdgVendedor`, y cuatro porque el
+  dato cambió en la base después de emitir el documento.
+- La boleta y la factura exenta quedan probadas contra NETDOMAIN, que sí las
+  emitió.
+- El certificado se instaló en el servidor. Hubo que **reconvertirlo**: venía
+  cifrado con un algoritmo que OpenSSL 3 ya no abre. Su clave salió del nombre
+  del archivo y se fue al `.env`, donde corresponde.
+- El generador **falla en vez de emitir mal** si el documento lleva descuento de
+  pie: ese bloque del DTE no está escrito y no hay ningún caso real contra el que
+  comprobarlo. Un documento cuyas líneas no cuadran con su total es un rechazo
+  del SII con el folio ya gastado.
+- Ocho pruebas nuevas fijan el comportamiento de la canonicalización, que es de
+  lo que cuelga todo lo demás (`phpunit`, 36 en total).
+
 ### 0.11.0 — Escribir la factura y la nota de crédito en inventario
 *2026-09-15*
 

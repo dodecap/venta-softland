@@ -90,7 +90,8 @@ reproduce.
 | 1. Reconstruir el timbre de documentos ya emitidos | **hecho** — 615 documentos, todos idénticos |
 | 2. Escribir `iw_gsaen` / `iw_gmovi` en la base de pruebas | **hecho** — 199 documentos, columna por columna |
 | 2b. Conversión NV → factura línea por línea | pendiente (2 casos reales) |
-| 3. Emitir contra `maullin` (certificación) | pendiente |
+| 3. Generar y firmar el XML | **hecho** — 209 documentos, firma idéntica |
+| 3b. Enviar al SII | pendiente |
 | 4. Producción, un documento acompañado | pendiente |
 | 5. Boleta por la API REST | preparada; bloqueada por los folios |
 
