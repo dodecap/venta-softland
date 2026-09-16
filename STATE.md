@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.15.0**
+2026-09-16 — versión **0.16.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -229,9 +229,9 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
 - [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
-      **Pasos 1 y 2 hechos** (el saldo, y convertir parte de la cotización);
-      quedan facturar parcial, devolver el saldo al anular una factura, la llave
-      del receptor y las pantallas.
+      **Pasos 1, 2 y 3 hechos** (el saldo, convertir parcial y facturar
+      parcial); quedan el cruce de la nota de crédito, la llave del receptor y
+      las pantallas.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
       probado menos el último paso, que no se deshace. De factura queda **un
       solo folio libre, el 235**.
@@ -1049,6 +1049,25 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] `ventas:verifica-conversion`: el ciclo entero contra Softland dentro de
       una transacción que se deshace. Seis comprobaciones, todas en verde, y ni
       un número gastado.
+
+### Fase 4.5, paso 3: facturar parte de la nota de venta
+- [x] La factura **hereda** de la nota de venta producto, precio, factor y
+      descuento de línea, y los **sobrescribe**: si el teléfono manda otro
+      precio, gana la nota de venta. La cantidad y las líneas nuevas sí las
+      elige quien factura.
+- [x] **`PreUniMB` iba en la moneda del producto, y tiene que ir en la del
+      documento.** De ahí sale el `PrcItem` del DTE y el SII comprueba que
+      `PrcItem × QtyItem` cuadre con `MontoItem`, que va en pesos: con un
+      producto en UF el documento no cuadraba consigo mismo. No cambia ninguno
+      de los 199 contrastados, que tienen equivalencia 1.
+- [x] Dos rechazos **antes** de pedir folio: línea que dice venir de una nota de
+      venta sin decir de cuál, y línea que cita una que no existe.
+- [x] `Facturacion::propuesta()`: lo pendiente, listo para precargar.
+- [x] `ventas:verifica-facturacion`: doce unidades, factura de cinco, saldo
+      siete, anular y vuelven las doce. Doce comprobaciones, dentro de una
+      transacción que se deshace. **Queda un solo folio de factura, el 235**, y
+      por eso la prueba factura una vez: el caso de muchas facturas por nota de
+      venta lo demuestra la historia de NETDOMAIN.
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres

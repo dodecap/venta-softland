@@ -42,6 +42,25 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.16.0 — Facturar parte de la nota de venta, con el precio heredado
+*2026-09-16*
+
+- **Paso 3 de la fase 4.5.** La factura hereda de la nota de venta el producto,
+  el precio, el factor de conversión y el descuento de línea. **Se sobrescriben,
+  no se rellenan si faltan**: si el teléfono manda otro precio, gana la nota de
+  venta. Lo que sí elige quien factura es la cantidad y qué líneas agrega.
+- **`PreUniMB` va en la moneda del documento, no en la del producto.** De ahí
+  sale el `PrcItem` del DTE, y el SII comprueba que `PrcItem × QtyItem` cuadre
+  con `MontoItem`, que va en pesos. Con un producto en UF, el precio sin
+  convertir producía un documento que no cuadra consigo mismo. No cambia nada en
+  los 199 contrastados: todos tienen equivalencia 1.
+- **Dos rechazos antes de gastar folio**: una línea que dice venir de una nota de
+  venta sin decir de cuál, y una que cita una línea que no existe.
+- `Facturacion::propuesta()`: lo que queda por facturar, listo para precargar.
+- `ventas:verifica-facturacion` recorre el ciclo dentro de una transacción que se
+  deshace: doce unidades, factura de cinco, saldo siete, anular y vuelven las
+  doce. Ni el folio se gasta.
+
 ### 0.15.0 — Convertir parte de la cotización, y que el saldo vuelva al anular
 *2026-09-16*
 

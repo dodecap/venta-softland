@@ -2,6 +2,7 @@
 
 namespace App\Services\Dte;
 
+use App\Services\Softland\Saldo;
 use App\Services\Softland\Totales;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -102,6 +103,8 @@ class Facturacion
         if (($spec['lineas'] ?? []) === []) {
             throw new RuntimeException('Un documento sin líneas no se escribe.');
         }
+
+        $spec = $this->heredarDeNotaVenta($spec);
 
         // ## El signo se aplica fuera de la aritmética
         //
@@ -272,6 +275,102 @@ class Facturacion
         ];
     }
 
+    /**
+     * Lo que viene de la nota de venta **lo pone la nota de venta**.
+     *
+     * El precio y el factor de conversión no se eligen al facturar: se heredan
+     * de la línea de la nota de venta tal como quedaron el día que se escribió.
+     * La consecuencia hay que tenerla clara: **el valor en pesos se congela ese
+     * día**. Facturar en marzo una nota de venta de enero se hace a la UF de
+     * enero, aunque hoy valga otra cosa.
+     *
+     * El descuento de línea se hereda por la misma razón. Dejarlo abierto sería
+     * dejar abierto el precio por otra puerta: un 20 % de descuento cambia lo
+     * que paga el cliente igual que cambiar el precio.
+     *
+     * Lo que sí elige quien factura es **la cantidad** —para eso existe
+     * facturar por partes— y qué líneas nuevas agrega. Una línea sin
+     * `nv_linea` es suya: no hereda nada y no consume saldo de ninguna línea.
+     */
+    private function heredarDeNotaVenta(array $spec): array
+    {
+        $nv = (int) ($spec['nota_venta'] ?? 0);
+        $conOrigen = array_filter($spec['lineas'], fn ($l) => ($l['nv_linea'] ?? null) !== null);
+
+        if ($conOrigen === []) {
+            return $spec;
+        }
+
+        if ($nv <= 0) {
+            throw new RuntimeException(
+                'Hay líneas que dicen venir de una nota de venta, pero el documento no dice de cuál.'
+            );
+        }
+
+        $origen = DB::connection(self::CONN)->table($this->califica('nw_detnv'))
+            ->where('NVNumero', $nv)->get()
+            ->keyBy(fn ($l) => Saldo::clave($l->nvLinea));
+
+        if ($origen->isEmpty()) {
+            throw new RuntimeException("La nota de venta {$nv} no existe o no tiene líneas.");
+        }
+
+        foreach ($spec['lineas'] as $i => $l) {
+            if (($l['nv_linea'] ?? null) === null) {
+                continue;
+            }
+
+            $o = $origen[Saldo::clave($l['nv_linea'])] ?? throw new RuntimeException(
+                "La nota de venta {$nv} no tiene la línea {$l['nv_linea']}."
+            );
+
+            // Lo heredado se **sobrescribe**, no se rellena si falta: heredar
+            // no es un valor por omisión, es una regla. Si el teléfono manda
+            // otro precio, gana la nota de venta.
+            $spec['lineas'][$i] = [
+                'producto' => trim((string) $o->CodProd),
+                'precio' => (float) $o->nvPrecio,
+                'equiv' => (float) $o->nvEquiv,
+                'descuento_pct' => (float) $o->nvDPorcDesc01,
+                'unidad' => trim((string) $o->CodUMed) ?: 'UN',
+            ] + $l + [
+                'glosa' => (string) $o->DetProd,
+            ];
+        }
+
+        return $spec;
+    }
+
+    /**
+     * Las líneas que quedan por facturar de una nota de venta, listas para
+     * `escribir()`.
+     *
+     * Es la precarga: lo pendiente, con su cantidad. Quien factura puede
+     * cambiar las cantidades y agregar líneas —el saldo sugiere, no limita—,
+     * pero no el precio.
+     *
+     * @return list<array{producto: string, cantidad: float, nv_linea: float}>
+     */
+    public function propuesta(int $nvNumero): array
+    {
+        $saldo = (new Saldo($this->base))->deNotaVenta($nvNumero);
+        $lineas = [];
+
+        foreach ($saldo['lineas'] as $l) {
+            if ($l['saldo'] <= 0.0001) {
+                continue;
+            }
+
+            $lineas[] = [
+                'producto' => $l['producto'],
+                'cantidad' => $l['saldo'],
+                'nv_linea' => $l['linea'],
+            ];
+        }
+
+        return $lineas;
+    }
+
     /** @return array<string, mixed> */
     private function linea(array $spec, string $letra, int $nroInt, int $n, array $original, array $calculada, int $signo): array
     {
@@ -287,7 +386,14 @@ class Facturacion
             // y como lo espera el XML del SII.
             'CantFacturada' => abs((float) $original['cantidad']) * $signo,
             'CantFactUVta' => abs((float) $original['cantidad']) * $signo,
-            'PreUniMB' => abs((float) $original['precio']),
+            // **En la moneda del documento, no en la del producto.** De aquí
+            // sale el `PrcItem` del DTE, y el SII comprueba que `PrcItem ×
+            // QtyItem` cuadre con `MontoItem`, que es `TotLinea` y va en pesos.
+            // Con un producto en UF, escribir aquí el precio sin convertir
+            // produce un documento que no cuadra consigo mismo y el SII lo
+            // rechaza. En los 199 documentos contrastados no cambia nada: todos
+            // tienen equivalencia 1.
+            'PreUniMB' => abs((float) $original['precio'] * self::equivalencia($original['equiv'] ?? null)),
             'TotLinea' => round($calculada['total']) * $signo,
             'PorcDescMov01' => (float) ($original['descuento_pct'] ?? 0),
             'DescMov01' => $calculada['descuento'],

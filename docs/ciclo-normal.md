@@ -290,16 +290,54 @@ vuelta atrás al anular.
 no limita, igual que al facturar; si alguien convierte 15 de una línea de 12, el
 saldo queda en -3 y se ve. Bloquearlo sería una regla que nadie pidió.
 
-### Paso 3 — Facturar parte de la nota de venta
+### Paso 3 — Facturar parte de la nota de venta ✅ hecho (0.16.0)
 
-`Facturacion` escribe `nvCorrela` en cada línea que venga de la NV, y
-`iw_gsaen.nvnumero` en el encabezado. El precio y el factor se heredan y el
-campo de precio no se puede editar. Las líneas agregadas a mano van sin
-`nvCorrela`.
+`Facturacion` escribe `nvCorrela` en cada línea que venga de la nota de venta y
+`iw_gsaen.nvnumero` en el encabezado, y **hereda** el producto, el precio, el
+factor y el descuento de línea. Se sobrescriben, no se rellenan si faltan:
+heredar no es un valor por omisión, es una regla. Si el teléfono manda otro
+precio, gana la nota de venta.
 
-**Prueba:** reproducir la NV 1874 de NETDOMAIN —12 unidades, factura de una— y
-que el saldo diga 11. Después, doce facturas de una unidad y que termine en
-cero.
+El descuento de línea se hereda por la misma razón que el precio. Dejarlo
+abierto sería dejar abierto el precio por otra puerta: un 20 % cambia lo que
+paga el cliente igual que cambiar el número.
+
+**Un fallo latente que salió aquí:** `PreUniMB` se estaba escribiendo en la
+moneda del **producto**. De esa columna sale el `PrcItem` del DTE, y el SII
+comprueba que `PrcItem × QtyItem` cuadre con `MontoItem`, que es `TotLinea` y va
+en pesos. Con un producto en UF eso produce un documento que no cuadra consigo
+mismo y el SII lo rechaza. Nunca se vio porque las 199 facturas contrastadas
+tienen equivalencia 1 — y por eso mismo corregirlo no cambia ninguna: se
+reescriben las 189 exactamente igual que antes.
+
+**Por qué una factura y no doce.** Queda **un solo folio**: el repartidor
+entrega el 235 y a la segunda llamada devuelve -1. Así que se factura una vez y
+se comprueba lo que esa vez demuestra. El caso de muchas facturas contra una
+nota de venta ya lo demuestra la historia: `ventas:verifica-saldo` recorre 397
+notas de venta de NETDOMAIN facturadas del todo, algunas en 26 veces.
+
+```
+Nota de venta 2065: 12 unidades de 22214004 a 17.500
+   ok recién creada, sin facturar
+   ok la propuesta ofrece las 12 pendientes
+   ok se rechaza una línea que dice venir de una NV sin decir de cuál
+   ok se rechaza una línea de la NV que no existe
+Factura folio 235: 5 de la línea 1 más una línea agregada a mano
+   ok facturada en parte
+   ok la línea heredada apunta a la línea 1 de la nota de venta
+   ok la línea agregada a mano no apunta a ninguna
+   ok el precio lo puso la nota de venta, no quien facturó
+   ok el encabezado dice de qué nota de venta viene
+   ok lo que queda por facturar son 7
+Anulada la factura 235
+   ok una factura anulada no consume
+
+Deshecho: no queda documento ni folio gastado.
+```
+
+Los dos rechazos ocurren **antes** de pedir folio: una línea que dice venir de
+una nota de venta sin decir de cuál, y una que cita una línea inexistente. Un
+folio no se gasta para descubrir que la petición estaba mal.
 
 ### Paso 4 — Devolver el saldo al anular
 
