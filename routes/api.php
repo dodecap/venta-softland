@@ -99,6 +99,7 @@ Route::middleware('auth.api')->group(function () {
         Route::get('/configuracion', [ConfiguracionController::class, 'index']);
         Route::put('/configuracion/conexion', [ConfiguracionController::class, 'guardarConexion']);
         Route::put('/configuracion/correo', [ConfiguracionController::class, 'guardarCorreo']);
+        Route::put('/configuracion/facturacion', [ConfiguracionController::class, 'guardarFacturacion']);
         Route::post('/configuracion/correo/probar', [ConfiguracionController::class, 'probarCorreo']);
 
         // Identidad corporativa: datos de la empresa, logo y condiciones que

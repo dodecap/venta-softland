@@ -399,14 +399,47 @@ Deshecho: no queda documento ni folio gastado.
 El saldo vuelve y se va cinco veces sin perderse ni duplicarse, que es lo que
 pedía la prueba.
 
-### Paso 5 — La llave del receptor
+### Paso 5 — La llave del receptor ✅ hecho (0.18.0)
 
-`ventas.config`, apagada por omisión. Apagada, la factura hereda el cliente de
-la NV y el campo ni se muestra. Encendida, se puede cambiar y la NV queda como
-referencia. Es lo que mantiene vivo el ciclo de comisión.
+`ReglasFactura`, en `ventas.config`, clave `facturacion`. Nace apagada: el
+receptor de la factura se hereda de la nota de venta y no hay forma de
+equivocarse. Encendida, quien factura puede cambiarlo y la nota de venta pasa a
+ser referencia y sugerencia, no fuente obligatoria.
 
-**Prueba:** con la llave apagada, reproducir una factura normal de NETDOMAIN;
-con la llave encendida, reproducir una comisión de INNOVAGES.
+**Por qué nace apagada.** Lo normal es que la cotización, la nota de venta y la
+factura lleven el mismo RUT. Facturarle a otro es, en una instalación normal, un
+documento mal emitido cuya corrección es una nota de crédito. Que el ciclo de
+distribuidor sea posible no puede significar que sea lo que pasa por omisión.
+
+**Tres decisiones de dónde ponerla:**
+
+- **En el escritor, no en el controlador.** Es una regla del documento, no de
+  una pantalla. Un camino nuevo que no supiera de ella —un comando, una
+  importación, otra pantalla— escribiría facturas al cliente equivocado sin
+  enterarse.
+- **Antes de heredar.** A quién se le factura no depende de las líneas. Y va
+  antes también porque la **nota de crédito hereda su nota de venta del
+  documento que corrige**, y a ésa no se le aplica la regla: su receptor lo
+  manda la factura que acredita.
+- **En configuración, nunca en el código.** Ni un `if empresa == INNOVAGES` en
+  ninguna parte: la app está hecha para replicarse a otra empresa Softland
+  cambiando configuración.
+
+**Un efecto que había que resolver.** `dte:verifica-documento` reproduce los 199
+documentos históricos de INNOVAGES, que **son comisiones**: van a un cliente
+distinto del de su nota de venta. Con la llave como nace no se podrían
+reescribir. El comando la enciende a la fuerza para su corrida —comprueba el
+escritor, no la configuración de la empresa— y las 189 facturas y 10 notas de
+crédito se siguen reescribiendo igual que antes.
+
+```
+   ok con la llave apagada se rechaza facturarle a otro cliente
+   ok con la llave encendida el receptor ya no estorba
+```
+
+La segunda se comprueba mandando además una línea inválida: si el error que
+llega es el de la línea y no el del receptor, la regla dejó pasar. Ninguna de
+las dos gasta folio, porque las dos fallan antes de pedirlo.
 
 ### Paso 6 — Las pantallas
 

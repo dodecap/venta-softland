@@ -42,6 +42,23 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.18.0 — La llave del receptor: el ciclo normal por omisión, la comisión bajo llave
+*2026-09-16*
+
+- **Paso 5 de la fase 4.5.** `ReglasFactura`, en `ventas.config`: con la llave
+  apagada —como nace— el receptor de la factura se hereda de la nota de venta.
+  Encendida, se puede cambiar, y es lo que habilita el ciclo de distribuidor.
+- **La regla vive en el escritor, no en el controlador.** Un camino nuevo que no
+  supiera de ella escribiría facturas al cliente equivocado sin enterarse, y eso
+  no se corrige con un `UPDATE` sino con una nota de crédito.
+- **La nota de crédito queda fuera de la regla**: su receptor lo manda la factura
+  que acredita, no la nota de venta. Por eso la comprobación corre antes de
+  heredar, que es cuando la nota de crédito adopta su nota de venta.
+- `GET /configuracion` la informa y `PUT /configuracion/facturacion` la cambia.
+- `dte:verifica-documento` la enciende a la fuerza: reproduce los documentos
+  históricos de INNOVAGES, que son comisiones, y con la llave como nace no se
+  podrían reescribir. Comprueba el escritor, no la configuración de la empresa.
+
 ### 0.17.0 — La nota de crédito devuelve el saldo, por los dos caminos
 *2026-09-16*
 

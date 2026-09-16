@@ -59,7 +59,10 @@ class Facturacion
      * @param  string|null  $base  otra base de la misma instancia, para ensayar
      *                             sin tocar producción. En producción va en null.
      */
-    public function __construct(private readonly ?string $base = null) {}
+    public function __construct(
+        private readonly ?string $base = null,
+        private readonly ReglasFactura $reglas = new ReglasFactura,
+    ) {}
 
     /**
      * Escribe el documento y devuelve cómo quedó identificado.
@@ -103,6 +106,13 @@ class Facturacion
         if (($spec['lineas'] ?? []) === []) {
             throw new RuntimeException('Un documento sin líneas no se escribe.');
         }
+
+        // Antes de heredar nada: a quién se le factura es una decisión del
+        // documento, no de sus líneas. Y va antes también porque la nota de
+        // crédito **hereda** su nota de venta del documento que corrige, y a esa
+        // no se le aplica esta regla: su receptor lo manda la factura que
+        // acredita, no la nota de venta.
+        $this->comprobarReceptor($spec);
 
         $spec = $this->heredarDeNotaVenta($spec);
         $spec = $this->heredarDelCorregido($spec);
@@ -340,6 +350,47 @@ class Facturacion
         }
 
         return $spec;
+    }
+
+    /**
+     * A quién se le factura una nota de venta.
+     *
+     * Por omisión, al mismo cliente: la cotización, la nota de venta y la
+     * factura llevan el mismo RUT, que es el ciclo normal. Facturarle a otro
+     * exige encender la llave en `ventas.config`, y entonces la nota de venta
+     * pasa a ser referencia y sugerencia, no fuente obligatoria.
+     *
+     * La comprobación vive **aquí y no en el controlador** a propósito: es una
+     * regla del documento, no de una pantalla. Un camino nuevo que no supiera de
+     * ella —un comando, una importación, otra pantalla— escribiría facturas al
+     * cliente equivocado sin enterarse, y eso no se corrige con un `UPDATE`
+     * sino con una nota de crédito.
+     */
+    private function comprobarReceptor(array $spec): void
+    {
+        $nv = (int) ($spec['nota_venta'] ?? 0);
+
+        if ($nv <= 0 || $this->reglas->receptorEditable()) {
+            return;
+        }
+
+        $cliente = DB::connection(self::CONN)->table($this->califica('nw_nventa'))
+            ->where('NVNumero', $nv)->value('CodAux');
+
+        if ($cliente === null) {
+            return;
+        }
+
+        $cliente = trim((string) $cliente);
+        $receptor = trim((string) ($spec['receptor'] ?? ''));
+
+        if ($cliente !== '' && $receptor !== $cliente) {
+            throw new RuntimeException(
+                "La nota de venta {$nv} es del cliente {$cliente} y la factura va a {$receptor}. "
+                .'Facturar a un cliente distinto del de la nota de venta exige encender esa opción '
+                .'en la configuración de facturación.'
+            );
+        }
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Dte\ReglasFactura;
 use App\Services\Notificaciones\Eventos;
 use App\Services\Notificaciones\Notificador;
 use App\Support\MailConfig;
@@ -47,7 +48,31 @@ class ConfiguracionController extends Controller
                 'password_guardada' => ! empty($mail['password']),
                 'configurado' => ! empty($mail['host']),
             ],
+            'facturacion' => [
+                // Apagada, el receptor de la factura se hereda de la nota de
+                // venta y el campo ni se enseña. Encendida, habilita el ciclo de
+                // distribuidor: facturarle la comisión a otro RUT.
+                'receptor_editable' => (new ReglasFactura)->receptorEditable(),
+            ],
         ]);
+    }
+
+    /**
+     * Enciende o apaga que el receptor de una factura se pueda cambiar.
+     *
+     * Apagada —como nace— el cliente de la cotización, el de la nota de venta y
+     * el de la factura son el mismo RUT. Encendida, quien factura puede cambiar
+     * el receptor: es lo que hace posible el ciclo de distribuidor, donde la
+     * nota de venta registra la venta al cliente final y la factura le cobra la
+     * comisión a otra empresa.
+     */
+    public function guardarFacturacion(Request $request)
+    {
+        $data = $request->validate(['receptor_editable' => 'required|boolean']);
+
+        (new ReglasFactura)->fijarReceptorEditable((bool) $data['receptor_editable']);
+
+        return response()->json(['receptor_editable' => (bool) $data['receptor_editable']]);
     }
 
     /**

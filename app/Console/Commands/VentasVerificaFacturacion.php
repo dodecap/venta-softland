@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Usuario;
 use App\Services\Dte\Facturacion;
+use App\Services\Dte\ReglasFactura;
 use App\Services\Dte\TipoDte;
 use App\Services\Softland\Saldo;
 use App\Services\Softland\Ventas;
@@ -102,15 +103,36 @@ class VentasVerificaFacturacion extends Command
             count($pendiente) === 1 && abs($pendiente[0]['cantidad'] - 12) < 0.0001);
 
         // ---- las dos negativas, que no gastan folio porque fallan antes
-        $this->rechaza('una línea que dice venir de una NV sin decir de cuál',
+        $this->rechaza('se rechaza una línea que dice venir de una NV sin decir de cuál',
             fn () => $facturacion->escribir($this->factura($cliente, $cc, $u, null, [
                 ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 1],
             ])));
 
-        $this->rechaza('una línea de la NV que no existe',
+        $this->rechaza('se rechaza una línea de la NV que no existe',
             fn () => $facturacion->escribir($this->factura($cliente, $cc, $u, $nv, [
                 ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 99],
             ])));
+
+        // ---- la llave del receptor. Ninguna de estas gasta folio: la regla se
+        //      comprueba antes de pedirlo.
+        $reglas = new ReglasFactura;
+        $otro = $this->otroCliente($cliente);
+
+        $reglas->fijarReceptorEditable(false);
+        $this->rechaza('con la llave apagada se rechaza facturarle a otro cliente',
+            fn () => $facturacion->escribir($this->factura($otro, $cc, $u, $nv, [
+                ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 1],
+            ])), 'configuración de facturación');
+
+        $reglas->fijarReceptorEditable(true);
+        $this->rechaza('con la llave encendida el receptor ya no estorba',
+            fn () => $facturacion->escribir($this->factura($otro, $cc, $u, $nv, [
+                // La línea es inválida a propósito: si el error que llega es el
+                // de la línea y no el del receptor, la regla dejó pasar.
+                ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 99],
+            ])), 'no tiene la línea');
+
+        $reglas->fijarReceptorEditable(false);
 
         // ---- la factura de verdad: 5 de la línea 1, más una línea suya
         //      y con un precio equivocado a propósito, que debe ser ignorado
@@ -207,13 +229,21 @@ class VentasVerificaFacturacion extends Command
         $bien || $detalle === null || $this->line("      <fg=yellow>{$detalle}</>");
     }
 
-    private function rechaza(string $que, callable $fn): void
+    /**
+     * Comprueba que algo se rechaza, y **por el motivo que toca**.
+     *
+     * Lo segundo importa tanto como lo primero: una petición inválida por dos
+     * razones falla igual, y sin mirar el mensaje una regla que dejó de
+     * aplicarse seguiría pareciendo que funciona.
+     */
+    private function rechaza(string $que, callable $fn, string $porque = ''): void
     {
         try {
             $fn();
-            $this->comprobar("se rechaza {$que}", false, 'no se rechazó: se escribió el documento');
+            $this->comprobar($que, false, 'no se rechazó: se escribió el documento');
         } catch (RuntimeException $e) {
-            $this->comprobar("se rechaza {$que}", true);
+            $this->comprobar($que, $porque === '' || str_contains($e->getMessage(), $porque),
+                'se rechazó por otra cosa: '.$e->getMessage());
         }
     }
 
@@ -228,6 +258,12 @@ class VentasVerificaFacturacion extends Command
             'nota_venta' => $nv,
             'lineas' => $lineas,
         ];
+    }
+
+    private function otroCliente(string $distintoDe): string
+    {
+        return trim((string) DB::connection('softland')->table('softland.cwtauxi')
+            ->where('CodAux', '<>', $distintoDe)->value('CodAux'));
     }
 
     /** @return array{0: string, 1: list<string>, 2: ?string} */

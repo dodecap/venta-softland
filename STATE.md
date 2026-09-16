@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.17.0**
+2026-09-16 — versión **0.18.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -229,9 +229,8 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
 - [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
-      **Pasos 1 a 4 hechos** (el saldo, convertir parcial, facturar parcial y
-      devolver el saldo al anular); quedan la llave del receptor y las
-      pantallas.
+      **Pasos 1 a 5 hechos**; queda el 6, las pantallas. Todo lo de servidor
+      está escrito y comprobado.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
       probado menos el último paso, que no se deshace. De factura queda **un
       solo folio libre, el 235**.
@@ -1084,6 +1083,19 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] Ciclo completo comprobado en `ventas:verifica-facturacion`: convertir,
       facturar en parte, acreditar, anular la nota de crédito y anular la
       factura. 16 comprobaciones, sin gastar folio.
+
+### Fase 4.5, paso 5: la llave del receptor
+- [x] `ReglasFactura` en `ventas.config`: apagada, el receptor de la factura se
+      hereda de la nota de venta; encendida, se puede cambiar. Es lo que
+      habilita el ciclo de distribuidor sin que sea lo que pasa por omisión.
+- [x] **La regla vive en el escritor**, no en el controlador: una pantalla nueva
+      que no supiera de ella escribiría facturas al cliente equivocado.
+- [x] **La nota de crédito queda fuera**: su receptor lo manda la factura que
+      acredita. Por eso la comprobación corre antes de heredar.
+- [x] `GET /configuracion` la informa; `PUT /configuracion/facturacion` la cambia.
+- [x] `dte:verifica-documento` la enciende a la fuerza: los 199 históricos de
+      INNOVAGES son comisiones y con la llave apagada no se reescribirían.
+      Siguen saliendo igual que antes.
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres

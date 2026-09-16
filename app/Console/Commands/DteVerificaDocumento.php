@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Dte\Facturacion;
+use App\Services\Dte\ReglasFactura;
 use App\Services\Dte\TipoDte;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -270,7 +271,13 @@ class DteVerificaDocumento extends Command
             $conn->beginTransaction();
 
             try {
-                $escrito = (new Facturacion($base))->escribir(
+                // Con la llave del receptor **encendida a la fuerza**: lo que
+                // se está reproduciendo son los documentos históricos de
+                // INNOVAGES, que son comisiones y van a un cliente distinto del
+                // de su nota de venta. Con la llave como nace —apagada— no se
+                // podrían reescribir, y esto comprueba el escritor, no la
+                // configuración de la empresa.
+                $escrito = (new Facturacion($base, new ReglasFactura(true)))->escribir(
                     $this->spec($tipo, $orig, $lineasOrig)
                 );
 
