@@ -227,6 +227,12 @@ export const api = {
     // El papel del documento legal, por su número interno: el folio se enseña
     // pero no identifica —es único dentro de su tipo y nada más—.
     pdfFactura: (tipo, numeroInterno) => pedirPdf(`/facturas/${tipo}/${numeroInterno}/pdf`),
+
+    // Borrar una factura que nunca viajó al SII. No es anular: devuelve el
+    // folio, porque un documento que no salió de aquí nunca existió para el
+    // fisco.
+    borrarFactura: (tipo, numeroInterno) =>
+        pedir(`/facturas/${tipo}/${numeroInterno}`, { method: 'DELETE' }),
     marcarCompartido: (tipo, numero, canal) => pedir(
         `/${tipo === 'cotizacion' ? 'cotizaciones' : 'notas-venta'}/${numero}/compartido`,
         { method: 'POST', body: { canal } },
@@ -259,6 +265,7 @@ export const api = {
     configuracion: () => pedir('/admin/configuracion'),
     guardarConexion: (c) => pedir('/admin/configuracion/conexion', { method: 'PUT', body: c }),
     guardarCorreo: (c) => pedir('/admin/configuracion/correo', { method: 'PUT', body: c }),
+    guardarFacturacion: (c) => pedir('/admin/configuracion/facturacion', { method: 'PUT', body: c }),
     probarCorreo: (c) => pedir('/admin/configuracion/correo/probar', { method: 'POST', body: c }),
 
     notificaciones: () => pedir('/admin/notificaciones'),

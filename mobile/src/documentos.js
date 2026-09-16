@@ -69,14 +69,24 @@ export function estado(tipo, codigo) {
  * fisco. Una factura puede estar impecable en inventario y no haber salido
  * nunca, y ésa es justamente la que hay que ver de lejos.
  *
- * Desde que emitir y enviar son un solo acto, «sin enviar» dejó de ser un paso
- * del camino y pasó a ser una avería: o el SII no contestó, o el documento se
- * escribió desde el Softland de escritorio. Por eso va en rojo y no en cian.
+ * Lo que significa «sin enviar» depende del modo: con el envío automático es
+ * una avería, con el manual es la tarea de alguien. De ahí el segundo
+ * argumento, que sale de la configuración del servidor.
  *
  * Vive aquí, con el otro, para que la lista y la ficha no puedan discrepar.
  */
-export function estadoSii(d) {
-    if (! d?.track_id) return { rotulo: 'Sin enviar al SII', color: 'rojo' };
+export function estadoSii(d, automatico = true) {
+    if (! d?.track_id) {
+        // El mismo hecho, dos lecturas. Con el envío automático, un documento
+        // escrito y sin viajar es una **avería** —o el SII no contestó, o salió
+        // del Softland de escritorio— y va en rojo. Con el envío en manual es
+        // el paso siguiente del trabajo, y pintarlo de rojo sería que la lista
+        // gritara todos los días por algo que se decidió que fuera así.
+        return automatico
+            ? { rotulo: 'No llegó al SII', color: 'rojo' }
+            : { rotulo: 'Por enviar al SII', color: 'amarillo' };
+    }
+
     if (d.aceptada) return { rotulo: 'Aceptada por el SII', color: 'verde' };
     if (d.motivo_sii) return { rotulo: 'Rechazada por el SII', color: 'rojo' };
 

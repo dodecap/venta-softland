@@ -42,6 +42,43 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.28.0 — Envío automático o manual, y borrar lo que no viajó
+*2026-09-16*
+
+- **El envío al SII se puede poner en manual**, desde Configuración. Encendido
+  —como nace— emitir manda el documento en el mismo acto; apagado, queda escrito
+  esperando a que alguien lo mande desde su ficha.
+- **La llave es nuestra, no la de Softland, y es una decisión.** El ERP tiene las
+  suyas en `soempre` (`DTEFacturaLote`, `DTEFacturaLinea`, `TipoEnvio*`) y no se
+  leen: describen cómo manda el **escritorio**, hoy dirían que no mandáramos
+  nunca —INNOVAGES tiene `DTEFacturaLote = 1`— y su significado se deduce, no se
+  sabe. Se obedece al ERP donde manda sobre el documento; esto es comportamiento
+  de esta app. Lo que sí se hace es **enseñar lo que dice Softland** al lado de
+  la llave, para que nadie elija a ciegas.
+- **`dte:pendientes` respeta el modo.** En manual no manda nada y sigue
+  recogiendo veredictos: si mandara, la llave no serviría de nada.
+- **«Sin enviar» cambia de color según el modo.** En automático es una avería y
+  va en rojo; en manual es la tarea de alguien y va en ámbar. Es el mismo hecho
+  con dos lecturas, y la lista no puede gritar por algo que se decidió así.
+- **Una factura que nunca llegó al SII se puede borrar**, y **el folio vuelve**.
+  Comprobado contra el repartidor de Softland dentro de una transacción que se
+  deshizo: con la reserva del folio puesta devolvía −1, y sin ella devolvió 235.
+- **Dos limpiezas son nuestras.** El trigger `IW_GSaEn_IW_GMOVI_DTRIG` se lleva
+  líneas, referencias y la fila de seguimiento **enlazada**; quedan el XML
+  timbrado de `dte_archivos` y **la fila de reserva del folio**, que nunca llega
+  a enlazarse —el repartidor la deja con `Tipo` nulo y quien la enlaza es un
+  trigger de *UPDATE*, y nosotros insertamos—. Sin borrarla, el folio no vuelve.
+- **Borrar y anular no se ofrecen a la vez.** Antes de viajar se borra; después
+  se anula. Enseñar las dos salidas invita a gastar un folio de nota de crédito
+  cuando la barata todavía existe.
+- **Lo borrable es lo que escribió la app**, y eso lo dice `Proceso = 'Venta
+  Softland'` en la propia fila — la misma marca que usa `dte:pendientes`. No
+  sirve el mapa de `client_uuid`: responde a otra pregunta, y las facturas
+  anteriores a que la app dejara huella son nuestras igual. Lo vimos ensayando
+  con la 235.
+- El saldo de la nota de venta vuelve solo al borrar, porque se calcula y no se
+  guarda.
+
 ### 0.27.0 — Los atributos de la nota de venta, que los define cada empresa
 *2026-09-16*
 

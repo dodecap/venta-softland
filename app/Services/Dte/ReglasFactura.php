@@ -7,8 +7,9 @@ use Illuminate\Support\Facades\DB;
 /**
  * Lo que la empresa decide sobre cómo factura, y que no está en Softland.
  *
- * Hoy es una sola decisión, y es la que separa el ciclo normal del ciclo de
- * distribuidor.
+ * Dos decisiones: a quién se le factura una nota de venta —que separa el ciclo
+ * normal del de distribuidor— y si el documento sale hacia el SII solo o espera
+ * a que alguien lo mande.
  *
  * ## A quién se le factura una nota de venta
  *
@@ -65,6 +66,67 @@ class ReglasFactura
     public function fijarReceptorEditable(bool $editable): void
     {
         $this->guardar(['receptor_editable' => $editable]);
+    }
+
+    /**
+     * Si emitir manda el documento al SII en el mismo acto.
+     *
+     * ## Por qué es una llave nuestra y no la de Softland
+     *
+     * Softland tiene las suyas en `soempre` —`DTEFacturaLote`,
+     * `DTEFacturaLinea`, `TipoEnvioNCredito`…— y la tentación de leerlas es
+     * grande. No se hace, por tres razones:
+     *
+     *  - **describen cómo manda el ERP de escritorio, no cómo manda esta app**.
+     *    Son dos programas emitiendo el mismo tipo de documento, y que la
+     *    oficina revise su lote a fin de día no dice nada de lo que tiene que
+     *    hacer el teléfono del vendedor en terreno;
+     *  - **hoy dirían que no mande**. INNOVAGES tiene `DTEFacturaLote = 1` y
+     *    `DTEFacturaLinea = 0`, y NETDOMAIN lo mismo. Leerlas al pie de la letra
+     *    dejaría la app sin mandar nunca, que es justo lo contrario de lo que se
+     *    pidió;
+     *  - **su significado se deduce, no se sabe**. Para la factura son dos
+     *    columnas booleanas y para los demás documentos una sola `TipoEnvio*`;
+     *    nada dice cuál valor es cuál. Construir el comportamiento sobre una
+     *    lectura no comprobada de una bandera del ERP es de lo que uno se
+     *    arrepiente medio año después.
+     *
+     * La regla del proyecto sigue siendo la misma: se obedece al ERP donde el
+     * ERP manda sobre **el documento** —como `nwparam.CheckApruebaNv` con el
+     * estado de la nota de venta— y se decide aquí lo que es del
+     * **comportamiento de esta app**. Esto es lo segundo: el documento que sale
+     * es idéntico en los dos modos.
+     *
+     * Nace encendida: una factura escrita y sin mandar depende de que alguien se
+     * acuerde, y así es como la del día 30 se emite el 2.
+     */
+    public function envioAutomatico(): bool
+    {
+        return (bool) ($this->valores()['envio_automatico'] ?? true);
+    }
+
+    public function fijarEnvioAutomatico(bool $automatico): void
+    {
+        $this->guardar(['envio_automatico' => $automatico]);
+    }
+
+    /**
+     * Lo que dice Softland de su propio envío, para enseñarlo al lado.
+     *
+     * No decide nada: está para que quien elige el modo vea qué hace el ERP y
+     * no tenga que abrirlo para saberlo.
+     */
+    public function envioSegunSoftland(): array
+    {
+        $e = DB::connection('softland')->table('softland.soempre')
+            ->first(['DTEFacturaLote', 'DTEFacturaLinea', 'TipoEnvioNCredito', 'TipoEnvioGDespacho']);
+
+        return [
+            'factura_lote' => (bool) ($e->DTEFacturaLote ?? false),
+            'factura_linea' => (bool) ($e->DTEFacturaLinea ?? false),
+            'nota_credito' => (int) ($e->TipoEnvioNCredito ?? 0),
+            'guia_despacho' => (int) ($e->TipoEnvioGDespacho ?? 0),
+        ];
     }
 
     /** @return array<string, mixed> */

@@ -119,6 +119,11 @@ class AuthController extends Controller
                 // sabe cuáles están por vencer sin preguntar: la cotización no
                 // tiene fecha de vencimiento en Softland, se calcula.
                 'vigencia_cotizacion_dias' => $identidad->actual()['vigencia_cotizacion_dias'],
+                // Si emitir manda el documento al SII en el mismo acto. El
+                // teléfono lo necesita para dos cosas: decir en la confirmación
+                // qué va a pasar al apretar, y saber si «sin enviar» es una
+                // avería —rojo— o el paso siguiente del trabajo —ámbar—.
+                'envio_automatico' => (new \App\Services\Dte\ReglasFactura)->envioAutomatico(),
             ],
             'sincronizado_at' => now()->toIso8601String(),
         ]);

@@ -15,6 +15,12 @@ const conexion = ref({ host: '', port: '', database: '', sa_user: '', sa_passwor
 const correo = ref({ host: '', port: '', encryption: 'tls', username: '', password: '', from_address: '', from_name: '', password_guardada: false, configurado: false });
 const destinoPrueba = ref('');
 
+/*
+ * Cómo factura la empresa. Dos decisiones que no están en Softland y que
+ * cambian lo que hace la app, no lo que dice el documento.
+ */
+const facturacion = ref({ receptor_editable: false, envio_automatico: true, envio_softland: null });
+
 onMounted(cargar);
 
 async function cargar() {
@@ -23,11 +29,38 @@ async function cargar() {
         const c = await api.configuracion();
         conexion.value = { ...c.conexion, sa_password: '', softland_password: '' };
         correo.value = { ...c.correo, password: '' };
+        facturacion.value = { ...facturacion.value, ...(c.facturacion || {}) };
     } catch (e) {
         error.value = e.message;
     } finally {
         cargando.value = false;
     }
+}
+
+async function guardarFacturacion(campo) {
+    limpiar();
+    guardando.value = 'facturacion';
+    try {
+        const r = await api.guardarFacturacion({ [campo]: facturacion.value[campo] });
+        facturacion.value = { ...facturacion.value, ...r };
+        aviso.value = 'Guardado.';
+    } catch (e) {
+        error.value = e.message;
+        await cargar();
+    } finally {
+        guardando.value = '';
+    }
+}
+
+/** Lo que hace el Softland de escritorio, en una frase. No decide nada. */
+function queHaceSoftland() {
+    const s = facturacion.value.envio_softland;
+
+    if (! s) return '';
+
+    return s.factura_linea
+        ? 'El Softland de escritorio manda las facturas en línea, al emitirlas.'
+        : 'El Softland de escritorio manda las facturas en lote, no al emitirlas.';
 }
 
 function limpiar() {
@@ -101,6 +134,43 @@ async function probarCorreo() {
             <div class="cargando" v-if="cargando">Cargando…</div>
 
             <template v-else>
+                <div class="tarjeta">
+                    <div class="tarjeta-cabecera">Facturación</div>
+                    <div class="tarjeta-cuerpo">
+                        <label class="interruptor">
+                            <input type="checkbox" v-model="facturacion.envio_automatico"
+                                   :disabled="guardando === 'facturacion'"
+                                   @change="guardarFacturacion('envio_automatico')">
+                            <span>Mandar al SII al emitir</span>
+                        </label>
+                        <p class="ayuda">
+                            Encendido, emitir una factura la manda al SII en el mismo acto, y si el
+                            SII no contesta el servidor lo reintenta solo. Apagado, el documento
+                            queda escrito esperando a que alguien lo mande desde su ficha — y
+                            entonces depende de que alguien se acuerde.
+                        </p>
+                        <!-- Lo que hace el ERP se enseña, no se obedece: son dos
+                             programas distintos emitiendo el mismo documento, y
+                             que la oficina revise su lote a fin de día no dice
+                             nada de lo que hace el teléfono en terreno. -->
+                        <p class="ayuda" v-if="queHaceSoftland()"><b>{{ queHaceSoftland() }}</b></p>
+
+                        <label class="interruptor">
+                            <input type="checkbox" v-model="facturacion.receptor_editable"
+                                   :disabled="guardando === 'facturacion'"
+                                   @change="guardarFacturacion('receptor_editable')">
+                            <span>Permitir facturar a otro cliente</span>
+                        </label>
+                        <p class="ayuda">
+                            Apagado, la factura se le emite al cliente de la nota de venta y no hay
+                            forma de equivocarse. Encendido, quien factura puede cambiar el
+                            receptor: es lo que habilita el ciclo de distribuidor, donde la nota de
+                            venta registra la venta al cliente final y la factura le cobra la
+                            comisión a otra empresa.
+                        </p>
+                    </div>
+                </div>
+
                 <div class="tarjeta">
                     <div class="tarjeta-cabecera">Conexión a Softland</div>
                     <div class="tarjeta-cuerpo">

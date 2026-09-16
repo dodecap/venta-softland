@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Services\Dte\Certificado;
 use App\Services\Dte\Emision;
+use App\Services\Dte\Facturacion;
+use App\Services\Dte\ReglasFactura;
 use App\Services\Dte\Sii;
 use App\Services\Dte\TipoDte;
 use Illuminate\Console\Command;
@@ -16,10 +18,13 @@ use Throwable;
  *
  * ## Por qué existe
  *
- * Desde que emitir y enviar son un solo acto, un documento escrito y sin
- * TrackID ya no es un paso del camino: es una avería. Sólo puede haber pasado
- * una de dos cosas — el SII no contestó, o el servidor se cayó entre escribir y
- * mandar— y las dos se arreglan reintentando.
+ * Con el envío automático encendido, un documento escrito y sin TrackID es una
+ * avería: sólo puede haber pasado una de dos cosas —el SII no contestó, o el
+ * servidor se cayó entre escribir y mandar— y las dos se arreglan reintentando.
+ *
+ * Con el envío en manual **no manda nada**, y sigue recogiendo veredictos. Si
+ * mandara, la llave no serviría de nada: lo que alguien dejó a propósito sin
+ * enviar saldría solo cinco minutos después.
  *
  * Reintentar a mano exige que alguien se acuerde, y ésa es justamente la
  * memoria que no queremos que sostenga el sistema. Por eso esto corre solo, con
@@ -88,7 +93,17 @@ class DtePendientes extends Command
             return self::FAILURE;
         }
 
-        $fallos = $this->mandar($cert, $porMandar);
+        // Con el envío en manual esta tarea **no manda nada**. Si mandara,
+        // la llave no serviría de nada: lo que alguien dejó a propósito sin
+        // enviar saldría solo cinco minutos después. Preguntar por lo que ya
+        // viajó sí se sigue haciendo — eso no le quita la decisión a nadie.
+        $automatico = (new ReglasFactura)->envioAutomatico();
+
+        if (! $automatico && $porMandar->isNotEmpty()) {
+            $this->line('  el envío está en manual: no se manda nada, sólo se recogen veredictos');
+        }
+
+        $fallos = $automatico ? $this->mandar($cert, $porMandar) : 0;
         $this->preguntar($cert, $porPreguntar);
 
         return $fallos === 0 ? self::SUCCESS : self::FAILURE;
@@ -115,7 +130,7 @@ class DtePendientes extends Command
             // escritorio las manda el Softland de escritorio, y meterse a
             // mandarlas nosotros sería disputarle documentos que no son
             // nuestros.
-            ->where('s.Proceso', 'Venta Softland')
+            ->where('s.Proceso', Facturacion::PROCESO)
             ->where(fn ($q) => $q->whereNull('d.TrackID')->orWhereIn('d.TrackID', ['', '0']))
             ->orderBy('s.Fecha')
             ->limit((int) $this->option('tope'))
@@ -130,7 +145,7 @@ class DtePendientes extends Command
                 $j->on('d.Tipo', 's.Tipo')->on('d.NroInt', 's.NroInt');
             })
             ->where('s.Fecha', '>=', $desde)
-            ->where('s.Proceso', 'Venta Softland')
+            ->where('s.Proceso', Facturacion::PROCESO)
             ->whereNotNull('d.TrackID')
             ->whereNotIn('d.TrackID', ['', '0'])
             // Ni aceptado ni con motivo escrito: nadie ha preguntado todavía, o

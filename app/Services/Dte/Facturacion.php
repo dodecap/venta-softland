@@ -64,6 +64,16 @@ class Facturacion
     private const MAPA = 'ventas.documento_app';
 
     /**
+     * La marca que dejamos en cada documento que escribimos.
+     *
+     * Es lo que distingue una factura nuestra de una del Softland de
+     * escritorio, que escribe «Factura en Línea» o «Nota de Crédito». De ella
+     * dependen dos decisiones: qué manda la tarea de pendientes y qué se deja
+     * borrar desde la app.
+     */
+    public const PROCESO = 'Venta Softland';
+
+    /**
      * @param  string|null  $base  otra base de la misma instancia, para ensayar
      *                             sin tocar producción. En producción va en null.
      */
@@ -189,6 +199,75 @@ class Facturacion
 
                 return ['tipo' => $letra, 'nroint' => $nroInt, 'folio' => $folio];
             });
+        });
+    }
+
+    /**
+     * Borra un documento que nunca llegó al SII.
+     *
+     * ## Por qué se puede, si un folio no se devuelve
+     *
+     * Porque **este** no se gastó. Un folio gastado es uno que viajó: existe
+     * para el fisco y sólo se corrige con una nota de crédito. Uno que se
+     * escribió y no salió de aquí no llegó a ser nada, y el repartidor de
+     * Softland lo vuelve a entregar en cuanto deja de verlo ocupado. Está
+     * comprobado contra el folio 235, dentro de una transacción que se deshizo:
+     * con la reserva puesta el repartidor devolvía −1, y sin ella devolvió 235.
+     *
+     * ## Quién limpia qué
+     *
+     * Casi todo lo hace Softland: el trigger `IW_GSaEn_IW_GMOVI_DTRIG` se lleva
+     * las líneas, las referencias del DTE y la fila de seguimiento **enlazada**.
+     * Es la misma regla que con la cotización — borrar la cabecera y dejar que
+     * el ERP barra.
+     *
+     * Quedan dos cosas que ningún trigger toca y son nuestras:
+     *
+     *  - **`dte_archivos`**, el XML timbrado, si el documento llegó a
+     *    prepararse;
+     *  - **la fila de reserva del folio**. El repartidor la deja con `Tipo`
+     *    nulo y `NroInt` cero, y quien la enlaza al documento es un trigger de
+     *    *UPDATE*; como nosotros insertamos, nunca queda enlazada, y el trigger
+     *    de borrado —que busca por `Tipo` y `NroInt`— no la encuentra. Sin
+     *    borrarla el folio no vuelve: eso es lo que se vio en el ensayo.
+     *
+     * Y el mapa de idempotencia, que es de la app: si se quedara, reenviar el
+     * mismo `client_uuid` devolvería un documento que ya no existe.
+     *
+     * @return int el folio que queda libre
+     */
+    public function eliminar(string $letra, int $nroInt): int
+    {
+        return DB::connection(self::CONN)->transaction(function () use ($letra, $nroInt) {
+            $cab = DB::connection(self::CONN)->table($this->califica('iw_gsaen'))
+                ->where('Tipo', $letra)->where('NroInt', $nroInt)
+                ->first(['Folio', 'SubTipoDocto']);
+
+            if (! $cab) {
+                throw new RuntimeException('Ese documento ya no está.');
+            }
+
+            $folio = (int) $cab->Folio;
+            $tipo = TipoDte::desdeSoftland($letra, trim((string) $cab->SubTipoDocto));
+
+            DB::connection(self::CONN)->table($this->califica('dte_archivos'))
+                ->where('Tipo', $letra)->where('NroInt', $nroInt)->delete();
+
+            DB::connection(self::CONN)->table($this->califica('iw_gsaen'))
+                ->where('Tipo', $letra)->where('NroInt', $nroInt)->delete();
+
+            if ($tipo) {
+                DB::connection(self::CONN)->table($this->califica('dte_doccab'))
+                    ->where('TipoDTE', $tipo->value)->where('Folio', $folio)
+                    ->delete();
+            }
+
+            DB::connection(self::CONN)->table(self::MAPA)
+                ->where('tipo', $letra === 'N' ? 'nota_credito' : 'factura')
+                ->where('numero', $nroInt)
+                ->delete();
+
+            return $folio;
         });
     }
 
@@ -341,7 +420,7 @@ class Facturacion
             'nvnumero' => $spec['nota_venta'] ?? 0,
 
             'Sistema' => 'IW',
-            'Proceso' => 'Venta Softland',
+            'Proceso' => self::PROCESO,
             'TtdCod' => $spec['ttd'] ?? 'EL',
             'FecHoraCreacion' => $spec['_creado_en'],
 

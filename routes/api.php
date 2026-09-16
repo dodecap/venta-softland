@@ -99,6 +99,11 @@ Route::middleware('auth.api')->group(function () {
     // SII y esto es lo que se le entrega al cliente para que lo lea.
     Route::get('/facturas/{tipo}/{numero}/pdf', [FacturaController::class, 'pdf'])
         ->where('tipo', '[FBN]')->whereNumber('numero');
+    // Borrar una factura que nunca viajó al SII. No es anular: anular conserva
+    // el folio y la historia; esto lo quita y **devuelve el folio**, porque un
+    // documento que no salió de aquí nunca existió para el fisco.
+    Route::delete('/facturas/{tipo}/{numero}', [FacturaController::class, 'destroy'])
+        ->where('tipo', '[FBN]')->whereNumber('numero');
 
     Route::get('/notas-venta/aprobaciones', [NotaVentaController::class, 'pendientes']);
     Route::get('/notas-venta/{numero}', [NotaVentaController::class, 'show'])->whereNumber('numero');

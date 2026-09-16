@@ -65,6 +65,9 @@ const esJefe = computed(() => ['admin', 'supervisor'].includes(usuario.value?.ro
  */
 const porAprobar = ref(0);
 
+/* Cambia lo que significa una factura sin enviar: avería o tarea pendiente. */
+const envioAutomatico = ref(true);
+
 const FLUJO = [
     { icono: 'cotizacion', rotulo: 'Cotizaciones', ruta: '/cotizaciones' },
     { icono: 'notaVenta', rotulo: 'Notas de venta', ruta: '/notas-venta' },
@@ -260,7 +263,7 @@ function filaReciente(grupo, d) {
         clave: `${grupo.id}-${d.tipo}-${d.numero_interno}`,
         numero: d.folio,
         ruta: `${grupo.ruta}/${d.tipo}/${d.numero_interno}`,
-        ...estadoSii(d),
+        ...estadoSii(d, envioAutomatico.value),
     };
 }
 
@@ -366,7 +369,10 @@ const atencion = computed(() => {
 
 onMounted(async () => {
     usuario.value = await db.getUsuario();
-    vigencia.value = (await db.getServidorInfo())?.vigencia_cotizacion_dias || 30;
+
+    const info = await db.getServidorInfo();
+    vigencia.value = info?.vigencia_cotizacion_dias || 30;
+    envioAutomatico.value = info?.envio_automatico !== false;
 
     // El período y el ámbito quedan como el vendedor los dejó, no en «mes» y
     // «yo»: si uno se guarda inválido —el jefe ya no lo es, el período no

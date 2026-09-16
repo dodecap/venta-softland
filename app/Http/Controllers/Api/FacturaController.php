@@ -492,6 +492,90 @@ class FacturaController extends Controller
     }
 
     /**
+     * Borra una factura que nunca llegó al SII.
+     *
+     * **No es lo mismo que anular.** Anular deja el documento en `N` con su
+     * folio y su historia; borrar lo quita y **devuelve el folio**, porque un
+     * documento que no viajó nunca existió para el fisco. Lo comprobamos contra
+     * el repartidor de Softland: en cuanto deja de ver el folio ocupado, lo
+     * vuelve a entregar.
+     *
+     * Tres condiciones, y las tres por el mismo motivo — que lo borrado no le
+     * falte a nadie:
+     *
+     *  1. **Que no tenga TrackID.** Enviada existe para el SII y sólo se corrige
+     *     con una nota de crédito.
+     *  2. **Que la haya escrito esta app.** Una factura del Softland de
+     *     escritorio se borra desde el Softland de escritorio: no conocemos su
+     *     historia ni lo que cuelga de ella.
+     *  3. **Que sea suya**, con el alcance por vendedor de siempre.
+     *
+     * Lo que no hay que deshacer: el saldo de la nota de venta **vuelve solo**,
+     * porque se calcula y no se guarda.
+     */
+    public function destroy(Request $request, string $tipo, int $numeroInterno)
+    {
+        $letra = strtoupper($tipo);
+        $doc = $this->documento($letra, $numeroInterno);
+
+        if (! $doc || ! $this->alcanza($request, $doc['documento']['vendedor'])) {
+            return response()->json(['message' => 'Ese documento no existe o no es tuyo.'], 404);
+        }
+
+        $cab = $doc['documento'];
+        $tipoDte = TipoDte::desdeSoftland($letra, $cab['subtipo']);
+
+        if ($tipoDte && $track = (new Emision(Certificado::desdeConfiguracion()))->seguimiento($tipoDte, $cab['folio'])) {
+            return response()->json([
+                'message' => "Este documento ya viajó al SII (TrackID {$track}): existe para el fisco y "
+                    .'no se borra. Lo que salió mal se corrige con una nota de crédito.',
+                'track_id' => $track,
+            ], 409);
+        }
+
+        if (! $this->laEscribioLaApp($letra, $numeroInterno, $cab)) {
+            return response()->json([
+                'message' => 'Esta factura no la escribió la app, así que desde aquí no se borra. '
+                    .'Se borra desde el Softland de escritorio, que es donde se escribió.',
+            ], 409);
+        }
+
+        try {
+            $folio = $this->facturacion->eliminar($letra, $numeroInterno);
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'borrado' => true,
+            'folio' => $folio,
+            'mensaje' => "Borrada. El folio {$folio} vuelve a quedar disponible.",
+        ]);
+    }
+
+    /**
+     * ¿Este documento lo escribió la app?
+     *
+     * Lo dice la propia fila: al escribirla ponemos `Proceso = 'Venta
+     * Softland'`, y el ERP pone lo suyo — «Factura en Línea» en 197 documentos
+     * y «Nota de Crédito» en 12. Es la misma marca con la que `dte:pendientes`
+     * decide qué le toca mandar.
+     *
+     * Aquí no sirve el mapa de `client_uuid`, y por dos razones. La primera es
+     * que responde a otra pregunta —«¿qué documento escribió *este* envío?»— y
+     * la segunda la vimos ensayando: las facturas anteriores a que la app
+     * empezara a dejar huella no tienen fila, y son nuestras igual. El mapa
+     * protege de reenviar dos veces; la marca dice de quién es la fila.
+     */
+    private function laEscribioLaApp(string $letra, int $nroInt, array $cab): bool
+    {
+        $proceso = DB::connection('softland')->table('softland.iw_gsaen')
+            ->where('Tipo', $letra)->where('NroInt', $nroInt)->value('Proceso');
+
+        return trim((string) $proceso) === Facturacion::PROCESO;
+    }
+
+    /**
      * El papel: la representación impresa del documento electrónico.
      *
      * **No es el documento.** El documento es el XML firmado que aceptó el SII;
@@ -736,6 +820,13 @@ class FacturaController extends Controller
      */
     private function mandarAlSii(string $letra, int $nroInt): array
     {
+        // En manual el documento queda escrito y esperando, y eso **no es una
+        // avería**: es lo que la empresa pidió. Se dice con esas palabras para
+        // que la pantalla no lo pinte de rojo.
+        if (! $this->reglas->envioAutomatico()) {
+            return ['enviado' => false, 'automatico' => false];
+        }
+
         try {
             $cert = Certificado::desdeConfiguracion();
             $emision = new Emision($cert);
@@ -746,19 +837,20 @@ class FacturaController extends Controller
             // había viajado. Decir «no se pudo enviar» aquí sería asustar por
             // haber hecho las cosas bien.
             if ($tipoDte && $ya = $emision->seguimiento($tipoDte, (int) $doc['folio'])) {
-                return ['enviado' => true, 'track_id' => $ya, 'glosa' => 'Ya estaba enviada.'];
+                return ['enviado' => true, 'automatico' => true, 'track_id' => $ya, 'glosa' => 'Ya estaba enviada.'];
             }
 
             $r = $emision->emitir($letra, $nroInt);
 
             return [
                 'enviado' => true,
+                'automatico' => true,
                 'track_id' => $r['trackId'],
                 'glosa' => $r['glosa'],
                 'aviso' => $cert->avisaVencimiento(),
             ];
         } catch (Throwable $e) {
-            return ['enviado' => false, 'error' => $e->getMessage()];
+            return ['enviado' => false, 'automatico' => true, 'error' => $e->getMessage()];
         }
     }
 

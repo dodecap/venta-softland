@@ -44,12 +44,15 @@ const trabajando = ref(false);
 const estadoSii = ref(null);
 const enviando = ref(false);
 const anulando = ref(false);
+const borrando = ref(false);
+const envioAutomatico = ref(true);
 const razonNc = ref('Anula Documento');
 
 const TIPO = { F: 'Factura', B: 'Boleta', N: 'Nota de crédito' };
 
 onMounted(async () => {
     usuario.value = await db.getUsuario();
+    envioAutomatico.value = (await db.getServidorInfo())?.envio_automatico !== false;
     await cargar();
 });
 
@@ -97,6 +100,13 @@ async function cargar() {
 }
 
 const esNotaCredito = computed(() => tipo.value === 'N');
+
+/*
+ * Borrar sólo se ofrece si el documento no viajó. El servidor lo comprueba
+ * igual —y además comprueba que lo haya escrito la app—; esto es para no
+ * enseñar un botón que iba a responder que no.
+ */
+const borrable = computed(() => !! doc.value && ! doc.value.track_id);
 const anulada = computed(() => String(doc.value?.estado || '').trim().toUpperCase() === 'N');
 
 // Quien puede emitir, puede mandar: son el mismo acto desde que la app manda
@@ -143,6 +153,34 @@ async function consultarSii() {
  * Las líneas no se mandan, las arma el servidor desde la factura. Y gasta un
  * folio de nota de crédito, así que la hoja lo dice antes.
  */
+/**
+ * Borrar, que **no es anular**.
+ *
+ * Anular deja el documento en `N` con su folio y su historia: es lo que se hace
+ * con algo que el cliente ya tiene. Borrar lo quita del ERP y **devuelve el
+ * folio**, porque un documento que nunca viajó al SII nunca existió para el
+ * fisco. Sólo se puede antes de mandarlo.
+ */
+async function borrar() {
+    borrando.value = false;
+    trabajando.value = true;
+    error.value = '';
+
+    try {
+        const r = await api.borrarFactura(tipo.value, numeroInterno.value);
+        await idb.borrar('facturas', [tipo.value, numeroInterno.value]);
+        // La lista se lee del almacén, así que si no se quita de ahí el
+        // documento borrado sigue apareciendo hasta la próxima descarga.
+        for (const l of await idb.porIndice('factura_lineas', 'documento', [tipo.value, numeroInterno.value])) {
+            await idb.borrar('factura_lineas', [l.tipo, l.numero_interno, l.linea]);
+        }
+        router.replace({ path: '/facturas', query: { borrado: r.folio } });
+    } catch (e) {
+        error.value = e.message;
+        trabajando.value = false;
+    }
+}
+
 async function anular() {
     anulando.value = false;
     trabajando.value = true;
@@ -321,10 +359,18 @@ function cantidad(n) {
                         <AppIcon name="buzon" :size="17" color="currentColor" /> Ver qué dijo el SII
                     </button>
                     <button class="chip-accion peligro"
-                            v-if="! esNotaCredito && ! anulada && ! doc.acreditada"
+                            v-if="! esNotaCredito && ! anulada && ! doc.acreditada && ! borrable"
                             :disabled="! conectado || trabajando"
                             @click="anulando = true; razonNc = 'Anula Documento'">
                         <AppIcon name="anular" :size="17" color="currentColor" /> Anular
+                    </button>
+                    <!-- Antes de viajar se borra; después se anula. Nunca los
+                         dos: ofrecer las dos salidas invita a elegir la cara
+                         —gastar un folio de nota de crédito— cuando la barata
+                         todavía existe. -->
+                    <button class="chip-accion peligro" v-if="borrable"
+                            :disabled="! conectado || trabajando" @click="borrando = true">
+                        <AppIcon name="borrar" :size="17" color="currentColor" /> Borrar
                     </button>
                 </div>
 
@@ -414,6 +460,38 @@ function cantidad(n) {
                     </p>
                     <button class="boton" :disabled="trabajando" @click="enviarAlSii">
                         {{ trabajando ? 'Enviando…' : 'Enviar' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Borrar. Se dice lo que pasa con el folio, que es la pregunta que
+             se hace cualquiera antes de apretar. -->
+        <div class="velo" v-if="borrando" @click.self="borrando = false">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Borrar la {{ (TIPO[tipo] || 'factura').toLowerCase() }}</h2>
+                    <button class="icono-barra" @click="borrando = false">
+                        <AppIcon name="cerrar" :size="21" />
+                    </button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <p>
+                        Se borra de Softland la {{ (TIPO[tipo] || 'factura').toLowerCase() }}
+                        <b>Nº {{ doc?.folio }}</b> por
+                        <b>{{ monto(Math.abs(doc?.total || 0), doc?.moneda) }}</b>,
+                        con sus líneas.
+                    </p>
+                    <p class="ayuda">
+                        Se puede porque <b>nunca llegó al SII</b>: para el fisco no existe. El
+                        folio {{ doc?.folio }} <b>vuelve a quedar disponible</b> y lo entregará la
+                        próxima factura.
+                        <template v-if="doc?.nota_venta">
+                            El saldo de la nota de venta {{ doc.nota_venta }} vuelve solo.
+                        </template>
+                    </p>
+                    <button class="boton peligro" :disabled="trabajando" @click="borrar">
+                        {{ trabajando ? 'Borrando…' : 'Borrar' }}
                     </button>
                 </div>
             </div>

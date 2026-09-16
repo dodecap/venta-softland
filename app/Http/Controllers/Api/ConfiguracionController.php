@@ -53,6 +53,11 @@ class ConfiguracionController extends Controller
                 // venta y el campo ni se enseña. Encendida, habilita el ciclo de
                 // distribuidor: facturarle la comisión a otro RUT.
                 'receptor_editable' => (new ReglasFactura)->receptorEditable(),
+                // Encendido, emitir manda el documento al SII en el mismo acto.
+                'envio_automatico' => (new ReglasFactura)->envioAutomatico(),
+                // Lo que dice Softland de su propio envío. No decide nada: se
+                // enseña para que quien elige no tenga que abrir el ERP.
+                'envio_softland' => (new ReglasFactura)->envioSegunSoftland(),
             ],
         ]);
     }
@@ -68,11 +73,28 @@ class ConfiguracionController extends Controller
      */
     public function guardarFacturacion(Request $request)
     {
-        $data = $request->validate(['receptor_editable' => 'required|boolean']);
+        $data = $request->validate([
+            'receptor_editable' => 'nullable|boolean',
+            'envio_automatico' => 'nullable|boolean',
+        ]);
 
-        (new ReglasFactura)->fijarReceptorEditable((bool) $data['receptor_editable']);
+        $reglas = new ReglasFactura;
 
-        return response()->json(['receptor_editable' => (bool) $data['receptor_editable']]);
+        // Cada llave se guarda sólo si viene: la pantalla manda una a la vez, y
+        // guardar la que no vino con su valor por omisión apagaría la otra sin
+        // que nadie la hubiera tocado.
+        if (array_key_exists('receptor_editable', $data)) {
+            $reglas->fijarReceptorEditable((bool) $data['receptor_editable']);
+        }
+
+        if (array_key_exists('envio_automatico', $data)) {
+            $reglas->fijarEnvioAutomatico((bool) $data['envio_automatico']);
+        }
+
+        return response()->json([
+            'receptor_editable' => $reglas->receptorEditable(),
+            'envio_automatico' => $reglas->envioAutomatico(),
+        ]);
     }
 
     /**

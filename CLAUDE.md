@@ -417,6 +417,19 @@ esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
   segundo que el SII lo miró, y el veredicto tarda minutos, así que consultarlo
   es una acción aparte — la hace `dte:pendientes`, que también reintenta lo que
   no salió.
+- **Emitir manda al SII, salvo que la empresa diga que no.** La llave
+  `envio_automatico` de `ventas.config` lo decide, y nace encendida. Es **una
+  llave nuestra**: las de `soempre` describen cómo manda el Softland de
+  escritorio, hoy dirían que no mandáramos nunca y su significado se deduce. Se
+  obedece al ERP donde manda sobre el documento —`nwparam.CheckApruebaNv`— y se
+  decide aquí lo que es comportamiento de esta app.
+- **Una factura que no viajó al SII se borra, y el folio vuelve.** No es anular:
+  anular conserva folio e historia y es lo que se hace con lo entregado. Los
+  triggers barren líneas y referencias; **la fila de reserva del folio hay que
+  borrarla a mano** —nunca queda enlazada, porque el repartidor la deja con
+  `Tipo` nulo y quien la enlaza es un trigger de UPDATE—, y sin eso el folio no
+  vuelve. Borrable es sólo lo que escribió la app, y eso lo dice
+  `iw_gsaen.Proceso = 'Venta Softland'`.
 - **El teléfono nunca elige un folio.** El folio lo reparte Softland dentro del
   servidor y el timbre se firma con una llave que no sale de la base: un
   teléfono sin señal no puede fabricar una factura ni reservarle un número. Lo

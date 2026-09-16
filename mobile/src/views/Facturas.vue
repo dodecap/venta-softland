@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { db } from '../db';
 import { idb } from '../idb';
 import { monto, fecha } from '../catalogos';
 import { estadoSii } from '../documentos';
@@ -31,13 +32,27 @@ import Vacio from '../components/Vacio.vue';
  * dice en qué quedó con el fisco: es lo único que no se arregla solo.
  */
 
+const route = useRoute();
 const router = useRouter();
+
+/* La ficha redirige aquí al borrar, diciendo qué folio quedó libre. */
+const folioLiberado = computed(() => route.query.borrado || null);
 
 const documentos = ref([]);
 const nombres = ref({});
 const busqueda = ref('');
 const filtro = ref('');
 const cargando = ref(true);
+
+/*
+ * Si el servidor manda las facturas al SII solo. Cambia lo que significa «sin
+ * enviar»: con envío automático es una avería, con el manual es lo que toca
+ * hacer. Es el mismo hecho leído de dos maneras, y el color tiene que decir
+ * cuál de las dos.
+ */
+const envioAutomatico = ref(true);
+
+const estado = (d) => estadoSii(d, envioAutomatico.value);
 
 const contenido = ref(null);
 const refrescado = ref(null);
@@ -66,6 +81,7 @@ const FILTROS = {
 };
 
 onMounted(async () => {
+    envioAutomatico.value = (await db.getServidorInfo())?.envio_automatico !== false;
     await cargar();
     await leerRefrescado();
 });
@@ -161,14 +177,24 @@ function abrir(d) {
 
             <Aviso tipo="error" v-if="errorRefresco">{{ errorRefresco }}</Aviso>
 
+            <Aviso tipo="ok" v-if="folioLiberado">
+                Factura borrada. El folio <b>{{ folioLiberado }}</b> vuelve a quedar disponible y lo
+                llevará la próxima.
+            </Aviso>
+
             <!-- Desde que emitir y enviar son un solo acto, esto es una avería,
                  no una tarea pendiente del día: o el SII no contestó, o el
                  documento salió del Softland de escritorio. Va arriba y en
                  rojo. -->
-            <Aviso tipo="error" v-if="sinEnviar && filtro !== 'sin_enviar'">
-                Hay <b>{{ sinEnviar }}</b> {{ sinEnviar === 1 ? 'documento escrito' : 'documentos escritos' }}
-                que no {{ sinEnviar === 1 ? 'llegó' : 'llegaron' }} al SII. El servidor lo reintenta
-                solo; desde la ficha se puede mandar ahora.
+            <Aviso :tipo="envioAutomatico ? 'error' : 'info'" v-if="sinEnviar && filtro !== 'sin_enviar'">
+                Hay <b>{{ sinEnviar }}</b> {{ sinEnviar === 1 ? 'documento' : 'documentos' }}
+                sin enviar al SII.
+                <template v-if="envioAutomatico">
+                    El servidor lo reintenta solo; desde la ficha se puede mandar ahora.
+                </template>
+                <template v-else>
+                    El envío está en manual: salen cuando alguien los manda desde su ficha.
+                </template>
             </Aviso>
 
             <div class="pestanas en-linea">
@@ -213,7 +239,7 @@ function abrir(d) {
                     <div class="item-meta">
                         <!-- El color nunca es la única señal: lo que dice la
                              franja lo dice también la etiqueta, con palabras. -->
-                        <span class="etiqueta" :class="estadoSii(d).color">{{ estadoSii(d).rotulo }}</span>
+                        <span class="etiqueta" :class="estado(d).color">{{ estado(d).rotulo }}</span>
                         <span v-if="d.anula_a" class="etiqueta gris">Anula la Nº {{ d.anula_a }}</span>
                         <span v-else-if="d.acreditada" class="etiqueta gris">
                             Anulada con la NC Nº {{ d.acreditada }}
@@ -223,7 +249,7 @@ function abrir(d) {
                         <span v-if="d.nota_venta"> · NV Nº {{ d.nota_venta }}</span>
                     </div>
                 </div>
-                <div class="item-sync" :class="estadoSii(d).color"></div>
+                <div class="item-sync" :class="estado(d).color"></div>
             </div>
         </div>
     </div>
