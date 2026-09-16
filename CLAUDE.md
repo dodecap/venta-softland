@@ -288,6 +288,11 @@ que hay que saber antes de tocar nada de esto:
   un documento creado sin señal todavía no lo tiene. El teléfono guarda los
   bytes que le llegaron (`mobile/src/pdf.js`) y los abre sin señal, pero nunca
   dibuja.
+- **La oficina comercial y el domicilio tributario son dos campos.** El pie de
+  la cotización lleva la primera —a donde va el cliente— y la cabecera de la
+  factura la segunda, que tiene que decir lo mismo que el XML que recibió el
+  SII. Pisar `direccion` cambia las dos a la vez, y en el documento legal eso es
+  un error.
 - **La identidad de la empresa hereda de `softland.soempre`** y se corrige en
   `ventas.config`, clave `identidad`. Campo vacío = manda Softland. Nada de
   `if empresa == INNOVAGES` en ninguna parte.

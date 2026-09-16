@@ -42,6 +42,20 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.29.1 — La oficina comercial no es el domicilio tributario
+*2026-09-16*
+
+- **La dirección comercial tiene campo propio**, y no es un capricho de diseño:
+  el pie de la cotización dice «Avda. Los Carreras 1865, Concepción» y la
+  cabecera de la factura tiene que seguir diciendo «Ensenada 2332, Los Ángeles».
+  Las dos son ciertas y las dos se imprimen — una es donde se atiende y la otra
+  donde se tributa, y ésta tiene que decir lo mismo que el XML que recibió el
+  SII. Pisar `direccion` habría cambiado las dos a la vez.
+- Configuradas la dirección comercial de INNOVAGES y el cargo de Jorge, que es
+  lo que faltaba para que la cotización saliera igual que la de la empresa.
+- Un renglón menos en la rejilla: el cargo del vendedor añadió una línea al
+  cierre y la hoja se pasaba a la segunda por eso.
+
 ### 0.29.0 — Los tres papeles del negocio, con el formato de la empresa
 *2026-09-16*
 

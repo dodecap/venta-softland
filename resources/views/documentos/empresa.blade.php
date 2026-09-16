@@ -52,7 +52,7 @@
     };
 
     /* Los renglones de la rejilla, en páginas. */
-    $porPagina = $renglones_por_pagina ?? 27;
+    $porPagina = $renglones_por_pagina ?? 25;
     $paginas = array_chunk($lineas ?: [], $porPagina) ?: [[]];
 
     /* La rejilla parte los bloques en dos: lo de antes va en la primera página
@@ -151,8 +151,8 @@
     .totales .rotulo { font-weight: bold; }
     .totales .valor { text-align: right; width: 26mm; }
 
-    .firma { text-align: center; margin-top: 5mm; font-size: 8pt; }
-    .firma .nombre { margin-top: 8mm; }
+    .firma { text-align: center; margin-top: 4mm; font-size: 8pt; }
+    .firma .nombre { margin-top: 6mm; }
 
     .pie-empresa { text-align: center; font-size: 8pt; font-weight: bold; padding-top: 1mm; }
     .pie-chico { text-align: center; font-size: 7.5pt; }

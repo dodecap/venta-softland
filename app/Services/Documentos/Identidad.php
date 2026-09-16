@@ -46,6 +46,9 @@ class Identidad
         // La voz de la empresa en la cotización: cómo abre, qué dice del pago y
         // cómo se despide. Son textos, no lógica, y por eso se editan.
         'presentacion', 'nota_pago', 'despedida',
+        // La oficina comercial, que puede no ser el domicilio tributario. Ver
+        // el comentario de `heredado()`.
+        'direccion_comercial', 'comuna_comercial',
     ];
 
     /** Índigo corporativo de Softland, el mismo de la app. */
@@ -143,6 +146,22 @@ class Identidad
             'despedida' => 'Agradeciendo su atención y confianza hacia nuestra empresa le hago llegar '
                 .'mis saludos quedando a su disposición para atender cualquier consulta respecto de '
                 .'la presente cotización.',
+            /*
+             * La oficina comercial, que **no** es la dirección tributaria.
+             *
+             * Las dos son ciertas y las dos salen impresas, en papeles
+             * distintos: el domicilio tributario va en la factura —tiene que
+             * decir lo mismo que el XML que recibió el SII— y la oficina
+             * comercial va en el pie de la cotización, que es a dónde va el
+             * cliente. INNOVAGES tributa en Ensenada 2332, Los Ángeles, y
+             * atiende en Los Carreras 1865, Concepción.
+             *
+             * Por eso son campos aparte y no un override de `direccion`:
+             * pisarla cambiaría también la cabecera del documento legal, y ahí
+             * sería un error.
+             */
+            'direccion_comercial' => $t($e->Dire ?? ''),
+            'comuna_comercial' => $t($e->Comu ?? ''),
         ];
     }
 
