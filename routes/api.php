@@ -65,6 +65,9 @@ Route::middleware('auth.api')->group(function () {
     Route::delete('/cotizaciones/{numero}', [CotizacionController::class, 'destroy'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/seguimientos', [CotizacionController::class, 'seguimiento'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/nota-venta', [CotizacionController::class, 'convertir'])->whereNumber('numero');
+    // Qué queda por convertir. Una cotización en `V` puede tener saldo: se
+    // llevó siete líneas de ocho y la octava sigue esperando.
+    Route::get('/cotizaciones/{numero}/saldo', [CotizacionController::class, 'saldo'])->whereNumber('numero');
     // El papel. `pdf` lo dibuja y lo guarda como emisión; `compartido` deja
     // constancia de que salió por un camino que el servidor no controla — la
     // hoja de compartir de Android, WhatsApp, una impresora.

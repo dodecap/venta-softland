@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\Usuario;
 use App\Services\Notificaciones\Eventos;
 use App\Services\Notificaciones\Notificador;
+use App\Services\Softland\Saldo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -54,9 +55,12 @@ class CotizacionController extends DocumentoController
         return 'Esa cotización no existe o no es tuya.';
     }
 
-    protected function anularEnSoftland(int $numero, Usuario $u): void
+    /** Anular una cotización no libera nada: no cuelga de ningún otro documento. */
+    protected function anularEnSoftland(int $numero, Usuario $u): ?int
     {
         $this->ventas->anularCotizacion($numero, $u);
+
+        return null;
     }
 
     protected function eliminarDeSoftland(int $numero, Usuario $u): ?int
@@ -215,20 +219,83 @@ class CotizacionController extends DocumentoController
             return response()->json(['message' => 'Esa cotización no existe o no es tuya.'], 404);
         }
 
-        if (trim((string) $actual->CtEstado) === 'V') {
-            $nv = DB::connection('softland')->table('softland.nw_nventa')
-                ->where('CotNum', $numero)->value('NVNumero');
+        // `V` ya no cierra la puerta. Quiere decir «tiene nota de venta», y
+        // desde el reparto parcial eso convive con que quede algo por
+        // convertir: una cotización de ocho líneas puede haberse llevado siete
+        // a una nota de venta y tener la octava esperando. Lo que cierra la
+        // puerta es que no quede saldo.
+        if (trim((string) $actual->CtEstado) === 'V' && ! $this->quedaPorConvertir($numero)) {
+            $nvs = DB::connection('softland')->table('softland.nw_nventa')
+                ->where('CotNum', $numero)->where('nvEstado', '<>', 'N')
+                ->pluck('NVNumero')->map(fn ($n) => (int) $n)->all();
 
             return response()->json([
-                'message' => 'Esta cotización ya se convirtió en la nota de venta '.$nv.'.',
-                'nota_venta' => $nv ? (int) $nv : null,
+                'message' => count($nvs) === 1
+                    ? 'Esta cotización ya se convirtió en la nota de venta '.$nvs[0].'.'
+                    : 'Esta cotización ya se convirtió del todo.',
+                'nota_venta' => $nvs[0] ?? null,
+                'notas_venta' => $nvs,
             ], 409);
         }
 
         return $notasVenta->store($request, $notificador, $numero);
     }
 
+    /**
+     * Qué queda por convertir de esta cotización.
+     *
+     * Es lo que precarga el editor cuando se vuelve a convertir una cotización
+     * repartida, y lo que la ficha usa para decir «quedan 1 de 8 líneas».
+     *
+     * Puede responder que **no se sabe**, y eso no es un fallo: una cotización
+     * convertida antes de la app, o desde el Softland de escritorio, no tiene
+     * enlace de línea. Decir «queda todo» ahí la convertiría dos veces.
+     */
+    public function saldo(Request $request, int $numero, Saldo $saldo)
+    {
+        $actual = $this->cabecera($numero);
+
+        if (! $actual || ! $this->alcanza($request, $actual->VenCod)) {
+            return response()->json(['message' => 'Esa cotización no existe o no es tuya.'], 404);
+        }
+
+        $r = $saldo->deCotizacion($numero);
+        $pendientes = array_values(array_filter($r['lineas'], fn ($l) => $l['saldo'] > 0.0001));
+
+        return response()->json([
+            'cotizacion' => $numero,
+            'estado' => trim((string) $actual->CtEstado),
+            'conocible' => $r['conocible'],
+            'motivo' => $r['motivo'],
+            'lineas' => $r['lineas'],
+            'lineas_pendientes' => count($pendientes),
+            'lineas_totales' => count($r['lineas']),
+        ]);
+    }
+
     // -------------------------------------------------------------- interior
+
+    /**
+     * Si queda algo por convertir. Cuando el saldo no se puede saber —sin
+     * enlace de línea— la respuesta es **no**: es lo conservador, y evita
+     * convertir dos veces una cotización vieja.
+     */
+    private function quedaPorConvertir(int $numero): bool
+    {
+        $r = app(Saldo::class)->deCotizacion($numero);
+
+        if (! $r['conocible']) {
+            return false;
+        }
+
+        foreach ($r['lineas'] as $l) {
+            if ($l['saldo'] > 0.0001) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private function cabecera(int $numero)
     {

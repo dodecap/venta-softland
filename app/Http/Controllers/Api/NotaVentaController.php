@@ -60,9 +60,9 @@ class NotaVentaController extends DocumentoController
         return 'Esa nota de venta no existe o no es tuya.';
     }
 
-    protected function anularEnSoftland(int $numero, Usuario $u): void
+    protected function anularEnSoftland(int $numero, Usuario $u): ?int
     {
-        $this->ventas->anularNotaVenta($numero, $u);
+        return $this->ventas->anularNotaVenta($numero, $u);
     }
 
     /**

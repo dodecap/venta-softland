@@ -97,6 +97,10 @@ abstract class DocumentoController extends Controller
             'lineas.*.cantidad' => 'required|numeric|gt:0',
             'lineas.*.precio' => 'required|numeric|min:0',
             'lineas.*.descuento_pct' => 'nullable|numeric|min:0|max:100',
+            // De qué línea de la cotización sale esta línea, cuando la nota de
+            // venta nace de una. Sólo lo manda la conversión; una nota de venta
+            // directa no lo lleva, y una línea agregada a mano tampoco.
+            'lineas.*.cot_linea' => 'nullable|numeric|min:1',
         ]);
 
         $data['vendedor'] = $this->vendedorDe($data, $request);
@@ -233,7 +237,15 @@ abstract class DocumentoController extends Controller
     }
 
     /** Anula el documento en Softland: `N`, que allá quiere decir «nula». */
-    abstract protected function anularEnSoftland(int $numero, Usuario $u): void;
+    /**
+     * Lo anula en Softland.
+     *
+     * Devuelve el número de la cotización que quedó libre, si anular esto
+     * deshizo una conversión: **anular devuelve el saldo igual que borrar**, y
+     * una cotización sin ninguna nota de venta viva vuelve a `P`. El teléfono lo
+     * necesita para corregir su copia, igual que en el borrado.
+     */
+    abstract protected function anularEnSoftland(int $numero, Usuario $u): ?int;
 
     /**
      * Lo borra de Softland de verdad, y con eso su número vuelve al pozo.
@@ -278,9 +290,11 @@ abstract class DocumentoController extends Controller
             ], 409);
         }
 
-        $this->anularEnSoftland($numero, $u);
+        $liberada = $this->anularEnSoftland($numero, $u);
 
-        return response()->json($this->respuesta($numero));
+        return response()->json(
+            $this->respuesta($numero) + ($liberada ? ['cotizacion_liberada' => $liberada] : [])
+        );
     }
 
     /**

@@ -243,15 +243,52 @@ imposible es **acreditar más de lo facturado**, que significaría estar
 emparejando notas de crédito que no son de esta nota de venta. Eso sale en cero
 en las dos empresas.
 
-### Paso 2 — Convertir parte de la cotización
+### Paso 2 — Convertir parte de la cotización ✅ hecho (0.15.0)
 
-El editor de conversión deja elegir líneas y cantidades. Al guardar, escribe las
-filas de `linea_origen`. La cotización pasa a `V` con lo primero que se
-convierta, y vuelve a `P` si se queda sin notas de venta vivas.
+La conversión acepta líneas y cantidades sueltas —cada línea de nota de venta
+dice de qué línea de cotización sale— y escribe `linea_origen`. Las pantallas
+son el paso 6; esto es la cañería.
 
-**Prueba:** en la base de pruebas, reproducir la cotización 7952 —ocho líneas,
-siete a una NV y una a otra— y que el saldo quede en cero. Después anular una y
-que vuelva a aparecer.
+Tres cosas cambiaron además de lo previsto:
+
+- **`V` ya no cierra la puerta.** El endpoint de conversión devolvía 409 en
+  cuanto la cotización estaba en `V`. Ahora lo que la cierra es que no quede
+  saldo, y cuando no queda, el mensaje nombra **todas** sus notas de venta.
+- **`devolverCotizacion` contaba las anuladas.** Miraba si existía *alguna* nota
+  de venta con ese `CotNum`, sin filtrar por estado. Con una sola nota de venta
+  daba igual; con reparto parcial dejaba cotizaciones vendidas sin estarlo.
+- **Corregir una nota de venta rehace sus enlaces.** Se borran y se reescriben
+  junto con el detalle: dejar los viejos era un saldo que ya no correspondía a
+  ninguna línea existente.
+
+**Cómo se probó, y por qué así.** `Ventas` no sabe escribir en otra base —
+escribe en la de la instalación—, así que en vez de una copia se usa una
+transacción que se deshace al final. Se recorre el camino real, el mismo que usa
+el teléfono, y no queda nada: ni documentos, ni enlaces, ni números gastados,
+porque el correlativo vuelve atrás con todo lo demás.
+
+```
+Cotización 8554: 12 + 5 + 1
+   ok recién creada, no se ha convertido nada             saldo [12, 5, 1] estado P
+Nota de venta 2065: 5 de la línea 1, las 5 de la línea 2
+   ok convertida a medias                                 saldo [7, 0, 1]  estado V
+Nota de venta 2066: los 7 que faltaban y la línea 3
+   ok convertida del todo                                 saldo [0, 0, 0]  estado V
+Anulada la nota de venta 2066
+   ok el saldo vuelve y sigue en V porque queda una viva  saldo [7, 0, 1]  estado V
+Anulada la nota de venta 2065
+   ok sin ninguna nota de venta viva, vuelve a P          saldo [12, 5, 1] estado P
+
+Deshecho: no queda ningún documento ni número gastado.
+```
+
+Es el caso de la cotización 7952 —repartida entre dos notas de venta— más lo que
+aquélla no tenía: **reparto por cantidad dentro de una línea** (12 = 5 + 7) y la
+vuelta atrás al anular.
+
+**Lo que se dejó sin poner:** convertir de más no se bloquea. El saldo sugiere y
+no limita, igual que al facturar; si alguien convierte 15 de una línea de 12, el
+saldo queda en -3 y se ve. Bloquearlo sería una regla que nadie pidió.
 
 ### Paso 3 — Facturar parte de la nota de venta
 

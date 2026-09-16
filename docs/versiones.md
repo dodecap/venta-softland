@@ -42,6 +42,26 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.15.0 — Convertir parte de la cotización, y que el saldo vuelva al anular
+*2026-09-16*
+
+- **Paso 2 de la fase 4.5.** La conversión acepta **líneas y cantidades
+  sueltas**: cada línea de la nota de venta puede decir de qué línea de la
+  cotización sale y cuánto se lleva. Eso se guarda en `ventas.linea_origen`.
+- **`V` ya no cierra la puerta.** Una cotización convertida a medias se puede
+  volver a convertir; lo que la cierra es que no quede saldo. Y cuando no queda,
+  el 409 nombra todas sus notas de venta, no una.
+- **Anular devuelve el saldo igual que borrar.** La nota de venta anulada deja
+  de consumir, y si no queda ninguna viva la cotización vuelve a `P`. Antes
+  `devolverCotizacion` miraba si existía *alguna* nota de venta, contando las
+  anuladas: con reparto parcial eso dejaba cotizaciones vendidas sin estarlo.
+- **Corregir una nota de venta rehace sus enlaces**, junto con el detalle. Dejar
+  los viejos era un saldo que ya no correspondía a ninguna línea existente.
+- `GET /cotizaciones/{n}/saldo`: qué queda por convertir, para precargar el
+  editor y para la marca de parcial.
+- `ventas:verifica-conversion` recorre el ciclo entero contra Softland **dentro
+  de una transacción que se deshace**: no quedan documentos ni números gastados.
+
 ### 0.14.0 — El saldo: cuánto queda de una cotización y de una nota de venta
 *2026-09-16*
 

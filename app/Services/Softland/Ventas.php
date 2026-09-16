@@ -161,6 +161,7 @@ class Ventas
                     $this->cabeceraNotaVenta($doc, $u, $desdeCotizacion, $creado) + ['NVNumero' => $numero]
                 );
                 $this->escribirDetalleNotaVenta($numero, $doc);
+                $this->escribirOrigenes($numero, $doc, $desdeCotizacion, $creado);
 
                 if ($desdeCotizacion) {
                     $this->conn()->table('softland.nwcotiza')->where('CotNum', $desdeCotizacion)
@@ -186,6 +187,11 @@ class Ventas
             $this->conn()->table('softland.nw_detnv')->where('NVNumero', $numero)->delete();
             $this->conn()->table('softland.NW_Impto')->where('nvNumero', $numero)->delete();
             $this->escribirDetalleNotaVenta($numero, $doc);
+
+            // Los enlaces se rehacen con el detalle. Corregir una nota de venta
+            // cambia cantidades y puede quitar líneas: dejar los enlaces viejos
+            // sería un saldo que ya no corresponde a ninguna línea existente.
+            $this->escribirOrigenes($numero, $doc, $cot ? (int) $cot : null, null);
         });
     }
 
@@ -216,10 +222,24 @@ class Ventas
             ->update(['CtEstado' => 'N'] + $this->auditoria($u, false));
     }
 
-    /** Lo mismo en la nota de venta. `N` es «nula» también aquí. */
-    public function anularNotaVenta(int $numero, Usuario $u): void
+    /**
+     * Lo mismo en la nota de venta. `N` es «nula» también aquí.
+     *
+     * **Anular devuelve el saldo igual que borrar.** Una nota de venta anulada
+     * deja de consumir la cotización de la que salió, y si no queda ninguna
+     * viva, la cotización vuelve a `P`. De las cotizaciones con más de una nota
+     * de venta, 43 son exactamente este caso: se anuló la equivocada y se hizo
+     * otra con lo mismo.
+     */
+    public function anularNotaVenta(int $numero, Usuario $u): ?int
     {
-        $this->fijarEstadoNotaVenta($numero, 'N', $u);
+        return $this->conn()->transaction(function () use ($numero, $u) {
+            $cot = $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)->value('CotNum');
+
+            $this->fijarEstadoNotaVenta($numero, 'N', $u);
+
+            return $this->devolverCotizacion($cot ? (int) $cot : null, $u);
+        });
     }
 
     /**
@@ -284,8 +304,13 @@ class Ventas
      *
      * Sólo se devuelve la que está en `V`. Una perdida (`R`) o anulada (`N`)
      * tuvo su propio desenlace, y ése no lo decide el borrado de otro
-     * documento. Y sólo si no le queda otra nota de venta apuntando: Softland
-     * admite dos, aunque la app nunca las cree.
+     * documento.
+     *
+     * Y sólo si no le queda **ninguna nota de venta viva**. Una anulada no
+     * cuenta: dejar la cotización en `V` por una nota de venta que ya no vale
+     * la deja vendida sin estarlo. Con reparto parcial esto pasó a importar de
+     * verdad — una cotización puede tener dos notas de venta, y borrar una no
+     * puede devolverla a `P` mientras la otra siga en pie.
      */
     private function devolverCotizacion(?int $cot, Usuario $u): ?int
     {
@@ -293,7 +318,10 @@ class Ventas
             return null;
         }
 
-        if ($this->conn()->table('softland.nw_nventa')->where('CotNum', $cot)->exists()) {
+        $quedaViva = $this->conn()->table('softland.nw_nventa')
+            ->where('CotNum', $cot)->where('nvEstado', '<>', 'N')->exists();
+
+        if ($quedaViva) {
             return null;
         }
 
@@ -645,6 +673,12 @@ class Ventas
                 'equiv' => $equiv,
                 'afecto' => ((int) $p->Impuesto) !== 0,
                 'descuento_pct' => (float) ($l['descuento_pct'] ?? 0),
+                // De qué línea de la cotización sale esta, cuando sale de una.
+                // Softland no tiene dónde guardarlo —`nwdetcot` no tiene columna
+                // de cantidad consumida— y sin eso no se puede saber qué queda
+                // por convertir de una cotización repartida entre dos notas de
+                // venta. Va a `ventas.linea_origen`.
+                'origen' => isset($l['cot_linea']) ? (float) $l['cot_linea'] : null,
             ];
         }
 
@@ -809,6 +843,65 @@ class Ventas
      * La fila del IVA. Es de donde sale el total: en las 2.350 cotizaciones de
      * INNOVAGES `CtMonto = CtSubTotal − CtTotalDesc + Σ Impto`, sin excepción.
      */
+    /**
+     * De qué línea de cotización salió cada línea de nota de venta.
+     *
+     * Es el único enlace del ciclo que hay que guardar por nuestra cuenta: el
+     * de nota de venta a factura ya lo tiene Softland en `iw_gmovi.nvCorrela`.
+     * Sin éste, una cotización repartida entre dos notas de venta queda en `V`
+     * y nadie sabe qué línea se llevó cada una.
+     *
+     * Se guardan además las dos marcas de creación. El correlativo de Softland
+     * es `MAX + 1`, así que un número vuelve a repartirse cuando el documento
+     * que lo tenía se borra; sin la marca, un enlace viejo apuntaría al
+     * documento de otra persona.
+     *
+     * Las líneas que el vendedor agregó a mano no traen origen y no dejan fila:
+     * no consumen saldo de nada porque no salen de ninguna línea cotizada.
+     */
+    private function escribirOrigenes(int $numero, array $doc, ?int $cotizacion, $creado): void
+    {
+        $this->conn()->table('ventas.linea_origen')->where('nv_numero', $numero)->delete();
+
+        if (! $cotizacion) {
+            return;
+        }
+
+        $cot = $this->conn()->table('softland.nwcotiza')->where('CotNum', $cotizacion)
+            ->first(['FechaHoraCreacion']);
+
+        // Al corregir no llega marca nueva: la de la nota de venta es la que ya
+        // tiene escrita, no la de ahora.
+        $creado ??= $this->conn()->table('softland.nw_nventa')->where('NVNumero', $numero)
+            ->value('FechaHoraCreacion');
+
+        $n = 0;
+        $filas = [];
+
+        foreach ($doc['totales']['lineas'] as $l) {
+            $n++;
+
+            if (($l['origen'] ?? null) === null) {
+                continue;
+            }
+
+            $filas[] = [
+                'nv_numero' => $numero,
+                'nv_linea' => $n,
+                'nv_creado_en' => $creado,
+                'cot_num' => $cotizacion,
+                'cot_linea' => (float) $l['origen'],
+                'cantidad' => (float) $l['cantidad'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        $filas && $this->conn()->table('ventas.linea_origen')->insert(
+            array_map(fn ($f) => $f + ['cot_creado_en' => $cot->FechaHoraCreacion ?? null], $filas)
+        );
+    }
+
     private function escribirImpuesto(string $tabla, string $columna, int $numero, array $doc): void
     {
         $t = $doc['totales'];

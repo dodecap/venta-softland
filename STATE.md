@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.14.0**
+2026-09-16 — versión **0.15.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -229,8 +229,9 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
 - [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
-      **Paso 1 hecho** (el saldo); quedan convertir parcial, facturar parcial,
-      devolver el saldo al anular, la llave del receptor y las pantallas.
+      **Pasos 1 y 2 hechos** (el saldo, y convertir parte de la cotización);
+      quedan facturar parcial, devolver el saldo al anular una factura, la llave
+      del receptor y las pantallas.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
       probado menos el último paso, que no se deshace. De factura queda **un
       solo folio libre, el 235**.
@@ -1031,6 +1032,23 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] `ventas:verifica-saldo`: 905 notas de venta con factura y 1.470
       cotizaciones convertidas de las dos empresas. Cero saldos inventados y
       cero acreditado por encima de lo facturado.
+
+### Fase 4.5, paso 2: convertir parte de la cotización
+- [x] La conversión acepta **líneas y cantidades sueltas** y escribe
+      `ventas.linea_origen`. Una línea agregada a mano no deja fila: no consume
+      saldo de nada.
+- [x] **`V` ya no cierra la puerta.** Se puede volver a convertir mientras quede
+      saldo; el 409 llega cuando no queda, y nombra todas sus notas de venta.
+- [x] **`devolverCotizacion` contaba las anuladas.** Miraba si existía *alguna*
+      nota de venta con ese `CotNum`. Con reparto parcial eso dejaba
+      cotizaciones vendidas sin estarlo.
+- [x] **Anular devuelve el saldo igual que borrar**, y la respuesta lleva
+      `cotizacion_liberada` como ya hacía el borrado.
+- [x] Corregir una nota de venta **rehace sus enlaces** junto con el detalle.
+- [x] `GET /cotizaciones/{n}/saldo`.
+- [x] `ventas:verifica-conversion`: el ciclo entero contra Softland dentro de
+      una transacción que se deshace. Seis comprobaciones, todas en verde, y ni
+      un número gastado.
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres
