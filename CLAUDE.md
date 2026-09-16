@@ -295,6 +295,23 @@ que hay que saber antes de tocar nada de esto:
   Android, no por un enlace: la dirección del servidor no existe fuera de la
   oficina.
 
+### Los atributos, que los define cada empresa
+
+Softland deja que cada empresa declare campos propios por maestro, **en la base
+y no en el código**. La nota de venta es el `IdMaestro = 4`.
+
+- **No hay ningún atributo garantizado.** INNOVAGES declara cuatro, NETDOMAIN
+  uno, la siguiente empresa puede no declarar ninguno. Ningún atributo se nombra
+  en el código: se dibuja lo que declare la base.
+- **El tipo dice dónde vive el valor**: 4 lista (`...TVAtrT`), 3 fecha
+  (`...TVAtrF`), 1 y 2 número y sí/no (`...TVAtrV`). La vista
+  `ventas.nv_atributo_valor` las une para servirlas como un maestro.
+- **Escribir es borrar y volver a poner** —la clave primaria admite dos valores
+  por atributo y Softland nunca lo usa así—, pero **comprobando antes de
+  borrar**: una opción inválida no puede llevarse por delante la que había.
+- **Borrar la nota de venta no requiere limpiarlos**: lo hacen tres triggers del
+  ERP.
+
 ### El papel del documento legal
 
 La factura, la boleta y la nota de crédito salen por el mismo motor, en su

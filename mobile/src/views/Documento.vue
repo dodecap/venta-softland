@@ -7,6 +7,7 @@ import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
 import { TIPOS, estado, enriquecerLineas, lineasDe, avanceFacturacion } from '../documentos';
 import { facturadoDe, facturasDe, saldoCotizacion } from '../saldo';
+import { comoTexto, definidos as atributosDefinidos, valoresDe } from '../atributos';
 import { conectado } from '../red';
 import { compartirPdf, olvidarPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
@@ -48,6 +49,18 @@ const saldo = ref(null);
  * en la nota de venta donde alguien se pregunta qué se facturó y qué falta.
  */
 const facturas = ref([]);
+
+/*
+ * Los campos que la empresa definió en el ERP para la nota de venta. Pueden ser
+ * ninguno: la ficha dibuja los que haya, sin nombrar ninguno.
+ */
+const atributos = ref([]);
+const valoresAtributos = ref({});
+const atributosServidor = ref(null);
+
+const atributosConValor = computed(() => atributos.value
+    .map((a) => ({ ...a, texto: comoTexto(a, valoresAtributos.value[a.codigo]) }))
+    .filter((a) => a.texto !== ''));
 const anulando = ref(null);
 const razonNc = ref('Anula Documento');
 
@@ -125,6 +138,13 @@ async function cargar() {
             }));
             facturas.value = await facturasDe(numero.value);
         }
+        if (! esCotizacion.value && doc.value) {
+            atributos.value = await atributosDefinidos();
+            // Lo traído del servidor manda: una nota de venta de hace años no
+            // está en el almacén, así que ahí no hay valores que leer.
+            valoresAtributos.value = atributosServidor.value ?? await valoresDe(numero.value);
+        }
+
         cliente.value = doc.value ? await idb.obtener('clientes', doc.value.cliente) : null;
         papelGuardado.value = doc.value ? await pdfGuardado(tipo.value, numero.value) : null;
         if (! delServidor.value) await refrescarDelServidor();
@@ -149,6 +169,7 @@ async function traerDelServidor() {
         lineas.value = await enriquecerLineas(r.lineas ?? []);
         seguimientos.value = r.seguimientos ?? [];
         aprobacion.value = r.aprobacion ?? null;
+        atributosServidor.value = r.atributos ?? null;
         delServidor.value = true;
     } catch { /* no está, o no es suyo: la pantalla lo dice sola */ }
 }
@@ -164,7 +185,11 @@ async function refrescarDelServidor() {
         if (esCotizacion.value) {
             seguimientos.value = (await api.cotizacion(numero.value)).seguimientos ?? [];
         } else {
-            aprobacion.value = (await api.notaVenta(numero.value)).aprobacion ?? null;
+            const r = await api.notaVenta(numero.value);
+            aprobacion.value = r.aprobacion ?? null;
+            // El servidor es la fuente: los atributos se pueden haber tocado
+            // desde el Softland de escritorio después de la última descarga.
+            if (r.atributos) valoresAtributos.value = r.atributos;
         }
     } catch { /* sin conexión al servidor se muestra lo que hay en el teléfono */ }
 }
@@ -893,6 +918,12 @@ function cantidad(n) {
                                     Cotización {{ doc.cotizacion }}</button></b>
                             </div>
                             <div v-if="doc.observacion"><span>Observación</span><b>{{ doc.observacion }}</b></div>
+                            <!-- Los campos que la empresa definió en el ERP.
+                                 Sólo los que tengan valor: enseñar los cuatro
+                                 con tres vacíos no dice nada y ocupa igual. -->
+                            <div v-for="a in atributosConValor" :key="a.codigo">
+                                <span>{{ a.nombre }}</span><b>{{ a.texto }}</b>
+                            </div>
                         </div>
                     </Persiana>
                 </div>

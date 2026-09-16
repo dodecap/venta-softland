@@ -49,6 +49,12 @@ use RuntimeException;
  */
 class Ventas
 {
+    /**
+     * El número que Softland le da a la nota de venta en su mecanismo de
+     * atributos. Es el mismo para las tres tablas de valores.
+     */
+    private const MAESTRO_NV = 4;
+
     public function __construct(private Equivalencia $equivalencia) {}
 
     private const CONN = 'softland';
@@ -162,6 +168,7 @@ class Ventas
                 );
                 $this->escribirDetalleNotaVenta($numero, $doc);
                 $this->escribirOrigenes($numero, $doc, $desdeCotizacion, $creado);
+                $this->escribirAtributos($numero, $data['atributos'] ?? null);
 
                 if ($desdeCotizacion) {
                     $this->conn()->table('softland.nwcotiza')->where('CotNum', $desdeCotizacion)
@@ -192,7 +199,138 @@ class Ventas
             // cambia cantidades y puede quitar líneas: dejar los enlaces viejos
             // sería un saldo que ya no corresponde a ninguna línea existente.
             $this->escribirOrigenes($numero, $doc, $cot ? (int) $cot : null, null);
+            $this->escribirAtributos($numero, $data['atributos'] ?? null);
         });
+    }
+
+    /**
+     * Los atributos que la empresa definió para la nota de venta.
+     *
+     * ## Qué son
+     *
+     * Campos que declara cada empresa en el ERP, no en el código: INNOVAGES
+     * tiene cuatro —«Tipo de Venta», «TIPO DE CLIENTE», «TIPO DE CONTRATO» y la
+     * fecha de envío a Santiago—, NETDOMAIN uno, y otra empresa puede no tener
+     * ninguno. **Aquí no se nombra ninguno**: se escribe lo que venga, contra la
+     * definición que haya en la base.
+     *
+     * ## Tres tablas, según el tipo
+     *
+     * `...TVAtrT` guarda la opción elegida de una lista, `...TVAtrF` una fecha y
+     * `...TVAtrV` un texto o un número. El `Tipo` de la definición dice cuál: 4
+     * lista, 3 fecha, 1 y 2 al texto libre.
+     *
+     * ## Borrar y volver a poner, siempre
+     *
+     * La clave primaria de la tabla de listas incluye la opción
+     * —`(CodTat, IdMaestro, CodTAtE, Codigo)`—, así que **admite dos valores
+     * para el mismo atributo**. Softland nunca lo usa así: de los 146 valores
+     * escritos no hay uno solo repetido. Si al corregir se insertara sin borrar,
+     * la nota de venta acabaría con «Tipo de Venta: LANPACK ADV» y «Tipo de
+     * Venta: VENTA SQL SERVER» a la vez, y el papel elegiría uno al azar.
+     *
+     * Lo que **no** hay que hacer es limpiar al borrar la nota de venta: de eso
+     * se encargan tres triggers de Softland, y se comprobó que funcionan — no
+     * hay un solo valor huérfano en las dos empresas.
+     *
+     * @param  array<int|string, mixed>|null  $atributos  código de atributo => valor.
+     *                                                    `null` no toca nada; un valor
+     *                                                    vacío borra el que hubiera.
+     */
+    private function escribirAtributos(int $numero, ?array $atributos): void
+    {
+        if ($atributos === null) {
+            return;
+        }
+
+        $definidos = $this->conn()->table('softland.NW_NventaTTAtr')
+            ->where('IdMaestro', self::MAESTRO_NV)->get()->keyBy('CodTat');
+
+        foreach ($atributos as $cod => $valor) {
+            $def = $definidos[(int) $cod] ?? null;
+
+            // Un atributo que no está definido en **esta** base no se escribe.
+            // Es la misma idea de siempre: el teléfono propone, el servidor
+            // comprueba contra lo que hay.
+            if (! $def) {
+                continue;
+            }
+
+            $valor = is_string($valor) ? trim($valor) : $valor;
+            $vacio = $valor === null || $valor === '' || $valor === [];
+
+            // Se comprueba **antes** de borrar. Al revés —borrar y luego
+            // descubrir que la opción no existe— deja el atributo vacío: el
+            // valor que había se pierde por mandar uno malo, que es el peor de
+            // los dos desenlaces posibles. Lo vimos en el ensayo contra la
+            // 2036, y por eso está escrito así.
+            if (! $vacio && ! $this->valorAdmisible((int) $def->Tipo, (int) $cod, $valor)) {
+                continue;
+            }
+
+            $this->borrarAtributo($numero, (int) $cod);
+
+            if ($vacio) {
+                continue;
+            }
+
+            $this->ponerAtributo($numero, (int) $cod, (int) $def->Tipo, $valor);
+        }
+    }
+
+    /** Lo que hubiera, en las tres tablas: el valor es uno, viva donde viva. */
+    private function borrarAtributo(int $numero, int $cod): void
+    {
+        foreach (['NW_NventaTVAtrT', 'NW_NventaTVAtrF', 'NW_NventaTVAtrV'] as $tabla) {
+            $this->conn()->table('softland.'.$tabla)
+                ->where('CodTat', $cod)
+                ->where('IdMaestro', self::MAESTRO_NV)
+                ->where('Codigo', (string) $numero)
+                ->delete();
+        }
+    }
+
+    /**
+     * ¿Este valor se puede escribir en este atributo?
+     *
+     * En una lista, que la opción exista: apuntar a una que no está dejaría el
+     * papel con un hueco donde debería decir «MIGRACION CLOUD - ONPREMISE». En
+     * una fecha, que sea una fecha.
+     */
+    private function valorAdmisible(int $tipo, int $cod, mixed $valor): bool
+    {
+        if ($tipo === 4) {
+            return $this->conn()->table('softland.NW_NventaTVAtr')
+                ->where('CodTat', $cod)->where('IdMaestro', self::MAESTRO_NV)
+                ->where('CodTAtE', (int) $valor)->exists();
+        }
+
+        if ($tipo === 3) {
+            return strtotime((string) $valor) !== false;
+        }
+
+        return true;
+    }
+
+    private function ponerAtributo(int $numero, int $cod, int $tipo, mixed $valor): void
+    {
+        $comun = ['CodTat' => $cod, 'IdMaestro' => self::MAESTRO_NV, 'Codigo' => (string) $numero];
+
+        if ($tipo === 4) {
+            $this->conn()->table('softland.NW_NventaTVAtrT')->insert($comun + ['CodTAtE' => (int) $valor]);
+
+            return;
+        }
+
+        if ($tipo === 3) {
+            $this->conn()->table('softland.NW_NventaTVAtrF')
+                ->insert($comun + ['ValorFecha' => date('Y-m-d', strtotime((string) $valor))]);
+
+            return;
+        }
+
+        $this->conn()->table('softland.NW_NventaTVAtrV')
+            ->insert($comun + ['Valor' => mb_substr((string) $valor, 0, 50)]);
     }
 
     /** Estado y fecha de aprobación de una NV. La aprobación en sí vive en `ventas.aprobacion`. */

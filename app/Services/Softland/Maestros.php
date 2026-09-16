@@ -501,6 +501,72 @@ class Maestros
              * que es lo que permite descartar un enlace cuyo número ya se
              * repartió a otro documento.
              */
+            /*
+             * Los atributos de la nota de venta: los campos que cada empresa
+             * define por su cuenta en el ERP.
+             *
+             * **No hay ninguno garantizado.** INNOVAGES declara cuatro y
+             * NETDOMAIN uno; otra empresa puede no declarar ninguno. Así que
+             * aquí no se nombra ni se da por hecho ninguno: bajan los que haya,
+             * y la pantalla dibuja lo que baje.
+             *
+             * El `Tipo` dice cómo se pide y dónde se guarda el valor:
+             * **1** número y **2** sí/no van al texto libre, **3** es una fecha
+             * y **4** una lista de opciones. Está comprobado mirando dónde
+             * acaban los valores de los nueve atributos que hay definidos entre
+             * las dos empresas.
+             */
+            'nv_atributos' => [
+                'titulo' => 'Atributos de la nota de venta',
+                'tabla' => 'softland.NW_NventaTTAtr',
+                'clave' => ['CodTat'],
+                'campos' => [
+                    'codigo' => 'CodTat:entero',
+                    'nombre' => 'NombreTipo',
+                    'descripcion' => 'DescripcionTipo',
+                    'tipo' => 'Tipo:entero',
+                    'valor_defecto' => 'ValorDef',
+                ],
+                'etiqueta' => 'nombre',
+                'filtro' => fn (Builder $q) => $q->where('IdMaestro', 4),
+            ],
+            'nv_atributo_opciones' => [
+                'titulo' => 'Opciones de los atributos',
+                'tabla' => 'softland.NW_NventaTVAtr',
+                'clave' => ['CodTat', 'CodTAtE'],
+                'campos' => [
+                    'atributo' => 'CodTat:entero',
+                    'codigo' => 'CodTAtE:entero',
+                    'nombre' => 'DescripcionLista',
+                ],
+                'etiqueta' => 'nombre',
+                'filtro' => fn (Builder $q) => $q->where('IdMaestro', 4),
+            ],
+            /*
+             * El valor que lleva cada nota de venta.
+             *
+             * Sale de una vista nuestra (`ventas.nv_atributo_valor`) que une
+             * las tres tablas donde Softland reparte los valores según el tipo.
+             * El porqué está en la migración que la crea.
+             */
+            'nv_atributo_valores' => [
+                'titulo' => 'Valores de los atributos',
+                'tabla' => 'ventas.nv_atributo_valor',
+                'clave' => ['nv_numero', 'cod'],
+                'campos' => [
+                    'nota_venta' => 'nv_numero:entero',
+                    'atributo' => 'cod:entero',
+                    'opcion' => 'opcion:entero',
+                    'fecha' => 'fecha:fecha',
+                    'texto' => 'texto',
+                ],
+                'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
+                    if ($ventana) {
+                        $q->where('nvFem', '>=', static::desdeHistoria());
+                    }
+                    static::soloSusVendedores($q, 'VenCod', $ctx);
+                },
+            ],
             'linea_origen' => [
                 'titulo' => 'Origen de las líneas',
                 'tabla' => 'ventas.linea_origen',

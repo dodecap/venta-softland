@@ -224,6 +224,11 @@ function redondear(n, decimales) {
 export function cuerpoDe(form) {
     return {
         cliente: form.cliente,
+        // Los campos que define la empresa en el ERP. Va el objeto entero,
+        // incluidos los vacíos: un atributo que se borra tiene que llegar como
+        // vacío, porque «no viene» y «viene en blanco» son cosas distintas —
+        // lo primero no toca nada y lo segundo borra lo que hubiera.
+        atributos: form.atributos ?? undefined,
         vendedor: form.vendedor || null,
         contacto: form.contacto || null,
         moneda: form.moneda || '01',

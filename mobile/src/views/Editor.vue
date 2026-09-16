@@ -6,6 +6,7 @@ import { db } from '../db';
 import { idb, normalizar } from '../idb';
 import { monto, nombre as nombreDe, opciones } from '../catalogos';
 import { calcularTotales, cuerpoDe, TIPOS } from '../documentos';
+import { definidos as atributosDefinidos, valoresDe, vacios } from '../atributos';
 import { conectado } from '../red';
 import { encolar, nuevoUuid } from '../pendientes';
 import { olvidarPdf } from '../pdf';
@@ -95,9 +96,22 @@ function vacio() {
         oc: '',
         observacion: '',
         descuento_pct: 0,
+        atributos: {},
         lineas: [],
     };
 }
+
+/*
+ * Los campos que la empresa definió en el ERP.
+ *
+ * Son de la nota de venta: es el maestro para el que Softland los declara. En
+ * una cotización no se piden porque allá no existen.
+ *
+ * Puede no haber ninguno —la lista queda vacía y la sección no se dibuja—, y
+ * puede haber siete. Nada de esto está escrito en el código: se lee de lo que
+ * bajó el teléfono.
+ */
+const atributos = ref([]);
 
 onMounted(cargar);
 
@@ -107,6 +121,11 @@ async function cargar() {
         const info = await db.getServidorInfo();
         ivaPct.value = Number(info?.iva_pct) || 19;
         uf.value = Number(info?.uf) || null;
+
+        if (tipo.value === 'nota_venta') {
+            atributos.value = await atributosDefinidos();
+            form.value.atributos = vacios(atributos.value);
+        }
 
         if (editando.value) {
             await cargarDocumento(numero.value);
@@ -145,10 +164,13 @@ async function cargarDocumento(num, copia = false) {
     // copiar uno de esos es de los casos buenos: volver a cotizarle a un
     // cliente lo mismo que en 2024 es escribir doce líneas a mano o traerse
     // las que ya existen. Hace falta señal, y si no la hay se dice.
+    let atributosTraidos = null;
+
     if (! doc && conectado.value) {
         const traido = await traerDelServidor(num);
         doc = traido?.doc ?? null;
         filas = traido?.lineas ?? [];
+        atributosTraidos = traido?.atributos ?? null;
     }
 
     if (! doc) {
@@ -178,6 +200,12 @@ async function cargarDocumento(num, copia = false) {
         oc: doc.oc && doc.oc !== '0' ? doc.oc : '',
         observacion: doc.observacion || '',
         descuento_pct: porcentajeDe(doc.descuento, filas),
+        // Los atributos se llevan también al duplicar: son el tipo de venta y
+        // el de contrato, y quien copia un documento copia esa venta.
+        atributos: {
+            ...vacios(atributos.value),
+            ...(tipo.value === 'nota_venta' ? (atributosTraidos ?? await valoresDe(num)) : {}),
+        },
         lineas: [],
     };
 
@@ -207,7 +235,14 @@ async function traerDelServidor(num) {
     try {
         const r = esNV.value ? await api.notaVenta(num) : await api.cotizacion(num);
 
-        return { doc: esNV.value ? r.nota_venta : r.cotizacion, lineas: r.lineas ?? [] };
+        // Los atributos vienen en la respuesta porque un documento traído del
+        // servidor **no pasa por IndexedDB**: es de hace años y no se guarda,
+        // así que leerlos del almacén no devolvería nada.
+        return {
+            doc: esNV.value ? r.nota_venta : r.cotizacion,
+            lineas: r.lineas ?? [],
+            atributos: r.atributos ?? null,
+        };
     } catch {
         return null;
     }
@@ -545,6 +580,41 @@ function cantidad(n) {
 
                 <label>Observación</label>
                 <textarea v-model="form.observacion" rows="2" placeholder="Lo que tiene que leer el cliente"></textarea>
+
+                <!-- Los campos que la empresa definió en el ERP.
+                     No hay ninguno escrito aquí: se dibuja lo que declare la
+                     base, con el control que pida su tipo. Si la empresa no
+                     define ninguno, esta sección no existe. -->
+                <template v-if="atributos.length">
+                    <div class="seccion"><h2>Datos de la venta</h2></div>
+
+                    <template v-for="a in atributos" :key="a.codigo">
+                        <label>{{ a.nombre }}</label>
+
+                        <select v-if="a.control === 'lista'" v-model="form.atributos[a.codigo]">
+                            <option value="">— sin elegir —</option>
+                            <option v-for="o in a.opciones" :key="o.codigo" :value="o.codigo">
+                                {{ o.nombre }}
+                            </option>
+                        </select>
+
+                        <input v-else-if="a.control === 'fecha'" type="date" class="angosto"
+                               v-model="form.atributos[a.codigo]">
+
+                        <select v-else-if="a.control === 'si_no'" v-model="form.atributos[a.codigo]">
+                            <option value="">— sin elegir —</option>
+                            <option value="Si">Sí</option>
+                            <option value="No">No</option>
+                        </select>
+
+                        <input v-else-if="a.control === 'numero'" type="number" inputmode="decimal"
+                               class="angosto" v-model="form.atributos[a.codigo]">
+
+                        <input v-else v-model="form.atributos[a.codigo]" maxlength="50">
+
+                        <p class="ayuda" v-if="a.descripcion">{{ a.descripcion }}</p>
+                    </template>
+                </template>
 
                 <div class="seccion">
                     <h2>Detalle</h2>

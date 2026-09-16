@@ -28,7 +28,7 @@ const NOMBRE = 'venta-softland';
 // La 2 agrega `motivos_perdida` y la 3 el almacén de PDF: la migración solo
 // crea los almacenes que falten, así que subir el número es todo lo que hace
 // falta.
-const VERSION = 7;
+const VERSION = 8;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -91,6 +91,22 @@ export const ALMACENES = {
         indices: { cliente: 'cliente', fecha: 'fecha', cotizacion: 'cotizacion' },
     },
     nota_venta_lineas: { clave: ['nota_venta', 'linea'], indices: { nota_venta: 'nota_venta' } },
+
+    /*
+     * Los campos que cada empresa define por su cuenta en el ERP.
+     *
+     * Tres almacenes porque son tres cosas: qué atributos hay, qué opciones
+     * tiene cada uno, y qué eligió cada nota de venta. **Puede no haber
+     * ninguno**: INNOVAGES declara cuatro, NETDOMAIN uno, y otra empresa
+     * ninguno. Lo que se dibuje sale de aquí, no de una lista escrita en el
+     * código.
+     */
+    nv_atributos: { clave: 'codigo' },
+    nv_atributo_opciones: { clave: ['atributo', 'codigo'], indices: { atributo: 'atributo' } },
+    nv_atributo_valores: {
+        clave: ['nota_venta', 'atributo'],
+        indices: { nota_venta: 'nota_venta' },
+    },
 
     /**
      * De qué línea de cotización salió cada línea de nota de venta.

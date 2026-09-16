@@ -98,6 +98,12 @@ abstract class DocumentoController extends Controller
             // venta nace de una. Sólo lo manda la conversión; una nota de venta
             // directa no lo lleva, y una línea agregada a mano tampoco.
             'lineas.*.cot_linea' => 'nullable|numeric|min:1',
+            // Los campos que cada empresa define por su cuenta en el ERP,
+            // mandados como «código del atributo => valor». Aquí no se puede
+            // validar más: cuántos hay, cómo se llaman y qué tipo tienen lo
+            // dice la base, y es distinto en cada empresa. `Ventas` los
+            // contrasta contra la definición antes de escribir nada.
+            'atributos' => 'nullable|array|max:50',
         ]);
 
         $data['vendedor'] = $this->vendedorDe($data, $request);

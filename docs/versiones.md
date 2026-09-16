@@ -42,6 +42,40 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.27.0 — Los atributos de la nota de venta, que los define cada empresa
+*2026-09-16*
+
+- **Softland tiene un mecanismo de campos definidos por la empresa**, y no lo
+  estábamos usando. Cada maestro puede llevar atributos declarados **en la
+  base**: la nota de venta es el `IdMaestro = 4`, y de ahí salen dos de las
+  líneas de la orden de compra al distribuidor — «TIPO DE VENTA» y la
+  «OBSERVACIÓN».
+- **No hay ningún atributo garantizado, y eso manda sobre el diseño.**
+  INNOVAGES declara cuatro y NETDOMAIN uno. Así que en ninguna parte del código
+  se nombra un atributo: el editor dibuja los que declare la base, con el
+  control que pida su tipo, y si la empresa no define ninguno la sección no
+  aparece.
+- **El tipo dice dónde vive el valor**: 4 es una lista y va a `...TVAtrT`, 3 es
+  fecha y va a `...TVAtrF`, 1 y 2 son número y sí/no y van a `...TVAtrV`. Está
+  comprobado mirando dónde acaban los valores de los nueve atributos definidos
+  entre las dos empresas, no leyendo documentación.
+- **Una vista en nuestro esquema** (`ventas.nv_atributo_valor`) une las tres
+  tablas de valores en la forma que el teléfono necesita. El esquema de Softland
+  no se toca ni para añadir una vista.
+- **Escribir un atributo es borrar y volver a poner.** La clave primaria admite
+  dos valores para el mismo atributo y Softland nunca lo usa así: insertar sin
+  borrar dejaría la nota de venta con dos «Tipo de Venta» y el papel eligiendo
+  uno al azar.
+- **Pero se comprueba antes de borrar.** El ensayo contra la 2036 destapó que
+  una opción inválida **borraba la que había**: el valor bueno se perdía por
+  mandar uno malo. Ahora un valor que no se puede escribir deja el atributo como
+  estaba.
+- **Al borrar la nota de venta no hay que limpiar nada**: lo hacen tres triggers
+  de Softland. Comprobado — no hay un solo valor huérfano en las dos empresas.
+- Todo ensayado contra la nota de venta 2036 real, dentro de una transacción que
+  se deshace: cambiar una lista, cambiar una fecha, borrar un atributo, y colar
+  un atributo y una opción que no existen.
+
 ### 0.26.1 — La ficha de la factura se lee como las demás
 *2026-09-16*
 

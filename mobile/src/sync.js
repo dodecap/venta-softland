@@ -70,7 +70,8 @@ export const GRUPOS = {
     // Las facturas van con la nota de venta porque su avance —«facturado 5 de
     // 12»— se calcula desde ellas: las columnas que Softland tiene para eso
     // están muertas.
-    notas_venta: ['notas_venta', 'nota_venta_lineas', 'linea_origen', 'facturas', 'factura_lineas', 'factura_referencias', 'dte_estado'],
+    notas_venta: ['notas_venta', 'nota_venta_lineas', 'linea_origen', 'nv_atributo_valores',
+        'facturas', 'factura_lineas', 'factura_referencias', 'dte_estado'],
     facturas: ['facturas', 'factura_lineas', 'factura_referencias', 'dte_estado'],
     clientes: ['clientes', 'contactos'],
     productos: ['productos', 'precios'],

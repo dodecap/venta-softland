@@ -139,8 +139,40 @@ class NotaVentaController extends DocumentoController
             'nota_venta' => $doc,
             'lineas' => $this->lineasDocumento($numero, false),
             'aprobacion' => $this->aprobacionDe($numero),
+            'atributos' => $this->atributosDe($numero),
             'fuera_de_ventana' => $this->fueraDeVentana($doc),
         ]);
+    }
+
+    /**
+     * Lo que vale cada atributo en esta nota de venta.
+     *
+     * Va en la ficha porque el teléfono no siempre la tiene descargada — una
+     * nota de venta traída del servidor por su número, fuera de los doce meses,
+     * no pasa por IndexedDB— y porque el editor los necesita para abrir con lo
+     * que hay puesto.
+     *
+     * Se devuelve **el valor, no su nombre**: quién es la opción 27 lo sabe el
+     * maestro de opciones, que el teléfono ya tiene.
+     *
+     * @return array<int, mixed>  código del atributo => opción, fecha o texto
+     */
+    private function atributosDe(int $numero): array
+    {
+        $filas = DB::connection('softland')->table('ventas.nv_atributo_valor')
+            ->where('nv_numero', $numero)->get();
+
+        $valores = [];
+
+        foreach ($filas as $f) {
+            $valores[(int) $f->cod] = match (true) {
+                $f->opcion !== null => (int) $f->opcion,
+                $f->fecha !== null => substr((string) $f->fecha, 0, 10),
+                default => (string) $f->texto,
+            };
+        }
+
+        return $valores;
     }
 
     /**
