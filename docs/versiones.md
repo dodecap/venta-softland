@@ -42,6 +42,25 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.22.0 — Mandar el documento al SII desde la app, y preguntar en qué quedó
+*2026-09-16*
+
+- **El envío al SII deja de ser un comando de consola.** Desde la ficha de la
+  nota de venta, cada factura tiene su estado y su acción: «Enviar al SII»
+  cuando no ha viajado, «Ver qué dijo el SII» cuando sí.
+- **Tres barreras**, comprobadas contra el servidor real: lo hace **facturación
+  o administración** —escribir la factura es del vendedor, mandarla al fisco es
+  un acto de la empresa—; no se manda dos veces, y el 409 nombra el `TrackID`
+  que ya tiene; y un documento anulado no se manda.
+- **Enviado y aceptado son distintos**, y se dicen distinto. Lo primero es que
+  viajó; lo segundo, que el SII lo miró y lo dio por bueno. El veredicto tarda
+  minutos, así que es una consulta aparte y no algo que se espere dentro del
+  envío.
+- Maestro `dte_estado`: la ficha dice «enviada» o «sin enviar» **sin señal**.
+  Preguntarle al SII sí la necesita, pero eso sólo pasa cuando alguien pregunta.
+- Sin señal o con el SII caído, la consulta devuelve lo guardado —que se mandó y
+  cuándo— en vez de un error: es la mitad de la respuesta y sirve igual.
+
 ### 0.21.1 — La nota de crédito sólo anula, y se comprueba que anule entera
 *2026-09-16*
 

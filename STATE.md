@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.21.1**
+2026-09-16 — versión **0.22.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1133,6 +1133,18 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       en `IW_GSaEn_RefDTE`, no en `AuxDocNum`.
 - [x] Comprobado contra la API: factura 235 → saldo 6, nota de crédito 16 →
       saldo 10, segunda nota de crédito rechazada. Sin gastar folio.
+
+### El envío al SII desde la app
+- [x] Cada factura de la ficha lleva su estado ante el SII y su acción: enviar
+      cuando no ha viajado, consultar cuando sí.
+- [x] **Tres barreras**: lo hace facturación o administración; no se manda dos
+      veces —el 409 nombra el `TrackID`—; y un documento anulado no se manda.
+- [x] **Enviado y aceptado se dicen distinto.** El veredicto tarda minutos, así
+      que preguntar es una acción aparte.
+- [x] Maestro `dte_estado`: la ficha lo dice sin señal. Sin red, la consulta
+      devuelve lo guardado en vez de un error.
+- [x] Comprobado contra el servidor real: 403 al vendedor, 409 sobre la factura
+      234 con su TrackID, y el SII contestó «EPR — Envio Procesado, aceptados 1».
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres

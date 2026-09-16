@@ -28,7 +28,7 @@ const NOMBRE = 'venta-softland';
 // La 2 agrega `motivos_perdida` y la 3 el almacén de PDF: la migración solo
 // crea los almacenes que falten, así que subir el número es todo lo que hace
 // falta.
-const VERSION = 6;
+const VERSION = 7;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -117,6 +117,11 @@ export const ALMACENES = {
     },
     factura_lineas: {
         clave: ['tipo', 'numero_interno', 'linea'],
+        indices: { documento: ['tipo', 'numero_interno'] },
+    },
+    /** En qué quedó cada documento con el SII: enviado, aceptado, su TrackID. */
+    dte_estado: {
+        clave: ['tipo_sii', 'folio'],
         indices: { documento: ['tipo', 'numero_interno'] },
     },
     /** Qué documento acredita cada nota de crédito. */

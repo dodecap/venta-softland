@@ -207,6 +207,12 @@ export const api = {
     emitirNotaCredito: (tipo, numeroInterno, razon) =>
         pedir(`/facturas/${tipo}/${numeroInterno}/nota-credito`, { method: 'POST', body: { razon } }),
 
+    // El SII. Mandarlo es lo más irreversible de la app; preguntar en qué quedó
+    // es una consulta aparte, porque el veredicto tarda minutos.
+    enviarAlSii: (tipo, numeroInterno) =>
+        pedir(`/facturas/${tipo}/${numeroInterno}/sii`, { method: 'POST', body: {} }),
+    estadoSii: (tipo, numeroInterno) => pedir(`/facturas/${tipo}/${numeroInterno}/sii`),
+
     // El papel. `compartido` es el acuse de que el documento salió por un
     // camino que el servidor no ve — WhatsApp, la impresora, el visor —, y
     // sirve para que la emisión guardada quede marcada como entregada.

@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario;
 use App\Services\Dte\Caf;
+use App\Services\Dte\Certificado;
+use App\Services\Dte\Emision;
 use App\Services\Dte\Facturacion;
 use App\Services\Dte\ReglasFactura;
+use App\Services\Dte\Sii;
 use App\Services\Dte\TipoDte;
 use App\Services\Softland\Saldo;
 use Illuminate\Http\Request;
@@ -283,6 +286,136 @@ class FacturaController extends Controller
             ->value('s.Folio');
 
         return $folioNc ? (int) $folioNc : null;
+    }
+
+    /**
+     * Manda el documento al SII.
+     *
+     * **Es lo más irreversible que hace la app.** Un documento escrito en
+     * inventario se corrige; uno que ya viajó al SII existe para el fisco, y el
+     * arreglo es una nota de crédito. De ahí las barreras, que no son ceremonia:
+     *
+     *  - **sólo facturación y administración**. Escribir la factura es trabajo
+     *    del vendedor; mandarla al SII es un acto tributario de la empresa, y
+     *    quien lo hace tiene que ser quien responde por él. Si el cliente
+     *    prefiere que el vendedor también pueda, se abre aquí en una línea.
+     *  - **no se manda dos veces**: si el folio ya tiene `TrackID`, se dice cuál
+     *    en vez de repetir el envío.
+     *  - el resto —certificado vencido, tipo que no va por este camino, folio que
+     *    no cuadra— lo para `Emision`, que es donde no lo puede esquivar nadie.
+     */
+    public function enviar(Request $request, string $tipo, int $numeroInterno)
+    {
+        $u = $this->usuario($request);
+
+        if (! $u->esRol('facturacion', 'admin')) {
+            return response()->json([
+                'message' => 'Mandar un documento al SII lo hace facturación o administración.',
+            ], 403);
+        }
+
+        $letra = strtoupper($tipo);
+        $doc = $this->documento($letra, $numeroInterno);
+
+        if (! $doc || ! $this->alcanza($request, $doc['documento']['vendedor'])) {
+            return response()->json(['message' => 'Ese documento no existe o no es tuyo.'], 404);
+        }
+
+        if ($doc['documento']['estado'] === 'N') {
+            return response()->json(['message' => 'Ese documento está anulado en el ERP.'], 409);
+        }
+
+        try {
+            $cert = Certificado::desdeConfiguracion();
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $emision = new Emision($cert);
+        $tipoDte = TipoDte::desdeSoftland($letra, $doc['documento']['subtipo']);
+
+        if ($tipoDte && $ya = $emision->seguimiento($tipoDte, $doc['documento']['folio'])) {
+            return response()->json([
+                'message' => "Este documento ya se mandó al SII: TrackID {$ya}.",
+                'track_id' => $ya,
+            ], 409);
+        }
+
+        try {
+            $r = $emision->emitir($letra, $numeroInterno);
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'track_id' => $r['trackId'],
+            'folio' => $r['folio'],
+            'glosa' => $r['glosa'],
+            'aviso' => $cert->avisaVencimiento(),
+            'documento' => $this->documento($letra, $numeroInterno)['documento'],
+        ], 201);
+    }
+
+    /**
+     * En qué quedó el envío.
+     *
+     * El veredicto tarda: recién mandado el SII contesta «en proceso», y eso no
+     * es un error sino que todavía no lo ha mirado. Por eso esto es una consulta
+     * aparte y no algo que se espere dentro del envío.
+     */
+    public function estadoSii(Request $request, string $tipo, int $numeroInterno)
+    {
+        $letra = strtoupper($tipo);
+        $doc = $this->documento($letra, $numeroInterno);
+
+        if (! $doc || ! $this->alcanza($request, $doc['documento']['vendedor'])) {
+            return response()->json(['message' => 'Ese documento no existe o no es tuyo.'], 404);
+        }
+
+        $seguimiento = DB::connection('softland')->table('softland.dte_doccab')
+            ->where('Tipo', $letra)->where('NroInt', $numeroInterno)
+            ->first(['TrackID', 'EnviadoSII', 'AceptadoSII', 'Motivo', 'FechaEnvioSII']);
+
+        $track = trim((string) ($seguimiento->TrackID ?? ''));
+
+        if ($track === '' || $track === '0') {
+            return response()->json([
+                'enviado' => false,
+                'message' => 'Este documento todavía no se ha mandado al SII.',
+            ]);
+        }
+
+        try {
+            $cert = Certificado::desdeConfiguracion();
+            $sii = new Sii($cert);
+            $rut = strtoupper(trim((string) DB::connection('softland')
+                ->table('softland.soempre')->value('RutEmisor')));
+
+            $envio = $sii->estadoEnvio($track, $rut);
+        } catch (Throwable $e) {
+            // Sin señal o con el SII caído, lo guardado sigue sirviendo: dice
+            // que se mandó y cuándo, que es la mitad de la pregunta.
+            return response()->json([
+                'enviado' => true,
+                'track_id' => $track,
+                'fecha_envio' => $seguimiento->FechaEnvioSII ?? null,
+                'motivo' => $seguimiento->Motivo ?? null,
+                'message' => 'No se pudo preguntarle al SII: '.$e->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'enviado' => true,
+            'track_id' => $track,
+            'fecha_envio' => $seguimiento->FechaEnvioSII ?? null,
+            'estado' => $envio['estado'],
+            'glosa' => $envio['glosa'],
+            'aceptados' => $envio['aceptados'],
+            'rechazados' => $envio['rechazados'],
+            'reparos' => $envio['reparos'],
+            // «EPR» es «envío procesado»: el SII terminó de mirarlo.
+            'resuelto' => in_array($envio['estado'], ['EPR', 'DOK'], true),
+        ]);
     }
 
     /** Un documento emitido, con su detalle. */

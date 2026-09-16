@@ -367,6 +367,11 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
 Desde la fase 4 la app emite el DTE. Lo que hay que saber antes de tocar nada de
 esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
 
+- **Mandar al SII lo hace facturación o administración, no el vendedor.**
+  Escribir la factura es trabajo del vendedor; mandarla al fisco es un acto
+  tributario de la empresa. Y **enviado no es aceptado**: lo primero es que
+  viajó, lo segundo que el SII lo miró, y el veredicto tarda minutos, así que
+  consultarlo es una acción aparte.
 - **La app llega hasta inventario y facturación, con el DTE emitido, y para
   ahí.** La centralización —contabilidad, registro de ventas, cuenta corriente
   del cliente— es un procedimiento aparte que se corre desde Softland, y no
@@ -435,7 +440,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.21.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.22.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

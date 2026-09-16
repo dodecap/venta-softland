@@ -519,6 +519,35 @@ ventas del emisor y le llega al receptor; si sale mal, se corrige con nota de
 crédito, no borrándolo. El primer envío tiene que ser una factura que INNOVAGES
 necesite emitir igual.
 
+### Desde la app
+
+El envío dejó de ser sólo un comando. En la ficha de la nota de venta cada
+factura lleva su estado ante el SII y su acción:
+
+| Estado | Qué se ofrece |
+|---|---|
+| Sin enviar | **Enviar al SII** |
+| Enviada | **Ver qué dijo el SII** |
+| Aceptada | lo mismo, y la etiqueta en verde |
+
+**Enviado y aceptado son distintos.** Lo primero es que viajó; lo segundo, que
+el SII lo miró y lo dio por bueno. El veredicto tarda minutos, así que preguntar
+es una acción aparte y no algo que se espere dentro del envío.
+
+Tres barreras, además de las que ya pone `Emision`:
+
+- **lo hace facturación o administración.** Escribir la factura es trabajo del
+  vendedor; mandarla al SII es un acto tributario de la empresa, y quien lo hace
+  tiene que ser quien responde por él. Si el cliente prefiere otra cosa, se abre
+  en una línea.
+- **no se manda dos veces**: si el folio ya tiene `TrackID`, se dice cuál.
+- **un documento anulado no se manda.**
+
+El estado guardado baja al teléfono (`dte_estado`, sobre `dte_doccab`), así que
+la ficha dice «enviada» o «sin enviar» sin señal. Preguntarle al SII sí la
+necesita; sin ella —o con el SII caído— la consulta devuelve lo guardado en vez
+de un error, que es la mitad de la respuesta y sirve igual.
+
 ## Lo que falta
 
 | Paso | Estado |
@@ -529,7 +558,7 @@ necesite emitir igual.
 | 3. Generar y firmar el XML | **hecho** — 209 documentos, firma idéntica |
 | 3b. Sobre, autenticación y consultas de estado | **hecho** — 210 sobres, firma idéntica |
 | 3c. El espejo del documento en `dte_doccab` / `dte_docdet` | pendiente |
-| 4. Subir un documento de verdad | pendiente — falta el primer envío |
+| 4. Subir un documento de verdad | pendiente — el camino está conectado a la app; falta el primer envío |
 | 5. Boleta por la API REST | bloqueado: faltan folios |
 
 **El bloqueo de la boleta es trámite, no código.** INNOVAGES no tiene CAF para

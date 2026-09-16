@@ -88,6 +88,12 @@ Route::middleware('auth.api')->group(function () {
         ->where('tipo', '[FB]')->whereNumber('numero');
     Route::post('/facturas/{tipo}/{numero}/nota-credito', [FacturaController::class, 'notaCredito'])
         ->where('tipo', '[FB]')->whereNumber('numero');
+    // Mandarlo al SII. Es lo más irreversible de la app: un documento escrito
+    // en inventario se corrige, uno que ya viajó existe para el fisco.
+    Route::post('/facturas/{tipo}/{numero}/sii', [FacturaController::class, 'enviar'])
+        ->where('tipo', '[FBN]')->whereNumber('numero');
+    Route::get('/facturas/{tipo}/{numero}/sii', [FacturaController::class, 'estadoSii'])
+        ->where('tipo', '[FBN]')->whereNumber('numero');
 
     Route::get('/notas-venta/aprobaciones', [NotaVentaController::class, 'pendientes']);
     Route::get('/notas-venta/{numero}', [NotaVentaController::class, 'show'])->whereNumber('numero');

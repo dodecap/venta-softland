@@ -51,6 +51,10 @@ const facturas = ref([]);
 const anulando = ref(null);
 const razonNc = ref('Anula Documento');
 
+/* El envío al SII: la hoja que confirma, y lo que el SII contestó. */
+const enviandoSii = ref(null);
+const estadoSii = ref(null);
+
 const error = ref('');
 const aviso = ref('');
 const trabajando = ref(false);
@@ -557,6 +561,41 @@ async function anularFactura() {
 }
 
 /**
+ * Mandar el documento al SII.
+ *
+ * Es lo más irreversible que hace la app: escrito en inventario un documento se
+ * corrige, enviado ya existe para el fisco. Lo hace facturación o
+ * administración; el servidor lo comprueba de todos modos, esto sólo evita
+ * enseñar un botón que iba a responder 403.
+ */
+async function enviarAlSii() {
+    const f = enviandoSii.value;
+
+    await conServidor(async () => {
+        const r = await api.enviarAlSii(f.tipo, f.numero_interno);
+
+        enviandoSii.value = null;
+        aviso.value = `Enviada al SII. TrackID ${r.track_id}. El veredicto tarda unos minutos.`;
+        await cargar();
+    });
+}
+
+/** En qué quedó el envío. Pregunta que se hace, no que se espera. */
+async function consultarSii(f) {
+    estadoSii.value = { cargando: true, folio: f.folio };
+
+    try {
+        estadoSii.value = { ...(await api.estadoSii(f.tipo, f.numero_interno)), folio: f.folio };
+    } catch (e) {
+        estadoSii.value = { folio: f.folio, message: e.message };
+    }
+}
+
+const puedeEnviarAlSii = computed(
+    () => !! usuario.value && (usuario.value.es_admin || usuario.value.rol === 'facturacion')
+);
+
+/**
  * Duplicar: abre el alta con este documento ya cargado.
  *
  * No se copia nada aquí ni se llama al servidor. La copia vive en el
@@ -724,12 +763,43 @@ function cantidad(n) {
                                     · <span class="etiqueta gris">Anulada con la NC Nº {{ f.acreditada }}</span>
                                 </span>
                                 <span v-else-if="f.anulada"> · <span class="etiqueta gris">Anulada</span></span>
-                                <span v-else-if="! f.enviado_sii"> · <span class="etiqueta cian">Sin enviar al SII</span></span>
+                                <!-- Enviado y aceptado son distintos: lo primero
+                                     es que viajó, lo segundo que el SII lo miró
+                                     y lo dio por bueno. -->
+                                <span v-if="f.aceptada"> · <span class="etiqueta verde">Aceptada por el SII</span></span>
+                                <span v-else-if="f.track_id"> · <span class="etiqueta gris">Enviada al SII</span></span>
+                                <span v-else> · <span class="etiqueta cian">Sin enviar al SII</span></span>
                             </div>
-                            <button class="boton-texto peligro" v-if="! f.anulada && ! f.acreditada"
-                                    :disabled="! conectado" @click.stop="anulando = f; razonNc = 'Anula Documento'">
-                                Anular con nota de crédito
-                            </button>
+
+                            <div class="acciones-doc" v-if="! f.anulada">
+                                <button class="chip-accion fuerte" v-if="! f.track_id && puedeEnviarAlSii"
+                                        :disabled="! conectado" @click.stop="enviandoSii = f">
+                                    <AppIcon name="compartir" :size="17" color="currentColor" /> Enviar al SII
+                                </button>
+                                <button class="chip-accion" v-if="f.track_id"
+                                        :disabled="! conectado" @click.stop="consultarSii(f)">
+                                    <AppIcon name="buzon" :size="17" color="currentColor" /> Ver qué dijo el SII
+                                </button>
+                                <button class="chip-accion peligro" v-if="! f.acreditada"
+                                        :disabled="! conectado"
+                                        @click.stop="anulando = f; razonNc = 'Anula Documento'">
+                                    <AppIcon name="anular" :size="17" color="currentColor" /> Anular
+                                </button>
+                            </div>
+
+                            <Aviso :tipo="estadoSii.resuelto ? 'ok' : 'info'"
+                                   v-if="estadoSii && estadoSii.folio === f.folio">
+                                <template v-if="estadoSii.cargando">Preguntándole al SII…</template>
+                                <template v-else-if="estadoSii.estado">
+                                    <b>{{ estadoSii.estado }}</b>
+                                    <span v-if="estadoSii.glosa"> — {{ estadoSii.glosa }}</span>
+                                    <span v-if="estadoSii.aceptados !== null">
+                                        · aceptados {{ estadoSii.aceptados }}, rechazados {{ estadoSii.rechazados }},
+                                        con reparos {{ estadoSii.reparos }}
+                                    </span>
+                                </template>
+                                <template v-else>{{ estadoSii.message }}</template>
+                            </Aviso>
                         </div>
                     </div>
                 </template>
@@ -941,6 +1011,35 @@ function cantidad(n) {
 
                     <button class="boton-texto peligro" v-if="anulable" @click="borrando = false; anular()">
                         Anular en vez de eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mandar al SII. La hoja dice lo que no se puede deshacer, porque es
+             exactamente lo que va a pasar. -->
+        <div class="velo" v-if="enviandoSii" @click.self="enviandoSii = null">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Enviar al SII la factura Nº {{ enviandoSii.folio }}</h2>
+                    <button class="icono-barra" @click="enviandoSii = null">
+                        <AppIcon name="cerrar" :size="21" />
+                    </button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <p class="ayuda">
+                        El documento viaja firmado al SII y, desde ese momento, existe para el
+                        fisco. <b>Esto no se deshace</b>: lo que salga mal se corrige con una nota
+                        de crédito.
+                    </p>
+                    <p class="ayuda">
+                        El veredicto tarda unos minutos. Después se consulta desde aquí mismo.
+                    </p>
+
+                    <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
+
+                    <button class="boton" :disabled="trabajando || ! conectado" @click="enviarAlSii">
+                        {{ trabajando ? 'Enviando…' : 'Enviar al SII' }}
                     </button>
                 </div>
             </div>

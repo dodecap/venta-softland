@@ -269,10 +269,17 @@ export async function facturadoDe(notaVenta) {
  * operación.
  */
 export async function facturasDe(notaVenta) {
-    const [documentos, referencias] = await Promise.all([
+    const [documentos, referencias, dte] = await Promise.all([
         idb.porIndice('facturas', 'nota_venta', Number(notaVenta)),
         idb.todos('factura_referencias'),
+        idb.todos('dte_estado'),
     ]);
+
+    // El estado ante el SII vive en otra tabla porque es otra cosa: un documento
+    // puede estar escrito en inventario y no haber viajado todavía.
+    const ante = new Map(
+        (dte || []).map((d) => [`${d.tipo}-${d.numero_interno}`, d])
+    );
 
     // Tipo del SII de cada tipo de Softland, que es como se referencian.
     const SII = { F: '33', B: '39', N: '61' };
@@ -294,9 +301,19 @@ export async function facturasDe(notaVenta) {
     return (documentos || [])
         .filter((d) => d.tipo !== 'N')
         .sort((a, b) => b.folio - a.folio)
-        .map((d) => ({
-            ...d,
-            anulada: (d.estado || '').trim().toUpperCase() === 'N',
-            acreditada: anula.get(`${SII[d.tipo]}-${d.folio}`) || null,
-        }));
+        .map((d) => {
+            const sii = ante.get(`${d.tipo}-${d.numero_interno}`);
+            const track = String(sii?.track_id || '').trim();
+
+            return {
+                ...d,
+                anulada: (d.estado || '').trim().toUpperCase() === 'N',
+                acreditada: anula.get(`${SII[d.tipo]}-${d.folio}`) || null,
+                // Enviado quiere decir que viajó, no que lo hayan aceptado: el
+                // veredicto tarda y es una pregunta aparte.
+                track_id: track && track !== '0' ? track : null,
+                aceptada: Number(sii?.aceptado || 0) === 1,
+                motivo_sii: sii?.motivo || null,
+            };
+        });
 }

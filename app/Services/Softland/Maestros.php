@@ -403,6 +403,48 @@ class Maestros
                 },
             ],
             /*
+             * En qué quedó cada documento con el SII.
+             *
+             * Vive en `dte_doccab`, aparte de `iw_gsaen`: un documento puede
+             * estar escrito en inventario y no haber viajado todavía. El
+             * `TrackID` es el número con que el SII lo identifica, y `Motivo`
+             * trae su veredicto en castellano —«DTE Recibido - Documento
+             * Recibido por el SII. Datos Coinciden con los Registrados»—.
+             *
+             * Baja al teléfono para que la ficha diga «enviada» o «sin enviar»
+             * sin señal. Preguntarle al SII sí la necesita, pero eso es otra
+             * pregunta y sólo se hace cuando alguien la hace.
+             */
+            'dte_estado' => [
+                'titulo' => 'Estado ante el SII',
+                'tabla' => 'softland.dte_doccab',
+                'clave' => ['TipoDTE', 'Folio'],
+                'campos' => [
+                    'tipo_sii' => 'TipoDTE:entero',
+                    'folio' => 'Folio:entero',
+                    'tipo' => 'Tipo',
+                    'numero_interno' => 'NroInt:entero',
+                    'track_id' => 'TrackID',
+                    'enviado' => 'EnviadoSII:entero',
+                    'aceptado' => 'AceptadoSII:entero',
+                    'fecha_envio' => 'FechaEnvioSII:fecha',
+                    'motivo' => 'Motivo',
+                ],
+                'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
+                    $q->whereExists(function ($s) use ($ctx, $ventana) {
+                        $s->selectRaw('1')->from('softland.iw_gsaen AS cab')
+                            ->whereColumn('cab.Tipo', 'dte_doccab.Tipo')
+                            ->whereColumn('cab.NroInt', 'dte_doccab.NroInt');
+
+                        if ($ventana) {
+                            $s->where('cab.Fecha', '>=', static::desdeHistoria());
+                        }
+
+                        static::soloSusVendedores($s, 'cab.CodVendedor', $ctx);
+                    });
+                },
+            ],
+            /*
              * Qué documento acredita o referencia cada factura y nota de crédito.
              *
              * Es la tabla donde **de verdad** se dice qué se acredita:
