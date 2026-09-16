@@ -32,6 +32,7 @@ class DteEnvia extends Command
         {nroint : Número interno del documento en iw_gsaen}
         {--confirmar : Manda de verdad. Sin esto solo se ensaya}
         {--guardar= : Escribe el sobre en un archivo, para mirarlo}
+        {--base= : Otra base de la instancia, para ensayar sin tocar producción}
         {--ambiente= : produccion | certificacion}';
 
     protected $description = 'Envía al SII un documento ya escrito en inventario y facturación';
@@ -49,7 +50,8 @@ class DteEnvia extends Command
             return self::FAILURE;
         }
 
-        $cab = DB::connection('softland')->table('softland.iw_gsaen')
+        $base = trim((string) $this->option('base')) ?: null;
+        $cab = DB::connection('softland')->table(($base ? "{$base}.softland" : 'softland').'.iw_gsaen')
             ->where('Tipo', $tipoSoftland)->where('NroInt', $nroInt)->first();
 
         if (! $cab) {
@@ -67,7 +69,7 @@ class DteEnvia extends Command
         }
 
         $ambiente = trim((string) $this->option('ambiente')) ?: (string) config('dte.ambiente');
-        $emision = new Emision($cert, $ambiente);
+        $emision = new Emision($cert, $ambiente, $base);
 
         $this->line("Documento:   <options=bold>{$tipo->nombre()} folio {$cab->Folio}</>  ({$cab->Tipo}/{$cab->NroInt})");
         $this->line('Fecha:       '.substr((string) $cab->Fecha, 0, 10));
@@ -75,6 +77,7 @@ class DteEnvia extends Command
         $this->line('Total:       $ '.number_format(abs((float) $cab->Total), 0, ',', '.'));
         $this->line("Quien firma: {$cert->sujeto} ({$cert->rut})");
         $this->line("Ambiente:    <options=bold>{$ambiente}</>");
+        $base && $this->warn("Base:        {$base} — ensayo, no es producción");
         $this->newLine();
 
         if ($ya = $emision->seguimiento($tipo, (int) $cab->Folio)) {
@@ -85,7 +88,7 @@ class DteEnvia extends Command
 
         // El ensayo arma y firma el sobre entero. Si algo falta, se sabe aquí.
         try {
-            $sobre = (new Sobre($cert))->armar([['tipo' => $tipoSoftland, 'nroInt' => $nroInt]]);
+            $sobre = (new Sobre($cert, $base))->armar([['tipo' => $tipoSoftland, 'nroInt' => $nroInt]]);
         } catch (Throwable $e) {
             $this->error('No se pudo armar el sobre: '.$e->getMessage());
 

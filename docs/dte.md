@@ -495,7 +495,29 @@ ancla para decidirlo es el resumen del documento, que viene en el propio archivo
 y es independiente de lo que se está midiendo.
 
 `dte:envia` sin `--confirmar` arma el sobre, lo enseña y para. Es un ensayo
-completo: se recorre todo el camino menos el último paso.
+completo: se recorre todo el camino menos el último paso. Con `--base=` el
+ensayo sale de la copia de pruebas, y entonces **crear el documento también es
+gratis**: es la única forma de ejercitar la cadena entera —escribir en
+`iw_gsaen`, pedir el folio, timbrar, armar el sobre y firmarlo— sobre un
+documento que no existía antes, que es justo lo que será el primer envío real.
+
+Ensayado así en `INNOVAGES_DTE`: el repartidor entregó el folio 235, el timbre
+valida contra la llave del CAF, los dos resúmenes coinciden con los escritos y
+el sobre es XML bien formado en ISO-8859-1. Producción no se tocó.
+
+### Cuántos folios quedan, que es un problema aparte
+
+De factura queda **uno solo, el 235**. El repartidor de Softland no reutiliza
+los huecos —hay 33 folios de rangos viejos sin rastro en ninguna tabla y no los
+vuelve a entregar—, así que emitir el 235 deja a INNOVAGES **sin folios de
+factura** hasta cargar un CAF nuevo. Conviene pedirlo *antes* del primer envío,
+no después.
+
+Y una cosa que conviene tener clara antes de emitir: **un DTE no se puede
+emitir «de prueba»**. Es un documento tributario real, queda en el registro de
+ventas del emisor y le llega al receptor; si sale mal, se corrige con nota de
+crédito, no borrándolo. El primer envío tiene que ser una factura que INNOVAGES
+necesite emitir igual.
 
 ## Lo que falta
 
