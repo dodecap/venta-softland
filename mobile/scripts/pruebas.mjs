@@ -374,4 +374,40 @@ es(sumarDias('2026-09-30', 1), '2026-10-01', 'cruza de mes');
 es(sumarDias('2026-12-31', 1), '2027-01-01', 'cruza de año');
 es(sumarDias('2026-09-16', -1), '2026-09-15', 'hacia atrás');
 
+
+/* ------------------------------------------------------------- facturado
+ *
+ * Lo emitido en el período. No es la continuación de lo vendido —aquí se
+ * factura por suscripción— pero es una cifra legítima por sí sola.
+ */
+const RANGO = { desde: '2026-09-01', hasta: '2026-09-30' };
+
+const facturasPrueba = [
+    { tipo: 'F', fecha: '2026-09-10', neto: 1000, exento: 0, estado: 'V', vendedor: '2' },
+    { tipo: 'F', fecha: '2026-09-20', neto: 500, exento: 200, estado: 'V', vendedor: '2' },
+    // La nota de crédito viene en negativo desde Softland y resta sola.
+    { tipo: 'N', fecha: '2026-09-25', neto: -300, exento: 0, estado: 'V', vendedor: '2' },
+    // Anulada: no se facturó nada.
+    { tipo: 'F', fecha: '2026-09-15', neto: 9999, exento: 0, estado: 'N', vendedor: '2' },
+    // De otro mes.
+    { tipo: 'F', fecha: '2026-08-15', neto: 7777, exento: 0, estado: 'V', vendedor: '2' },
+    // De otro vendedor.
+    { tipo: 'F', fecha: '2026-09-18', neto: 4444, exento: 0, estado: 'V', vendedor: '5' },
+];
+
+const conFacturas = calcular({
+    cotizaciones: [], notas: [], facturas: facturasPrueba, rango: RANGO, vendedores: ['2'],
+});
+
+es(conFacturas.facturado.monto, 1400, 'facturado: 1000 + 700 − 300, neto y sin lo ajeno');
+es(conFacturas.facturado.n, 3, 'cuenta los tres documentos vivos del período');
+
+const sinFiltro = calcular({
+    cotizaciones: [], notas: [], facturas: facturasPrueba, rango: RANGO, vendedores: null,
+});
+es(sinFiltro.facturado.monto, 5844, 'sin filtro de vendedor entra también la del otro');
+
+es(calcular({ cotizaciones: [], notas: [], rango: RANGO }).facturado.monto, 0,
+    'sin facturas la cifra es cero, no un error');
+
 console.log(`OK — ${hechas} comprobaciones`);

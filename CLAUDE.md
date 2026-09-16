@@ -143,7 +143,9 @@ conectada al ERP.
   `mobile/recursos/icono.png`, una sola, y
   `python3 mobile/scripts/icono-app.py` escribe las 26 imágenes que pide
   Android —los tres iconos en cinco densidades y las once pantallas de
-  arranque—. Nunca se editan los PNG de `mipmap-*` a mano.
+  arranque— **y el color de fondo**, que deduce de una esquina del archivo: si
+  es opaca el icono trae su propio fondo y ése se usa; si es transparente, va
+  blanco. Nunca se editan los PNG de `mipmap-*` a mano.
 - `npm run build` falla si aparece un emoji, una forma geométrica haciendo de
   icono o un import suelto de Lucide (`mobile/scripts/sin-emojis.mjs`). Para
   revisar sin compilar: `npm run iconos`.
@@ -379,7 +381,9 @@ de Softland que cambian las fórmulas. Tres que se olvidan:
 - **No hay metas en Softland.** Ninguna tabla. La meta es un dato de la app, y
   sin fila de meta el widget no aparece — no hay meta por defecto.
 - **Aquí se factura por suscripción**: una nota de venta genera varias facturas
-  a lo largo de meses. No se calcula «conversión NV → factura» en documentos.
+  a lo largo de meses. No se calcula «conversión NV → factura» en documentos, y
+  el embudo enseña lo facturado del período **sin flecha** desde lo vendido: la
+  flecha invita a restar, y esa resta no mide nada.
 - **El formato del dinero no toca el cálculo.** `mobile/src/dinero.js` recibe
   un número y devuelve un texto. `npm run pruebas` lo comprueba.
 - **Venta es la nota de venta aprobada o concluida.** La pendiente está escrita

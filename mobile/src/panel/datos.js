@@ -24,8 +24,8 @@ export async function panel({ rango, comparar = null, vendedores = null, hoy, vi
     ]);
 
     return {
-        actual: calcular({ cotizaciones, notas, rango, vendedores }),
-        anterior: comparar ? calcular({ cotizaciones, notas, rango: comparar, vendedores }) : null,
+        actual: calcular({ cotizaciones, notas, facturas, rango, vendedores }),
+        anterior: comparar ? calcular({ cotizaciones, notas, facturas, rango: comparar, vendedores }) : null,
         pendientes: pendientes({ cotizaciones, vendedores, hoy, vigencia }),
         // Los compromisos con el cliente: lo que hay que hacer hoy y lo que se
         // quedó sin hacer. Va aparte de `pendientes` porque responde a otra

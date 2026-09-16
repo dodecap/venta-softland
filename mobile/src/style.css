@@ -279,6 +279,10 @@ html.con-barra .contenido {
 
 /* Los tres contadores de compromisos del panel. Tres cifras grandes y nada
    más: es lo que se mira de un vistazo antes de salir a la calle. */
+/* El separador de las etapas que no encadenan. Una flecha diría que una sale
+   de la otra, y lo facturado no sale de lo vendido del mismo período. */
+.embudo .separador { color: var(--texto-suave); font-weight: 700; }
+
 .compromisos {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

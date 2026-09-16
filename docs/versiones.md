@@ -42,6 +42,29 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.31.0 — El icono nuevo, y lo facturado del período
+*2026-09-16*
+
+- **Icono nuevo**, y con él las 26 imágenes de Android y las 11 pantallas de
+  arranque, todas desde el mismo archivo.
+- **El fondo del icono se deduce del propio archivo.** El nuevo trae su fondo
+  negro y el anterior era un círculo sobre transparencia: puesto en la lámina
+  blanca de siempre habría aparecido un cuadrado negro flotando, en el lanzador
+  y en el arranque. Ahora el script mira una esquina — opaca, ése es el color;
+  transparente, blanco como siempre— y escribe también
+  `ic_launcher_background.xml`. Cambiar el icono y olvidar el color era un fallo
+  que no se ve en el repositorio: se ve en el teléfono de otro.
+- **El embudo ya muestra lo facturado del período.** Estaba apagado con un
+  «se factura por suscripción», y el motivo sigue siendo cierto — una nota de
+  venta genera facturas durante meses— pero la pregunta «¿cuánto facturé estos
+  días?» es legítima por sí sola.
+- **Va sin flecha desde «Vendido», a propósito.** La flecha dice que una etapa
+  sale de la otra, y restar vendido menos facturado no mide nada aquí. Se
+  separan con un punto y el panel lo explica donde se lee.
+- **Las notas de crédito restan solas**: Softland las guarda con el neto en
+  negativo — la 15 de INNOVAGES es −1.474.968—, así que sumarlas es netear. Un
+  facturado sin ellas es un facturado que el contador no reconocería.
+
 ### 0.30.0 — El compromiso con el cliente, y el calendario
 *2026-09-16*
 

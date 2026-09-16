@@ -109,7 +109,7 @@ function diasEntre(desde, hasta) {
  * el servidor le dejó ver, así que el filtro de aquí acota dentro de eso, no
  * abre nada.
  */
-export function calcular({ cotizaciones = [], notas = [], rango, vendedores = null }) {
+export function calcular({ cotizaciones = [], notas = [], facturas = [], rango, vendedores = null }) {
     const suyo = (f) => ! vendedores || vendedores.includes((f.vendedor || '').trim());
 
     const cot = cotizaciones.filter((f) => suyo(f) && est(f) !== ANULADO);
@@ -137,6 +137,22 @@ export function calcular({ cotizaciones = [], notas = [], rango, vendedores = nu
 
     const cotizado = agregar(cotPeriodo);
     const vendido = agregar(nvPeriodo);
+
+    /*
+     * Lo facturado en el período.
+     *
+     * **No es la continuación de lo vendido**, y por eso el panel lo dice con
+     * todas sus letras: aquí se factura por suscripción, así que una nota de
+     * venta de marzo genera facturas hasta diciembre. Restar «vendido menos
+     * facturado» no mide nada — son dos cortes distintos de la misma historia.
+     *
+     * Las notas de crédito entran y **restan solas**: Softland las guarda con
+     * el neto en negativo (la 15 de INNOVAGES es −1.474.968). Dejarlas fuera
+     * daría un facturado que el contador no reconocería.
+     */
+    const facturado = agregar(
+        facturas.filter((f) => suyo(f) && est(f) !== ANULADO && dentro(f, rango))
+    );
     const perdidas = agregar(cotPeriodo.filter((f) => est(f) === 'R'));
 
     // El cierre necesita la cotización de origen, que puede no estar bajada si
@@ -158,6 +174,7 @@ export function calcular({ cotizaciones = [], notas = [], rango, vendedores = nu
         rango,
         cotizado,
         vendido,
+        facturado,
         // Escrito y sin autorizar: no suma a la venta y por eso hay que verlo.
         esperando: agregar(nvEsperando),
         perdidas,

@@ -169,12 +169,14 @@ const iconoTendencia = (v) => (v.direccion === 'sube' ? 'sube' : v.direccion ===
 /**
  * Las tres etapas del embudo.
  *
- * La tercera sigue apagada, y ya no por falta de datos —las facturas se
- * sincronizan desde la 0.20.0—: **aquí se factura por suscripción**. Una nota de
- * venta genera varias facturas a lo largo de meses, así que «facturado» dentro
- * de un período no es la continuación de «vendido» en ese mismo período, y
- * ponerlos uno al lado del otro invitaría a restarlos. Cuando se mida, se mide
- * de otra forma.
+ * La tercera **no es la continuación de la segunda**, y eso hay que decirlo en
+ * la pantalla en vez de confiar en que se entienda: aquí se factura por
+ * suscripción, así que una nota de venta de marzo genera facturas hasta
+ * diciembre. «Vendido menos facturado» no mide nada.
+ *
+ * Por eso lleva su cifra —que es una pregunta legítima: cuánto se facturó en
+ * estos días— pero **sin flecha** desde «Vendido»: la flecha es lo que invita a
+ * restar.
  */
 const embudo = computed(() => {
     if (! m.value) return [];
@@ -182,7 +184,7 @@ const embudo = computed(() => {
     return [
         { id: 'cotizado', rotulo: 'Cotizado', ...m.value.actual.cotizado },
         { id: 'vendido', rotulo: 'Vendido', ...m.value.actual.vendido },
-        { id: 'facturado', rotulo: 'Facturado', sinFuente: 'Se factura por suscripción' },
+        { id: 'facturado', rotulo: 'Facturado', suelta: true, ...m.value.actual.facturado },
     ];
 });
 
@@ -669,7 +671,13 @@ const pct = computed(() => {
 
                 <div class="embudo">
                     <template v-for="(e, i) in embudo" :key="e.id">
-                        <AppIcon v-if="i" name="avanzar" :size="14" color="var(--borde)" class="flecha" />
+                        <!-- Flecha sólo donde una etapa lleva a la otra. Lo
+                             facturado no sale de lo vendido del mismo período,
+                             así que va separado por un punto y no por una
+                             flecha. -->
+                        <AppIcon v-if="i && ! e.suelta" name="avanzar" :size="14"
+                                 color="var(--borde)" class="flecha" />
+                        <span v-else-if="i" class="flecha separador">·</span>
                         <div class="etapa" :class="{ apagada: e.sinFuente }">
                             <div class="rotulo">{{ e.rotulo }}</div>
                             <div class="monto">{{ e.sinFuente ? SIN_DATO : dinero(e.monto) }}</div>
@@ -697,6 +705,10 @@ const pct = computed(() => {
                 <Persiana class="embudo-persiana">
                     <template #cabecera>Cómo leer este panel</template>
                     <div class="embudo-pie">
+                        <b>Facturado no sale de vendido.</b> Aquí se factura por suscripción: una
+                        nota de venta genera facturas durante meses, así que la cifra de facturado
+                        es lo emitido en estos días, venga de la venta que venga. Las notas de
+                        crédito ya van restadas.<br><br>
                         Todos los montos del panel van <b>netos</b>, sin IVA. En la lista y en
                         la ficha de cada documento sale el total que paga el cliente.
                         Y venta es la nota de venta <b>aprobada o concluida</b>: la que
