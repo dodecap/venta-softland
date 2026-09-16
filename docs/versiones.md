@@ -42,6 +42,25 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.26.1 — La ficha de la factura se lee como las demás
+*2026-09-16*
+
+- **La ficha de la factura quedó calcada de la cotización y la nota de venta**:
+  total grande con sus etiquetas, persiana que cerrada dice qué documento es y
+  de quién —«Factura Nº 235 — NETDOMAIN EIRL»— y abierta enseña el resto.
+- **Los botones suben.** Estaban debajo del detalle, así que había que recorrer
+  el documento entero para llegar a lo que uno venía a hacer.
+- **La tarjeta de «Nota de venta Nº 2065» era media pantalla para decir un
+  número.** Ahora es el renglón «Viene de» dentro de la persiana de totales, el
+  mismo sitio donde la nota de venta enseña su cotización de origen.
+- **El panel lista las cinco últimas facturas**, junto a cotizaciones y notas de
+  venta. Con dos cuidados: la fila se abre por tipo + número interno, porque el
+  folio sólo es único dentro de su tipo; y el estado que enseña es **el del
+  SII**, leído de su almacén y no de `FechaGenDTE`, que se escribe al timbrar —
+  antes de que el documento viaje.
+- Las notas de crédito no entran en esa lista: son el desenlace de una factura y
+  contarían dos veces la misma operación.
+
 ### 0.26.0 — El papel de la factura, con su timbre
 *2026-09-16*
 

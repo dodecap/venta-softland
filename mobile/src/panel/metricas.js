@@ -185,11 +185,14 @@ export function calcular({ cotizaciones = [], notas = [], rango, vendedores = nu
  */
 export function ultimos(filas, { vendedores = null, cuantos = 5 } = {}) {
     const suyo = (f) => ! vendedores || vendedores.includes((f.vendedor || '').trim());
+    // La cotización y la nota de venta se numeran con `numero`; la factura, con
+    // `folio`. Es el mismo correlativo que sólo sube, y sirve igual para
+    // desempatar dentro del día.
+    const n = (f) => Number(f.numero ?? f.folio ?? 0);
 
     return filas
         .filter(suyo)
-        .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || ''))
-            || Number(b.numero) - Number(a.numero))
+        .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')) || n(b) - n(a))
         .slice(0, cuantos);
 }
 

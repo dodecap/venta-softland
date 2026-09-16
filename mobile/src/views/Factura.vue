@@ -12,6 +12,7 @@ import { compartirPdf, verPdf } from '../pdf';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
+import Persiana from '../components/Persiana.vue';
 
 /*
  * La ficha de un documento emitido.
@@ -223,6 +224,57 @@ function cantidad(n) {
             <Aviso tipo="ok" v-if="aviso">{{ aviso }}</Aviso>
 
             <template v-if="doc">
+                <!-- El total y las etiquetas, como en la cotización y en la
+                     nota de venta: es lo que se mira primero y es lo que se le
+                     dice al cliente por teléfono. -->
+                <div class="ficha">
+                    <h2>{{ monto(Math.abs(doc.total), doc.moneda) }}</h2>
+                    <div class="etiquetas">
+                        <span class="etiqueta" :class="leerEstadoSii(doc).color">
+                            {{ leerEstadoSii(doc).rotulo }}
+                        </span>
+                        <span class="etiqueta gris">{{ fecha(doc.fecha) }}</span>
+                        <span class="etiqueta gris" v-if="anulada || doc.acreditada">Anulada</span>
+                    </div>
+                </div>
+
+                <!-- Cerrada enseña lo que se busca —qué documento es y de quién
+                     es—, y el resto se despliega. Es la misma persiana del
+                     cliente en la cotización: los datos están en el teléfono, y
+                     ocupar la pantalla con ellos empuja el detalle fuera de la
+                     vista. -->
+                <Persiana class="cliente-persiana">
+                    <template #cabecera>
+                        <span class="cliente-nombre">
+                            {{ TIPO[tipo] }} Nº {{ doc.folio }} — {{ cliente?.nombre || doc.cliente }}
+                        </span>
+                    </template>
+                    <div class="tarjeta-cuerpo datos">
+                        <div v-if="cliente?.rut"><span>RUT</span><b>{{ cliente.rut }}</b></div>
+                        <div v-if="cliente?.direccion"><span>Dirección</span><b>{{ cliente.direccion }}</b></div>
+                        <div><span>Fecha</span><b>{{ fecha(doc.fecha) }}</b></div>
+                        <div><span>Ante el SII</span><b>{{ leerEstadoSii(doc).rotulo }}</b></div>
+                        <div v-if="doc.track_id"><span>TrackID</span><b>{{ doc.track_id }}</b></div>
+                        <div v-if="doc.vendedor">
+                            <span>Vendedor</span><b>{{ nombreDe('vendedores', doc.vendedor) }}</b>
+                        </div>
+                        <div v-if="doc.centro_costo">
+                            <span>Centro de costo</span><b>{{ doc.centro_costo }}</b>
+                        </div>
+                        <div v-if="doc.condicion">
+                            <span>Condición</span><b>{{ nombreDe('condiciones', doc.condicion) }}</b>
+                        </div>
+                        <div v-if="doc.glosa"><span>Glosa</span><b>{{ doc.glosa }}</b></div>
+                        <div v-if="doc.anula_a">
+                            <span>Anula</span><b>la factura Nº {{ doc.anula_a }}</b>
+                        </div>
+                    </div>
+                    <button class="enlace cliente-ficha" v-if="cliente"
+                            @click="router.push(`/clientes/${cliente.codigo}`)">
+                        Ver ficha del cliente
+                    </button>
+                </Persiana>
+
                 <!-- Lo primero, en qué quedó con el fisco. Un documento escrito
                      y sin enviar no existe para el SII, y eso pesa más que
                      cualquier dato del encabezado. -->
@@ -250,62 +302,9 @@ function cantidad(n) {
                     Este documento está anulado en el ERP.
                 </Aviso>
 
-                <div class="tarjeta">
-                    <div class="tarjeta-cabecera">{{ TIPO[tipo] }} Nº {{ doc.folio }}</div>
-                    <div class="tarjeta-cuerpo datos">
-                        <div><span>Cliente</span><b>{{ cliente?.nombre || doc.cliente }}</b></div>
-                        <div v-if="cliente?.rut"><span>RUT</span><b>{{ cliente.rut }}</b></div>
-                        <div><span>Fecha</span><b>{{ fecha(doc.fecha) }}</b></div>
-                        <div><span>Ante el SII</span><b>{{ leerEstadoSii(doc).rotulo }}</b></div>
-                        <div v-if="doc.vendedor">
-                            <span>Vendedor</span><b>{{ nombreDe('vendedores', doc.vendedor) }}</b>
-                        </div>
-                        <div v-if="doc.centro_costo">
-                            <span>Centro de costo</span><b>{{ doc.centro_costo }}</b>
-                        </div>
-                        <div v-if="doc.glosa"><span>Glosa</span><b>{{ doc.glosa }}</b></div>
-                        <div v-if="doc.anula_a">
-                            <span>Anula</span><b>la factura Nº {{ doc.anula_a }}</b>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- La nota de venta de la que salió, si salió de alguna. Es la
-                     vuelta atrás: de la factura al documento que la pidió. -->
-                <button class="item" v-if="doc.nota_venta" @click="router.push(`/notas-venta/${doc.nota_venta}`)">
-                    <div class="item-estado cian"></div>
-                    <div class="item-cuerpo">
-                        <div class="item-titulo">Nota de venta Nº {{ doc.nota_venta }}</div>
-                        <div class="item-meta">De aquí salió este documento.</div>
-                    </div>
-                </button>
-
-                <div class="seccion"><h2>Detalle</h2></div>
-
-                <div class="linea-doc" v-for="l in lineas" :key="l.linea">
-                    <div class="linea-cabecera">
-                        <div>
-                            <div class="item-titulo">{{ l.detalle || l.producto }}</div>
-                            <div class="item-meta">
-                                <span class="etiqueta gris">{{ l.producto }}</span>
-                                <span> · {{ cantidad(l.cantidad) }} {{ nombreDe('unidades', l.unidad) }}
-                                    × {{ monto(l.precio, doc.moneda) }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="linea-total">{{ monto(l.total, doc.moneda) }}</div>
-                </div>
-
-                <div class="tarjeta">
-                    <div class="tarjeta-cabecera">Totales</div>
-                    <div class="tarjeta-cuerpo datos">
-                        <div><span>Neto afecto</span><b>{{ monto(doc.neto, doc.moneda) }}</b></div>
-                        <div v-if="doc.exento"><span>Exento</span><b>{{ monto(doc.exento, doc.moneda) }}</b></div>
-                        <div><span>IVA</span><b>{{ monto(doc.iva, doc.moneda) }}</b></div>
-                        <div class="fuerte"><span>Total</span><b>{{ monto(doc.total, doc.moneda) }}</b></div>
-                    </div>
-                </div>
-
+                <!-- Todo lo que se puede hacer con el documento, arriba y en
+                     una sola fila que se desplaza. Abajo obligaba a recorrer el
+                     detalle entero para llegar a lo que se venía a hacer. -->
                 <div class="acciones-doc">
                     <button class="chip-accion" :disabled="trabajando" @click="abrirPdf">
                         <AppIcon name="pdf" :size="17" color="currentColor" /> Ver el papel
@@ -333,10 +332,6 @@ function cantidad(n) {
                     Sin señal se puede leer, no actuar: enviar al SII y anular hablan con el
                     servidor.
                 </p>
-                <p class="ayuda" v-else-if="! doc.track_id && ! anulada && ! puedeEnviarAlSii">
-                    Mandarla al SII lo hace facturación o administración: escribir el documento es
-                    trabajo del vendedor, mandarlo al fisco es un acto tributario de la empresa.
-                </p>
 
                 <Aviso :tipo="estadoSii?.resuelto ? 'ok' : 'info'" v-if="estadoSii">
                     <template v-if="estadoSii.cargando">Preguntándole al SII…</template>
@@ -350,6 +345,50 @@ function cantidad(n) {
                     </template>
                     <template v-else>{{ estadoSii.message }}</template>
                 </Aviso>
+
+                <!-- Totales y procedencia, en persiana y **encima** del
+                     detalle: es donde los tienen la cotización y la nota de
+                     venta. La tarjeta grande que decía «Nota de venta Nº 2065»
+                     ocupaba media pantalla para decir un número; aquí es un
+                     renglón, igual que el «Viene de» de la nota de venta. -->
+                <div class="tarjeta datos-persiana">
+                    <Persiana>
+                        <template #cabecera>
+                            Total <b>{{ monto(Math.abs(doc.total), doc.moneda) }}</b>
+                        </template>
+                        <div class="tarjeta-cuerpo datos">
+                            <div><span>Neto afecto</span><b>{{ monto(Math.abs(doc.neto), doc.moneda) }}</b></div>
+                            <div v-if="doc.exento">
+                                <span>Exento</span><b>{{ monto(Math.abs(doc.exento), doc.moneda) }}</b>
+                            </div>
+                            <div><span>IVA</span><b>{{ monto(Math.abs(doc.iva), doc.moneda) }}</b></div>
+                            <div class="fuerte">
+                                <span>Total</span><b>{{ monto(Math.abs(doc.total), doc.moneda) }}</b>
+                            </div>
+                            <div v-if="doc.nota_venta"><span>Viene de</span>
+                                <b><button class="enlace" @click="router.push(`/notas-venta/${doc.nota_venta}`)">
+                                    Nota de venta {{ doc.nota_venta }}</button></b>
+                            </div>
+                        </div>
+                    </Persiana>
+                </div>
+
+                <div class="seccion"><h2>Detalle</h2></div>
+
+                <div class="linea-doc" v-for="l in lineas" :key="l.linea">
+                    <div class="linea-cabecera">
+                        <div>
+                            <div class="item-titulo">{{ l.detalle || l.producto }}</div>
+                            <div class="item-meta">
+                                <span class="etiqueta gris">{{ l.producto }}</span>
+                                <span> · {{ cantidad(l.cantidad) }} {{ nombreDe('unidades', l.unidad) }}
+                                    × {{ monto(l.precio, doc.moneda) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="linea-total">{{ monto(l.total, doc.moneda) }}</div>
+                </div>
+
             </template>
         </div>
 

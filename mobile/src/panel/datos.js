@@ -1,7 +1,7 @@
 /*
  * De dónde saca el panel sus números: de IndexedDB, no del servidor.
  *
- * Dos lecturas completas por apertura. Son 185 cotizaciones y 51 notas de
+ * Tres lecturas completas por apertura. Son 185 cotizaciones y 51 notas de
  * venta de doce meses; leerlas enteras y filtrar en memoria es más rápido que
  * abrir cuatro cursores por índice, y sobre todo es lo que funciona sin señal.
  *
@@ -9,12 +9,17 @@
  */
 
 import { idb } from '../idb';
+import { facturasEmitidas } from '../saldo';
 import { calcular, pendientes, ultimos } from './metricas';
 
 export async function panel({ rango, comparar = null, vendedores = null, hoy, vigencia = 30, recientes = 5 }) {
-    const [cotizaciones, notas] = await Promise.all([
+    const [cotizaciones, notas, facturas] = await Promise.all([
         idb.todos('cotizaciones'),
         idb.todos('notas_venta'),
+        // Marcadas, no en crudo: el estado que importa de una factura es el
+        // del SII, y ése vive en otro almacén. `enviado_sii` de la fila no
+        // sirve — se escribe al timbrar, antes de que el documento viaje.
+        facturasEmitidas(),
     ]);
 
     return {
@@ -26,6 +31,13 @@ export async function panel({ rango, comparar = null, vendedores = null, hoy, vi
         recientes: {
             cotizaciones: ultimos(cotizaciones, { vendedores, cuantos: recientes }),
             notas: ultimos(notas, { vendedores, cuantos: recientes }),
+            // Las notas de crédito no entran: son el desenlace de una factura,
+            // y en una lista de «lo último que pasó» harían aparecer dos veces
+            // la misma operación.
+            facturas: ultimos(
+                (facturas || []).filter((f) => f.tipo !== 'N'),
+                { vendedores, cuantos: recientes },
+            ),
         },
     };
 }

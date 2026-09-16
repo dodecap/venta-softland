@@ -12,7 +12,7 @@ import { enviarPendientes, contarPendientes, porEnviar } from '../pendientes';
 import { dias, diferenciaDias, dinero, porcentaje, puntos, variacion, SIN_DATO } from '../dinero';
 import { PERIODOS, POR_DEFECTO, anterior, dia, rango } from '../panel/periodo';
 import { panel } from '../panel/datos';
-import { estado as estadoDoc } from '../documentos';
+import { estado as estadoDoc, estadoSii } from '../documentos';
 import { idb } from '../idb';
 import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
@@ -237,8 +237,32 @@ const recientes = computed(() => {
     return [
         { id: 'cotizacion', tipo: 'cotizacion', titulo: 'Cotizaciones', ruta: '/cotizaciones', icono: 'cotizacion', filas: r.cotizaciones },
         { id: 'nota_venta', tipo: 'nota_venta', titulo: 'Notas de venta', ruta: '/notas-venta', icono: 'notaVenta', filas: r.notas },
+        // La factura se numera por folio y se abre por tipo + número interno:
+        // el folio es único dentro de su tipo y nada más, así que no sirve de
+        // dirección. Y su estado es **el del SII**, que es la pregunta que se
+        // hace uno mirando una factura recién emitida.
+        { id: 'factura', tipo: 'factura', titulo: 'Facturas', ruta: '/facturas', icono: 'factura', filas: r.facturas ?? [] },
     ];
 });
+
+/** Cómo se llama y cómo se abre cada fila, que no es igual en los tres grupos. */
+function filaReciente(grupo, d) {
+    if (grupo.tipo !== 'factura') {
+        return {
+            clave: `${grupo.id}-${d.numero}`,
+            numero: d.numero,
+            ruta: `${grupo.ruta}/${d.numero}`,
+            ...estadoDoc(grupo.tipo, d.estado),
+        };
+    }
+
+    return {
+        clave: `${grupo.id}-${d.tipo}-${d.numero_interno}`,
+        numero: d.folio,
+        ruta: `${grupo.ruta}/${d.tipo}/${d.numero_interno}`,
+        ...estadoSii(d),
+    };
+}
 
 /**
  * El nombre del cliente, que en el documento sólo está su código.
@@ -675,21 +699,22 @@ const pct = computed(() => {
 
                     <Vacio v-if="!g.filas.length" :icono="g.icono" :titulo="`Sin ${g.titulo.toLowerCase()}`" />
 
-                    <button class="fila-reciente" v-for="d in g.filas" :key="d.numero"
-                            @click="router.push(`${g.ruta}/${d.numero}`)">
-                        <span class="franja" :class="estadoDoc(g.tipo, d.estado).color"></span>
-                        <span class="texto">
-                            <span class="linea">
-                                <b>Nº {{ d.numero }}</b>
-                                <small>{{ fechaCorta(d.fecha) }}</small>
+                    <template v-for="d in g.filas" :key="filaReciente(g, d).clave">
+                        <button class="fila-reciente" @click="router.push(filaReciente(g, d).ruta)">
+                            <span class="franja" :class="filaReciente(g, d).color"></span>
+                            <span class="texto">
+                                <span class="linea">
+                                    <b>Nº {{ filaReciente(g, d).numero }}</b>
+                                    <small>{{ fechaCorta(d.fecha) }}</small>
+                                </span>
+                                <small class="quien">{{ nombresCliente[d.cliente] || d.cliente }}</small>
                             </span>
-                            <small class="quien">{{ nombresCliente[d.cliente] || d.cliente }}</small>
-                        </span>
-                        <span class="cifra">
-                            <b>{{ monto(d.total, d.moneda) }}</b>
-                            <small>{{ estadoDoc(g.tipo, d.estado).rotulo }}</small>
-                        </span>
-                    </button>
+                            <span class="cifra">
+                                <b>{{ monto(d.total, d.moneda) }}</b>
+                                <small>{{ filaReciente(g, d).rotulo }}</small>
+                            </span>
+                        </button>
+                    </template>
                 </div>
             </template>
 
