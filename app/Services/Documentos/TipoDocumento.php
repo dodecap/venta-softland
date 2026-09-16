@@ -84,13 +84,53 @@ enum TipoDocumento: string
             self::ORDEN_SERVICIO, self::COMPROBANTE_COBRANZA => [
                 'cliente', 'detalle', 'totales', 'notas', 'vendedor',
             ],
-            // Los legales: el bloque `timbre` y `referencias` llegan con la fase 4.
+            // Los legales llevan su propia lista y su propia hoja: lo que se
+            // dibuja aquí es la **representación impresa** de un DTE, y su
+            // forma no la elegimos nosotros. Sigue siendo una lista de bloques,
+            // así que la boleta no copia plantilla: repite bloques.
             self::FACTURA, self::BOLETA, self::NOTA_CREDITO => [
-                'cliente', 'detalle', 'totales', 'condiciones', 'referencias',
+                'receptor', 'referencias', 'detalle_dte', 'cierre_dte', 'acuse',
             ],
             self::GUIA_DESPACHO => [
                 'cliente', 'detalle', 'despacho', 'transporte',
             ],
+        };
+    }
+
+    /**
+     * Sobre qué hoja se dibuja.
+     *
+     * Los comerciales van en `base`, la hoja de la casa. Los legales van en
+     * `dte`, que reproduce la representación impresa que el SII y la costumbre
+     * dan por buena — recuadro rojo con el folio, timbre abajo a la izquierda,
+     * acuse de recibo al pie— y que es la que el cliente reconoce, porque es la
+     * que le llega desde hace años.
+     */
+    public function plantilla(): string
+    {
+        return $this->emiteDte() ? 'dte' : 'base';
+    }
+
+    /**
+     * El tamaño del papel.
+     *
+     * Carta en los legales, y no es un capricho: es el tamaño en que Softland
+     * los viene imprimiendo, y el papel que hay en la impresora de la oficina.
+     */
+    public function papel(): string
+    {
+        return $this->emiteDte() ? 'letter' : 'a4';
+    }
+
+    /** El código del SII, que es como se nombra el documento en el papel. */
+    public function codigoSii(): ?int
+    {
+        return match ($this) {
+            self::FACTURA => 33,
+            self::BOLETA => 39,
+            self::GUIA_DESPACHO => 52,
+            self::NOTA_CREDITO => 61,
+            default => null,
         };
     }
 

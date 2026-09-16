@@ -45,6 +45,18 @@ class Motor
     }
 
     /**
+     * El paginado del DTE no lo pone el motor.
+     *
+     * En la hoja legal el pie está ocupado por el acuse de recibo, que es texto
+     * de ley y no se mueve. El «Página 1 de 3» va dentro del recuadro del
+     * folio, escrito por la propia plantilla.
+     */
+    private function llevaPaginado(string $papel): bool
+    {
+        return $papel !== 'letter';
+    }
+
+    /**
      * Dibuja a partir de un contexto ya armado.
      *
      * Separado de `pdf()` porque quien guarda la emisión necesita **el mismo**
@@ -53,13 +65,13 @@ class Motor
      */
     public function renderizar(array $contexto): string
     {
-        return $this->dibujar($this->htmlDe($contexto));
+        return $this->dibujar($this->htmlDe($contexto), $contexto['tipo']->papel());
     }
 
     /** El HTML de un contexto ya armado. Es lo que define el documento. */
     public function htmlDe(array $contexto): string
     {
-        return View::make('documentos.base', $contexto)->render();
+        return View::make('documentos.'.$contexto['tipo']->plantilla(), $contexto)->render();
     }
 
     /**
@@ -68,7 +80,7 @@ class Motor
      * Público porque quien guarda la emisión necesita dibujar **exactamente el
      * HTML al que le tomó la huella**, no uno equivalente generado otra vez.
      */
-    public function dibujar(string $html): string
+    public function dibujar(string $html, string $papel = 'a4'): string
     {
         $opciones = new Options;
         // Sin acceso a la red: el PDF se arma con lo que hay en el HTML y nada
@@ -77,11 +89,13 @@ class Motor
         $opciones->set('defaultFont', 'DejaVu Sans');   // la que trae acentos y «ñ»
 
         $dompdf = new Dompdf($opciones);
-        $dompdf->setPaper('a4');
+        $dompdf->setPaper($papel);
         $dompdf->loadHtml($html, 'UTF-8');
         $dompdf->render();
 
-        $this->paginar($dompdf);
+        if ($this->llevaPaginado($papel)) {
+            $this->paginar($dompdf);
+        }
 
         return $dompdf->output();
     }

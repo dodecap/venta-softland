@@ -53,6 +53,25 @@ enum TipoDte: int
     }
 
     /**
+     * Cómo se nombra un código del SII, venga de donde venga.
+     *
+     * Existe para el papel: en una referencia el tipo llega como número —«33»,
+     * «61»— y escribirlo así en un documento que lee el cliente no dice nada.
+     * Los que no son nuestros —la guía, la orden de compra— también aparecen en
+     * las referencias, así que se nombran igual.
+     */
+    public static function nombreSii(int $codigo): string
+    {
+        return self::tryFrom($codigo)?->nombre() ?? match ($codigo) {
+            52 => 'Guía de despacho electrónica',
+            56 => 'Nota de débito electrónica',
+            801 => 'Orden de compra',
+            802 => 'Nota de pedido',
+            default => 'Documento '.$codigo,
+        };
+    }
+
+    /**
      * La pareja con la que Softland lo guarda en `iw_gsaen`: `Tipo` y
      * `SubTipoDocto`. Sale de `dte_siitdoc`.
      *

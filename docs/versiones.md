@@ -42,6 +42,42 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.26.0 — El papel de la factura, con su timbre
+*2026-09-16*
+
+- **La factura, la boleta y la nota de crédito salen en PDF**, reproduciendo la
+  representación impresa que el cliente lleva años recibiendo desde Softland:
+  recuadro rojo con el folio, caja del receptor, rejilla de 27 renglones, timbre
+  abajo a la izquierda, totales y «Son:» a la derecha, y el acuse de recibo de
+  la ley 19.983 al pie.
+- **El timbre es de verdad y está comprobado.** Se dibuja el PDF417 del TED
+  guardado, y la comprobación no fue mirar el papel: se extrajo el código de
+  barras del PDF que generamos y se decodificó. Devuelve **los mismos 777 bytes**
+  que el que Softland imprimió en la factura 234. No se parece: dice lo mismo.
+- **El timbre no se regenera nunca.** Sale de `dte_doccab.FirmaDTE`, que es donde
+  quedó el que viajó al SII. Uno nuevo sería válido y distinto, y un papel que no
+  dice lo mismo que el XML es un papel que no cuadra.
+- **Carta, no A4**, que es el papel en que Softland los imprime. El tamaño pasa a
+  ser un dato del tipo documental, como los bloques.
+- La hoja legal es **otra hoja, no otro motor**: el tipo sigue declarando sus
+  bloques y la plantilla los recorre. La rejilla parte la lista en dos —lo que va
+  antes se dibuja en la primera página, lo que va después en la última—, sacado
+  del orden declarado y no de una lista de nombres escrita en la hoja.
+- **Pagina de verdad**: con 40 líneas salen dos hojas, la segunda sigue en el
+  renglón 28 y el cierre va sólo en la última. Comprobado.
+- **El «Son:»** se escribe en letras con sus trampas resueltas —«cien» a solas y
+  «ciento uno» acompañado, «veintiún mil» y no «veintiuno mil», el millón con
+  plural y el mil sin él—, y nueve pruebas lo fijan. La primera comprueba el
+  monto exacto de la factura 234, letra por letra.
+- **La oficina del SII y la resolución las tiene Softland** (`soempre.Ciud`,
+  `DTENumeroResol`, `DTEFechaResol`): no hay nada que configurar el día uno, y se
+  pueden corregir en Identidad como el resto.
+- El pie dice **«FACTURA ELECTRÓNICA CREADA POR INNOVAGES»**, no por Softland:
+  este papel no lo crea Softland.
+- Desde la ficha del documento se abre y se manda al cliente por la hoja de
+  compartir, igual que la cotización. Y se guarda en el teléfono, así que la
+  segunda vez se abre sin señal.
+
 ### 0.25.0 — Emitir y enviar son un solo acto, con cola a los dos lados
 *2026-09-16*
 

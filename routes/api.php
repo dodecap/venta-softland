@@ -95,6 +95,10 @@ Route::middleware('auth.api')->group(function () {
         ->where('tipo', '[FBN]')->whereNumber('numero');
     Route::get('/facturas/{tipo}/{numero}/sii', [FacturaController::class, 'estadoSii'])
         ->where('tipo', '[FBN]')->whereNumber('numero');
+    // El papel, que no es el documento: el documento es el XML que aceptó el
+    // SII y esto es lo que se le entrega al cliente para que lo lea.
+    Route::get('/facturas/{tipo}/{numero}/pdf', [FacturaController::class, 'pdf'])
+        ->where('tipo', '[FBN]')->whereNumber('numero');
 
     Route::get('/notas-venta/aprobaciones', [NotaVentaController::class, 'pendientes']);
     Route::get('/notas-venta/{numero}', [NotaVentaController::class, 'show'])->whereNumber('numero');

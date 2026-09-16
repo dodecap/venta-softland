@@ -295,6 +295,24 @@ que hay que saber antes de tocar nada de esto:
   Android, no por un enlace: la dirección del servidor no existe fuera de la
   oficina.
 
+### El papel del documento legal
+
+La factura, la boleta y la nota de crédito salen por el mismo motor, en su
+propia hoja (`documentos/dte.blade.php`). Lo que hay que saber:
+
+- **El papel no es el documento.** El documento es el XML firmado que aceptó el
+  SII; esto es lo que se le entrega al cliente para que lo lea.
+- **El timbre sale de `dte_doccab.FirmaDTE` y no se regenera nunca.** Lleva
+  dentro la hora en que se timbró: uno nuevo sería válido y **distinto**, y un
+  papel que no dice lo mismo que el XML no cuadra. Se comprobó decodificando el
+  PDF417 de nuestro PDF: mismos 777 bytes que el de Softland.
+- **Carta, no A4.** El tamaño es un dato del tipo documental, como los bloques.
+- **La rejilla es de 27 renglones y se dibuja entera**, vacíos incluidos: en un
+  documento tributario el renglón vacío con su raya dice «aquí no se añadió nada
+  después».
+- **El pie no lleva paginado**: ese sitio es del acuse de recibo de la ley
+  19.983, que es texto de ley. El «Página 2 de 2» va bajo el recuadro del folio.
+
 ## El panel de control
 
 El panel comercial se está rediseñando. Lo que hay que saber antes de tocar

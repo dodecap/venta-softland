@@ -39,6 +39,10 @@ class Identidad
         'direccion', 'comuna', 'ciudad', 'fono', 'email', 'web',
         'color', 'condiciones_comerciales', 'datos_bancarios',
         'pie_documento', 'vigencia_cotizacion_dias', 'modelo_negocio',
+        // Lo que sale en el papel legal. Softland ya lo tiene todo —la oficina
+        // del SII es la ciudad del contribuyente, y la resolución está en
+        // `soempre`—, así que normalmente no hay nada que escribir aquí.
+        'sii_oficina', 'sii_resolucion', 'sii_resolucion_anio',
     ];
 
     /** Índigo corporativo de Softland, el mismo de la app. */
@@ -117,6 +121,13 @@ class Identidad
             'pie_documento' => '',
             'vigencia_cotizacion_dias' => '30',
             'modelo_negocio' => 'MIXTO',
+            // «S.I.I. - LOS ANGELES»: la oficina que fiscaliza, que es la
+            // ciudad del domicilio tributario.
+            'sii_oficina' => $t($e->Ciud ?? ''),
+            // «Res.Nº 80 de 2014»: la resolución que autorizó a la empresa a
+            // emitir documentos electrónicos.
+            'sii_resolucion' => $t($e->DTENumeroResol ?? ''),
+            'sii_resolucion_anio' => substr($t($e->DTEFechaResol ?? ''), 0, 4),
         ];
     }
 

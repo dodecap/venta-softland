@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Documentos\Emision as EmisionPapel;
+use App\Services\Documentos\TipoDocumento;
 use App\Services\Dte\Caf;
+use App\Services\Dte\CodigoBarras;
 use App\Services\Dte\Certificado;
 use App\Services\Dte\Emision;
 use App\Services\Dte\Facturacion;
 use App\Services\Dte\ReglasFactura;
 use App\Services\Dte\Sii;
 use App\Services\Dte\TipoDte;
+use App\Services\Softland\Maestros;
 use App\Services\Softland\Saldo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +48,7 @@ class FacturaController extends Controller
         private Facturacion $facturacion,
         private Saldo $saldo,
         private ReglasFactura $reglas,
+        private Maestros $maestros,
     ) {}
 
     /**
@@ -484,6 +489,185 @@ class FacturaController extends Controller
             'reparos' => $envio['reparos'],
             'resuelto' => $resuelto,
         ]);
+    }
+
+    /**
+     * El papel: la representación impresa del documento electrónico.
+     *
+     * **No es el documento.** El documento es el XML firmado que aceptó el SII;
+     * esto es lo que se le entrega al cliente para que lo lea. De ahí que el
+     * timbre salga de `dte_doccab.FirmaDTE` y no se vuelva a calcular: tiene
+     * que decir exactamente lo mismo que lo que viajó.
+     *
+     * Se versiona como la cotización: lo entregado al cliente no se toca, y
+     * corregir crea la siguiente versión.
+     */
+    public function pdf(Request $request, string $tipo, int $numeroInterno)
+    {
+        $letra = strtoupper($tipo);
+        $doc = $this->documento($letra, $numeroInterno);
+
+        if (! $doc || ! $this->alcanza($request, $doc['documento']['vendedor'])) {
+            return response()->json(['message' => 'Ese documento no existe o no es tuyo.'], 404);
+        }
+
+        $tipoDoc = match ($letra) {
+            'F' => TipoDocumento::FACTURA,
+            'B' => TipoDocumento::BOLETA,
+            'N' => TipoDocumento::NOTA_CREDITO,
+            default => null,
+        };
+
+        if (! $tipoDoc) {
+            return response()->json(['message' => 'Ese tipo de documento no se imprime desde aquí.'], 422);
+        }
+
+        try {
+            $r = app(EmisionPapel::class)->emitir(
+                $tipoDoc,
+                (int) $doc['documento']['folio'],
+                $this->contextoPapel($doc),
+                $this->usuario($request),
+            );
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response($r['pdf'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$tipoDoc->archivo((int) $doc['documento']['folio']).'"',
+            'X-Version-Documento' => $r['version'],
+        ]);
+    }
+
+    /**
+     * Todo lo que el papel necesita y el documento no trae.
+     *
+     * Se resuelve aquí de una vez: una plantilla que consulta se dibuja distinto
+     * cada vez, y la emisión guarda exactamente esto — si faltara un dato,
+     * faltaría también en el archivo histórico.
+     */
+    private function contextoPapel(array $doc): array
+    {
+        $conn = DB::connection('softland');
+        $t = fn ($v) => trim((string) ($v ?? ''));
+        $cab = $doc['documento'];
+
+        $cliente = $this->maestros->uno('clientes', ['CodAux' => $cab['cliente']]) ?? [];
+
+        $nombres = $conn->table('softland.iw_tprod')
+            ->whereIn('CodProd', array_column($doc['lineas'], 'producto'))
+            ->pluck('DesProd', 'CodProd')
+            ->mapWithKeys(fn ($n, $c) => [trim($c) => trim((string) $n)])->all();
+
+        $moneda = $conn->table('softland.cwtmone')
+            ->where('CodMon', $cab['moneda'] ?: '01')->first(['SimMon', 'DesMon']);
+
+        return [
+            'documento' => $cab + [
+                'creado' => $conn->table('softland.iw_gsaen')
+                    ->where('Tipo', $cab['tipo'])->where('NroInt', $cab['numero_interno'])
+                    ->value('FecHoraCreacion'),
+                'descuento' => 0,
+            ],
+            'lineas' => $doc['lineas'],
+            'cliente' => $cliente,
+            'nombres' => $nombres,
+            'timbre' => $this->timbreDe($cab),
+            'referencias' => $this->referenciasDe($cab),
+            'moneda_simbolo' => $t($moneda->SimMon ?? '') ?: '$',
+            'moneda_nombre' => $t($moneda->DesMon ?? '') ?: 'pesos chilenos',
+            // En letras va el nombre de la moneda, no su símbolo: «SON:
+            // DOSCIENTOS SESENTA Y DOS MIL … PESOS».
+            // En plural, que es como se dice un monto: «… Y NUEVE PESOS». El
+            // maestro guarda el singular —«PESO CHILENO»— y escribirlo tal cual
+            // dejaba el papel diciendo «NUEVE PESO CHILENO».
+            'moneda_palabra' => ($cab['moneda'] ?: '01') === '01'
+                ? 'PESOS'
+                : mb_strtoupper($t($moneda->DesMon ?? '') ?: 'PESOS', 'UTF-8'),
+            'giro_cliente' => $t($conn->table('softland.cwtgiro')
+                ->where('GirCod', $cliente['giro'] ?? '')->value('GirDes')),
+            'comuna_cliente' => $t($conn->table('softland.cwtcomu')
+                ->where('ComCod', $cliente['comuna'] ?? '')->value('ComDes')),
+            'ciudad_cliente' => $t($conn->table('softland.cwtciud')
+                ->where('CiuCod', $cliente['ciudad'] ?? '')->value('CiuDes')),
+            'condicion' => $t($conn->table('softland.cwtconv')
+                ->where('CveCod', $cab['condicion'])->value('CveDes')),
+            'vendedor' => [
+                'codigo' => $cab['vendedor'],
+                'nombre' => $t($conn->table('softland.cwtvend')
+                    ->where('VenCod', $cab['vendedor'])->value('VenDes')),
+            ],
+            'iva_pct' => $this->porcentajeIva($cab),
+        ];
+    }
+
+    /**
+     * El timbre que se imprime, sacado de donde quedó guardado el que viajó.
+     *
+     * Nunca se regenera: el TED lleva dentro la hora en que se timbró y la
+     * firma del CAF sobre ella. Uno nuevo sería válido y **distinto**, y un
+     * papel que no dice lo mismo que el XML es un papel que no cuadra.
+     *
+     * Vacío cuando el documento todavía no se ha preparado. El papel lo dice.
+     */
+    private function timbreDe(array $cab): ?string
+    {
+        $ted = DB::connection('softland')->table('softland.dte_doccab')
+            ->where('Tipo', $cab['tipo'])->where('NroInt', $cab['numero_interno'])
+            ->value('FirmaDTE');
+
+        return trim((string) $ted) === '' ? null : CodigoBarras::timbre($ted);
+    }
+
+    /**
+     * Los documentos de los que éste viene, en palabras.
+     *
+     * La nota de venta se nombra como la nombra Softland en su papel —«Nota de
+     * Pedido»— porque es lo que el cliente lleva años leyendo. Y la referencia
+     * al documento que se anula sale de `IW_GSaEn_RefDTE`, que es donde de
+     * verdad se dice qué se acredita.
+     *
+     * @return list<string>
+     */
+    private function referenciasDe(array $cab): array
+    {
+        $lista = [];
+
+        $refs = DB::connection('softland')->table('softland.IW_GSaEn_RefDTE')
+            ->where('Tipo', $cab['tipo'])->where('NroInt', $cab['numero_interno'])
+            ->orderBy('LineaRef')->get();
+
+        foreach ($refs as $r) {
+            // La glosa es el rótulo que Softland imprime —«Nota de
+            // Pedido/Hes/Has»— y el folio va detrás. Cuando no hay glosa se
+            // nombra el tipo del SII, que para eso está.
+            $glosa = trim((string) ($r->Glosa ?? '')) ?: TipoDte::nombreSii((int) $r->CodRefSII);
+            $lista[] = trim($glosa.' '.$r->FolioRef);
+        }
+
+        // La nota de venta sólo se nombra si no vino ya como referencia del
+        // DTE: Softland la escribe ahí con el código 802, y decirla dos veces
+        // en el mismo renglón es exactamente lo que parece, un error.
+        if ($lista === [] && (int) $cab['nota_venta'] > 0) {
+            $lista[] = 'Nota de Pedido '.$cab['nota_venta'];
+        }
+
+        return $lista;
+    }
+
+    /**
+     * El porcentaje de IVA que llevó este documento.
+     *
+     * Se deduce de sus propios montos y no del maestro: el papel de una factura
+     * de hace dos años tiene que imprimir el IVA de entonces, no el de hoy.
+     */
+    private function porcentajeIva(array $cab): int
+    {
+        $neto = abs((float) $cab['neto']);
+        $iva = abs((float) $cab['iva']);
+
+        return $neto > 0 && $iva > 0 ? (int) round($iva * 100 / $neto) : 19;
     }
 
     /**

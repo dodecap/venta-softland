@@ -37,6 +37,43 @@ import { conectado } from './red';
 /** Cuántos PDF se guardan. A unos 60 KB cada uno, el tope son ~3 MB. */
 const TOPE = 50;
 
+/**
+ * Los documentos que tienen papel, y cómo se pide cada uno.
+ *
+ * Los comerciales se piden por su número, que es el que ve todo el mundo. Los
+ * legales se piden por su **número interno**, que es la clave en Softland: el
+ * folio se enseña, pero no identifica el documento en la API — es único dentro
+ * de su tipo y nada más. Por eso llevan `etiqueta`, que es lo que sale en el
+ * nombre del archivo y en el mensaje: el folio.
+ */
+const TIPOS = {
+    cotizacion: {
+        rotulo: 'Cotización',
+        archivo: 'cotizacion',
+        pedir: (n) => api.pdfCotizacion(n),
+    },
+    nota_venta: {
+        rotulo: 'Nota de venta',
+        archivo: 'nota-de-venta',
+        pedir: (n) => api.pdfNotaVenta(n),
+    },
+    factura: {
+        rotulo: 'Factura',
+        archivo: 'factura',
+        pedir: (n) => api.pdfFactura('F', n),
+    },
+    boleta: {
+        rotulo: 'Boleta',
+        archivo: 'boleta',
+        pedir: (n) => api.pdfFactura('B', n),
+    },
+    nota_credito: {
+        rotulo: 'Nota de crédito',
+        archivo: 'nota-de-credito',
+        pedir: (n) => api.pdfFactura('N', n),
+    },
+};
+
 const nativo = Capacitor.isNativePlatform();
 
 function clave(tipo, numero) {
@@ -63,9 +100,7 @@ export async function pdfDe(tipo, numero, { refrescar = false } = {}) {
         throw new Error('El documento todavía no está descargado y no hay conexión.');
     }
 
-    const { bytes, version } = tipo === 'cotizacion'
-        ? await api.pdfCotizacion(numero)
-        : await api.pdfNotaVenta(numero);
+    const { bytes, version } = await TIPOS[tipo].pedir(numero);
 
     await idb.guardar('pdfs', [{
         clave: clave(tipo, numero),
@@ -90,8 +125,8 @@ export async function olvidarPdf(tipo, numero) {
     await idb.borrar('pdfs', clave(tipo, numero));
 }
 
-export function nombreArchivo(tipo, numero) {
-    return (tipo === 'cotizacion' ? 'cotizacion' : 'nota-de-venta') + '-' + numero + '.pdf';
+export function nombreArchivo(tipo, numero, etiqueta = null) {
+    return TIPOS[tipo].archivo + '-' + (etiqueta ?? numero) + '.pdf';
 }
 
 /**
@@ -103,6 +138,7 @@ export function nombreArchivo(tipo, numero) {
  */
 export async function verPdf(tipo, numero, opciones = {}) {
     const bytes = await pdfDe(tipo, numero, opciones);
+    const etiqueta = opciones.etiqueta ?? null;
 
     if (! nativo) {
         const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
@@ -113,9 +149,9 @@ export async function verPdf(tipo, numero, opciones = {}) {
         return;
     }
 
-    const { uri } = await escribir(tipo, numero, bytes);
+    const { uri } = await escribir(tipo, numero, bytes, etiqueta);
     await Share.share({
-        title: rotulo(tipo, numero),
+        title: rotulo(tipo, numero, etiqueta),
         files: [uri],
     });
 }
@@ -128,7 +164,7 @@ export async function verPdf(tipo, numero, opciones = {}) {
  * la hoja de compartir del sistema, donde él elige el chat. No hay forma de
  * hacer las dos cosas en una sola llamada.
  */
-export async function compartirPdf(tipo, numero, { cliente, total, moneda } = {}) {
+export async function compartirPdf(tipo, numero, { cliente, total, moneda, etiqueta = null } = {}) {
     const bytes = await pdfDe(tipo, numero);
 
     if (! nativo) {
@@ -137,19 +173,19 @@ export async function compartirPdf(tipo, numero, { cliente, total, moneda } = {}
         const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
         const a = document.createElement('a');
         a.href = url;
-        a.download = nombreArchivo(tipo, numero);
+        a.download = nombreArchivo(tipo, numero, etiqueta);
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
         return { compartido: false, motivo: 'navegador' };
     }
 
-    const { uri } = await escribir(tipo, numero, bytes);
+    const { uri } = await escribir(tipo, numero, bytes, etiqueta);
 
     await Share.share({
-        title: rotulo(tipo, numero),
-        text: mensaje(tipo, numero, { cliente, total, moneda }),
+        title: rotulo(tipo, numero, etiqueta),
+        text: mensaje(tipo, numero, { cliente, total, moneda, etiqueta }),
         files: [uri],
-        dialogTitle: 'Enviar ' + rotulo(tipo, numero).toLowerCase(),
+        dialogTitle: 'Enviar ' + rotulo(tipo, numero, etiqueta).toLowerCase(),
     });
 
     return { compartido: true };
@@ -162,12 +198,12 @@ export async function compartirPdf(tipo, numero, { cliente, total, moneda } = {}
  * quien está en la puerta de una empresa con el cliente esperando no redacta un
  * saludo, manda el archivo pelado y queda como un correo automático.
  */
-function mensaje(tipo, numero, { cliente, total, moneda } = {}) {
+function mensaje(tipo, numero, { cliente, total, moneda, etiqueta = null } = {}) {
     const lineas = [];
 
     lineas.push(cliente ? `Estimados ${cliente}:` : 'Estimados:');
     lineas.push('');
-    lineas.push(`Adjunto ${rotulo(tipo, numero).toLowerCase()}.`);
+    lineas.push(`Adjunto ${rotulo(tipo, numero, etiqueta).toLowerCase()}.`);
 
     if (total) {
         lineas.push(`Total: ${moneda || '$'} ${Number(total).toLocaleString('es-CL')}`);
@@ -178,8 +214,8 @@ function mensaje(tipo, numero, { cliente, total, moneda } = {}) {
     return lineas.join('\n');
 }
 
-function rotulo(tipo, numero) {
-    return (tipo === 'cotizacion' ? 'Cotización' : 'Nota de venta') + ' N° ' + numero;
+function rotulo(tipo, numero, etiqueta = null) {
+    return TIPOS[tipo].rotulo + ' N° ' + (etiqueta ?? numero);
 }
 
 /**
@@ -189,9 +225,9 @@ function rotulo(tipo, numero) {
  * cuando necesita espacio, y no ensucia la carpeta de documentos del teléfono
  * con una copia por cada vez que el vendedor mandó la misma cotización.
  */
-async function escribir(tipo, numero, bytes) {
+async function escribir(tipo, numero, bytes, etiqueta = null) {
     return Filesystem.writeFile({
-        path: nombreArchivo(tipo, numero),
+        path: nombreArchivo(tipo, numero, etiqueta),
         data: base64(bytes),
         directory: Directory.Cache,
     });

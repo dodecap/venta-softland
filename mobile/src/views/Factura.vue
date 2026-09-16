@@ -8,6 +8,7 @@ import { monto, fecha, nombre as nombreDe } from '../catalogos';
 import { estadoSii as leerEstadoSii } from '../documentos';
 import { facturasEmitidas } from '../saldo';
 import { nuevoUuid } from '../pendientes';
+import { compartirPdf, verPdf } from '../pdf';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
@@ -160,6 +161,49 @@ async function anular() {
     }
 }
 
+/*
+ * El papel.
+ *
+ * No es el documento —el documento es el XML que aceptó el SII— sino lo que se
+ * le entrega al cliente para que lo lea. Lo dibuja el servidor y el teléfono
+ * guarda los bytes, así que la segunda vez se abre sin señal.
+ *
+ * El tipo que entiende `pdf.js` no es la letra de Softland: son nombres, y la
+ * etiqueta es el folio, que es lo que el cliente busca en su correo.
+ */
+const TIPO_PAPEL = { F: 'factura', B: 'boleta', N: 'nota_credito' };
+
+async function abrirPdf() {
+    trabajando.value = true;
+    error.value = '';
+
+    try {
+        await verPdf(TIPO_PAPEL[tipo.value], numeroInterno.value, { etiqueta: doc.value.folio });
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        trabajando.value = false;
+    }
+}
+
+async function compartir() {
+    trabajando.value = true;
+    error.value = '';
+
+    try {
+        await compartirPdf(TIPO_PAPEL[tipo.value], numeroInterno.value, {
+            etiqueta: doc.value.folio,
+            cliente: cliente.value?.nombre,
+            total: Math.abs(Number(doc.value.total || 0)),
+            moneda: doc.value.moneda,
+        });
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        trabajando.value = false;
+    }
+}
+
 function cantidad(n) {
     return Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: 2 });
 }
@@ -263,6 +307,12 @@ function cantidad(n) {
                 </div>
 
                 <div class="acciones-doc">
+                    <button class="chip-accion" :disabled="trabajando" @click="abrirPdf">
+                        <AppIcon name="pdf" :size="17" color="currentColor" /> Ver el papel
+                    </button>
+                    <button class="chip-accion" :disabled="trabajando" @click="compartir">
+                        <AppIcon name="compartir" :size="17" color="currentColor" /> Enviar al cliente
+                    </button>
                     <button class="chip-accion fuerte" v-if="! doc.track_id && ! anulada && puedeEnviarAlSii"
                             :disabled="! conectado || trabajando" @click="enviando = true">
                         <AppIcon name="compartir" :size="17" color="currentColor" /> Enviar al SII

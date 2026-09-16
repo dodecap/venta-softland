@@ -224,6 +224,9 @@ export const api = {
     // sirve para que la emisión guardada quede marcada como entregada.
     pdfCotizacion: (numero) => pedirPdf(`/cotizaciones/${numero}/pdf`),
     pdfNotaVenta: (numero) => pedirPdf(`/notas-venta/${numero}/pdf`),
+    // El papel del documento legal, por su número interno: el folio se enseña
+    // pero no identifica —es único dentro de su tipo y nada más—.
+    pdfFactura: (tipo, numeroInterno) => pedirPdf(`/facturas/${tipo}/${numeroInterno}/pdf`),
     marcarCompartido: (tipo, numero, canal) => pedir(
         `/${tipo === 'cotizacion' ? 'cotizaciones' : 'notas-venta'}/${numero}/compartido`,
         { method: 'POST', body: { canal } },
