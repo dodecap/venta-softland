@@ -60,4 +60,11 @@ Falta anotar qué trae la versión en docs/versiones.md, y después:
 
     git commit -am "$titulo"
     git tag -a v$nueva -m "$titulo"
+
+Y volver a desplegar y a compilar, **en este orden**: los dos leen VERSION,
+así que un despliegue anterior al cambio deja el servidor en la versión
+vieja y Cuenta avisando de un desfase que sólo existe por eso.
+
+    bin/deploy.sh
+    bash mobile/build-apk.sh
 FIN

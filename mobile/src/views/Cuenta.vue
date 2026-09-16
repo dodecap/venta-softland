@@ -58,7 +58,34 @@ onMounted(async () => {
     servidor.value = await db.getServidor();
     info.value = await db.getServidorInfo();
     await refrescar();
+    await refrescarVersionServidor();
 });
+
+/**
+ * La versión del servidor, preguntada ahora.
+ *
+ * Se guardaba **sólo al iniciar sesión**, así que esta pantalla enseñaba la foto
+ * del día en que el vendedor entró: después de cualquier despliegue decía que la
+ * app y el servidor no coincidían aunque coincidieran, y tapaba los desfases de
+ * verdad. Un aviso que se equivoca es peor que no tenerlo, porque enseña a no
+ * hacerle caso.
+ *
+ * Sin señal se queda con lo guardado, que es lo último que se supo.
+ */
+async function refrescarVersionServidor() {
+    if (! conectado.value) return;
+
+    try {
+        const r = await api.ping();
+
+        if (! r?.version) return;
+
+        info.value = { ...(info.value || {}), version: r.version };
+        await db.setServidorInfo(info.value);
+    } catch {
+        // El servidor no contesta: lo guardado sigue siendo lo último que se supo.
+    }
+}
 
 async function refrescar() {
     registros.value = await contarRegistros();

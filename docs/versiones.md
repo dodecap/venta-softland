@@ -42,6 +42,19 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.23.1 — La versión del servidor se pregunta, no se recuerda del login
+*2026-09-16*
+
+- **Cuenta enseñaba la versión del servidor del día en que el vendedor entró.**
+  Se guardaba sólo en el login, así que después de cualquier despliegue decía
+  que la app y el servidor no coincidían aunque coincidieran — y tapaba los
+  desfases de verdad. Un aviso que se equivoca es peor que no tenerlo, porque
+  enseña a no hacerle caso. Ahora se pregunta al abrir la pantalla; sin señal se
+  queda con lo último que se supo.
+- **`bin/version.sh` recuerda volver a desplegar y compilar.** Los dos leen
+  `VERSION`, así que un despliegue anterior al cambio deja el servidor atrás — que
+  es exactamente lo que había pasado dos veces seguidas.
+
 ### 0.23.0 — Factura sin nota de venta, desde el teléfono
 *2026-09-16*
 
