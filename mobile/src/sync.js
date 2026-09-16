@@ -64,8 +64,10 @@ let enCurso = null;
  * detalle se queda con los precios de la semana pasada.
  */
 export const GRUPOS = {
-    cotizaciones: ['cotizaciones', 'cotizacion_lineas'],
-    notas_venta: ['notas_venta', 'nota_venta_lineas'],
+    // `linea_origen` va con las dos: dice qué se llevó cada nota de venta de su
+    // cotización, así que lo necesitan la ficha de una y la lista de la otra.
+    cotizaciones: ['cotizaciones', 'cotizacion_lineas', 'linea_origen', 'notas_venta'],
+    notas_venta: ['notas_venta', 'nota_venta_lineas', 'linea_origen'],
     clientes: ['clientes', 'contactos'],
     productos: ['productos', 'precios'],
 };

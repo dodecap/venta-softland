@@ -441,18 +441,42 @@ La segunda se comprueba mandando además una línea inválida: si el error que
 llega es el de la línea y no el del receptor, la regla dejó pasar. Ninguna de
 las dos gasta folio, porque las dos fallan antes de pedirlo.
 
-### Paso 6 — Las pantallas
+### Paso 6 — Las pantallas ✅ hecho a medias (0.19.0)
 
-Un solo concepto nuevo, en tres sitios:
+**Hecho: la cotización.** La ficha dice «convertida a medias: quedan 2 de 3
+líneas» con el detalle de lo que falta; el botón pasa a llamarse **«Nota de
+venta por el saldo»** y convierte sólo lo pendiente, con la cantidad pendiente;
+y la lista marca **«A medias»**, que es justo lo que Softland no distingue.
 
-- ficha de la cotización: «convertida a medias — quedan 1 de 8 líneas», con el
-  detalle, y botón **«nota de venta por el saldo»** que abre el editor cargado
-  con lo que quedó fuera;
-- ficha de la nota de venta: botón de facturar con las cantidades pendientes
-  precargadas y editables;
-- listas: marca de parcial, para que se vea sin entrar.
+**Y se calcula sin señal**, que era la decisión de fondo. `linea_origen` baja
+como un maestro más —son pocas filas, una por línea convertida— y
+`mobile/src/saldo.js` repite la regla de `Saldo.php`. Se repite a propósito:
+esto se mira en terreno, y un dato que sólo aparece con cobertura no sirve para
+el trabajo que hace un vendedor. Las dos copias se comprueban con
+`npm run pruebas`, igual que la aritmética de `Totales`.
 
-**Prueba:** la de siempre — 360×640, las tres escalas de densidad, y sin señal.
+**Un fallo que salió al conectarlo:** convertir no mandaba de qué línea venía
+cada línea. Sin eso, ni una conversión completa dejaba enlace, y **toda**
+cotización habría quedado en «no se sabe» para siempre. Ahora `cot_linea` viaja
+siempre, se convierta entera o a medias.
+
+**Pendiente: la factura.** El botón de facturar desde la nota de venta **no se
+hizo**, y no por falta de tiempo:
+
+- no hay endpoint de facturación ni pantalla de factura — la fase 4 llegó hasta
+  el servicio, y construirlas es un trozo del tamaño de todas las pantallas de
+  la fase 3;
+- queda **un solo folio de factura**. Un botón «Facturar» en el teléfono hoy
+  gastaría el 235 y dejaría un documento sin enviar al SII, porque el envío
+  tampoco está conectado a la app.
+
+Lo que sí está listo para cuando se haga: `Facturacion::propuesta()` devuelve lo
+pendiente con sus cantidades, que es exactamente lo que esa pantalla necesita
+precargar.
+
+**Comprobado** a 360 px en las tres escalas de densidad (0,92 · 1 · 1,1): el
+aviso con su lista, la fila de acciones —que se desplaza, como todas— y la
+etiqueta «A medias» junto a la del estado.
 
 ## Lo que todavía no se sabe
 

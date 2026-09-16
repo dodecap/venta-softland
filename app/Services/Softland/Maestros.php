@@ -311,6 +311,38 @@ class Maestros
                     'CotNum', static::cabecerasVisibles('softland.nwcotiza', 'CotNum', 'CtFem', 'VenCod', $ctx, $ventana)
                 ),
             ],
+            /*
+             * De qué línea de cotización salió cada línea de nota de venta.
+             *
+             * Es lo único del ciclo que Softland no guarda: `nwdetcot` no tiene
+             * columna de cantidad consumida y `CtEstado` pasa a `V` con la
+             * primera nota de venta, dé lo mismo si se convirtió entera o una
+             * línea de ocho.
+             *
+             * Baja al teléfono porque el saldo tiene que verse **sin señal**: la
+             * ficha de la cotización dice «quedan 1 de 8 líneas» y la lista la
+             * marca como parcial, y las dos se leen en terreno. Son pocas filas
+             * —una por línea convertida— y viajan con las marcas de creación,
+             * que es lo que permite descartar un enlace cuyo número ya se
+             * repartió a otro documento.
+             */
+            'linea_origen' => [
+                'titulo' => 'Origen de las líneas',
+                'tabla' => 'ventas.linea_origen',
+                'clave' => ['nv_numero', 'nv_linea'],
+                'campos' => [
+                    'nota_venta' => 'nv_numero:entero',
+                    'linea' => 'nv_linea:decimal',
+                    'nota_venta_creada' => 'nv_creado_en:fecha',
+                    'cotizacion' => 'cot_num:entero',
+                    'cotizacion_linea' => 'cot_linea:decimal',
+                    'cotizacion_creada' => 'cot_creado_en:fecha',
+                    'cantidad' => 'cantidad:decimal',
+                ],
+                'filtro' => fn (Builder $q, array $ctx, bool $ventana = true) => $q->whereIn(
+                    'cot_num', static::cabecerasVisibles('softland.nwcotiza', 'CotNum', 'CtFem', 'VenCod', $ctx, $ventana)
+                ),
+            ],
             'notas_venta' => [
                 'titulo' => 'Notas de venta',
                 'tabla' => 'softland.nw_nventa',

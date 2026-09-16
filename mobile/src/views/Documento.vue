@@ -6,6 +6,7 @@ import { db } from '../db';
 import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
 import { TIPOS, estado, enriquecerLineas, lineasDe, avanceFacturacion } from '../documentos';
+import { saldoCotizacion } from '../saldo';
 import { conectado } from '../red';
 import { compartirPdf, olvidarPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
@@ -34,6 +35,12 @@ const cargando = ref(true);
 const seguimientos = ref([]);
 const aprobacion = ref(null);
 const usuario = ref(null);
+
+/*
+ * Qué queda por convertir. Se calcula en el teléfono, de IndexedDB, para que la
+ * ficha lo diga también sin señal: es lo que se mira en terreno.
+ */
+const saldo = ref(null);
 const error = ref('');
 const aviso = ref('');
 const trabajando = ref(false);
@@ -91,6 +98,7 @@ async function cargar() {
         // documento bajado manda lo bajado, que es lo que funciona sin señal.
         if (! doc.value && conectado.value) await traerDelServidor();
 
+        saldo.value = doc.value && esCotizacion.value ? await saldoCotizacion(numero.value) : null;
         cliente.value = doc.value ? await idb.obtener('clientes', doc.value.cliente) : null;
         papelGuardado.value = doc.value ? await pdfGuardado(tipo.value, numero.value) : null;
         if (! delServidor.value) await refrescarDelServidor();
@@ -167,7 +175,34 @@ const editable = computed(() => {
     return ['P', ''].includes(e) || (e === 'A' && ! doc.value?.fecha_aprobacion);
 });
 
-const puedeConvertir = computed(() => esCotizacion.value && editable.value);
+/*
+ * Convertir ya no exige que la cotización esté pendiente.
+ *
+ * `V` quiere decir «tiene nota de venta», y desde el reparto parcial eso convive
+ * con que quede algo por convertir: una cotización de ocho líneas puede haberse
+ * llevado siete a una nota de venta y tener la octava esperando. Lo que cierra
+ * la puerta es que no quede saldo — la misma regla que aplica el servidor.
+ */
+const puedeConvertir = computed(
+    () => esCotizacion.value && (editable.value || parcial.value)
+);
+
+/** Convertida a medias: tiene nota de venta y todavía le queda algo. */
+const parcial = computed(() => !! saldo.value?.parcial);
+
+/**
+ * Las líneas que aún no se han convertido, con lo que les queda.
+ *
+ * El saldo se calcula sobre las líneas crudas del almacén; el nombre del
+ * producto lo traen las ya enriquecidas, que es lo que se le enseña a alguien.
+ */
+const pendientes = computed(() => {
+    const conNombre = new Map(lineas.value.map((l) => [l.linea, l]));
+
+    return (saldo.value?.lineas || [])
+        .filter((l) => l.saldo > 0.0001)
+        .map((l) => ({ ...l, nombre: conNombre.get(l.linea)?.nombre || l.producto }));
+});
 
 /**
  * El switch de aprobar sólo lo ve quien puede soltarla, nunca el vendedor que
@@ -405,6 +440,22 @@ async function anotarSeguimiento() {
  * línea. Volver a deducirlos del usuario que aprieta el botón cambiaría el
  * documento sin que nadie lo haya pedido.
  */
+/**
+ * Qué se convierte: todo, o sólo lo que quedó fuera.
+ *
+ * Las cantidades salen del saldo, no del detalle: si de doce unidades ya se
+ * convirtieron cinco, la nueva nota de venta lleva siete, no doce.
+ */
+function lineasAConvertir() {
+    if (! parcial.value) return lineas.value;
+
+    const queda = new Map(pendientes.value.map((l) => [l.linea, l.saldo]));
+
+    return lineas.value
+        .filter((l) => queda.has(l.linea))
+        .map((l) => ({ ...l, cantidad: queda.get(l.linea) }));
+}
+
 async function convertir() {
     await conServidor(async () => {
         const u = await db.getUsuario();
@@ -421,12 +472,17 @@ async function convertir() {
             fecha_entrega: (doc.value.fecha_entrega || '').slice(0, 10) || null,
             oc: doc.value.oc && doc.value.oc !== '0' ? doc.value.oc : null,
             observacion: doc.value.observacion || null,
-            lineas: lineas.value.map((l) => ({
+            lineas: lineasAConvertir().map((l) => ({
                 producto: l.producto,
                 detalle: l.detalle || null,
                 unidad: l.unidad || null,
                 cantidad: l.cantidad,
                 precio: l.unitario,
+                // De qué línea de la cotización sale ésta. Es lo único que
+                // permite saber después qué se llevó cada nota de venta; sin
+                // esto, una cotización repartida queda en `V` y nadie sabe qué
+                // falta.
+                cot_linea: l.linea,
                 descuento_pct: l.cantidad && l.precio
                     ? Math.round((l.descuento || 0) * 10000 / (l.cantidad * l.precio * (l.equiv || 1))) / 100
                     : 0,
@@ -543,6 +599,30 @@ function cantidad(n) {
                 <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
                 <Aviso tipo="ok" v-if="aviso">{{ aviso }}</Aviso>
 
+                <!-- Convertida a medias. Softland no distingue este caso — su
+                     estado `V` dice «tiene nota de venta» y nada más —, así que
+                     sin esto el vendedor no tiene cómo saber qué quedó fuera
+                     salvo acordándose. -->
+                <Aviso tipo="info" v-if="parcial">
+                    Convertida a medias: quedan
+                    <b>{{ saldo.pendientes }} de {{ saldo.totales }}</b>
+                    {{ saldo.totales === 1 ? 'línea' : 'líneas' }} por pasar a nota de venta.
+                    <ul class="saldo-lineas">
+                        <li v-for="l in pendientes" :key="l.linea">
+                            {{ l.nombre }} — quedan <b>{{ cantidad(l.saldo) }}</b>
+                            <span v-if="l.convertida > 0"> de {{ cantidad(l.cantidad) }}</span>
+                        </li>
+                    </ul>
+                </Aviso>
+
+                <!-- Convertida, pero de antes de la app: no hay enlace de línea
+                     y el saldo no se puede saber. Decirlo es mejor que callar:
+                     el vendedor sabe que tiene que mirarlo en Softland. -->
+                <Aviso tipo="info" v-else-if="esCotizacion && saldo && ! saldo.conocible">
+                    Esta cotización se convirtió fuera de la app, así que no se puede saber qué
+                    quedó pendiente. Lo dice Softland.
+                </Aviso>
+
                 <!-- El papel. Siempre visible: ver o mandar el documento no
                      depende de que todavía se pueda corregir, y con el PDF ya
                      guardado tampoco de la señal. -->
@@ -590,7 +670,8 @@ function cantidad(n) {
                     </button>
                     <button class="chip-accion fuerte" v-if="puedeConvertir"
                             :disabled="! conectado || trabajando" @click="convertir">
-                        <AppIcon name="notaVenta" :size="17" color="currentColor" /> Pasar a nota de venta
+                        <AppIcon name="notaVenta" :size="17" color="currentColor" />
+                        {{ parcial ? 'Nota de venta por el saldo' : 'Pasar a nota de venta' }}
                     </button>
                     <button class="chip-accion" v-if="puedeAprobar" :disabled="! conectado || trabajando"
                             @click="aprobar">

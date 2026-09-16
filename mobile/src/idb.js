@@ -28,7 +28,7 @@ const NOMBRE = 'venta-softland';
 // La 2 agrega `motivos_perdida` y la 3 el almacén de PDF: la migración solo
 // crea los almacenes que falten, así que subir el número es todo lo que hace
 // falta.
-const VERSION = 3;
+const VERSION = 4;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -91,6 +91,18 @@ export const ALMACENES = {
         indices: { cliente: 'cliente', fecha: 'fecha', cotizacion: 'cotizacion' },
     },
     nota_venta_lineas: { clave: ['nota_venta', 'linea'], indices: { nota_venta: 'nota_venta' } },
+
+    /**
+     * De qué línea de cotización salió cada línea de nota de venta.
+     *
+     * Es lo que permite saber **sin señal** qué queda por convertir de una
+     * cotización repartida entre dos notas de venta. Softland no lo guarda: su
+     * estado `V` no distingue entre convertida entera y convertida a medias.
+     */
+    linea_origen: {
+        clave: ['nota_venta', 'linea'],
+        indices: { cotizacion: 'cotizacion', nota_venta: 'nota_venta' },
+    },
 
     /** Estado de la sincronización: una fila por maestro. No viene del servidor. */
     meta: { clave: 'recurso' },

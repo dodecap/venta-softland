@@ -8,6 +8,7 @@ import {
 } from '../src/dinero.js';
 import { rango, anterior, largoEnDias, dia } from '../src/panel/periodo.js';
 import { calcular, pendientes, situacion, ultimos } from '../src/panel/metricas.js';
+import { calcularSaldo } from '../src/saldo.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -263,5 +264,69 @@ es(ultimos(ACT, { vendedores: ['2'] }).map((f) => f.numero).join(','), '11,10,13
 es(ultimos(ACT).some((f) => f.estado === 'N'), true,
    'lo anulado sale: anular es algo que se hizo');
 es(ultimos([]).length, 0, 'sin documentos, lista vacía y no un error');
+
+
+// ---- el saldo de una cotización: la copia de `Saldo.php` que corre en el
+//      teléfono. Si estas dos reglas se separan, la ficha dice una cosa y el
+//      servidor escribe otra.
+const COT8 = { numero: 8, creado: '2026-01-10 09:00:00' };
+const LIN8 = [
+    { cotizacion: 8, linea: 1, cantidad: 12, producto: 'A' },
+    { cotizacion: 8, linea: 2, cantidad: 5, producto: 'B' },
+    { cotizacion: 8, linea: 3, cantidad: 1, producto: 'C' },
+];
+const nv = (numero, estado) => ({ numero, cotizacion: 8, estado, creado: `2026-02-0${numero} 10:00:00` });
+const enl = (notaVenta, linea, cotLinea, cantidad) => ({
+    nota_venta: notaVenta, linea, cotizacion: 8, cotizacion_linea: cotLinea, cantidad,
+    nota_venta_creada: `2026-02-0${notaVenta} 10:00:00`, cotizacion_creada: COT8.creado,
+});
+
+const sinConvertir = calcularSaldo({ cotizacion: COT8, lineas: LIN8, notas: [], enlaces: [] });
+es(sinConvertir.parcial, false, 'sin nota de venta no está a medias');
+es(sinConvertir.pendientes, 3, 'sin convertir, las tres líneas pendientes');
+es(sinConvertir.conocible, true, 'sin notas de venta el saldo se sabe');
+
+const aMedias = calcularSaldo({
+    cotizacion: COT8, lineas: LIN8,
+    notas: [nv(1, 'A')],
+    enlaces: [enl(1, 1, 1, 5), enl(1, 2, 2, 5)],
+});
+es(aMedias.parcial, true, 'convertida en parte está a medias');
+es(aMedias.pendientes, 2, 'quedan dos líneas con saldo');
+es(aMedias.lineas[0].saldo, 7, 'de doce convertidas cinco quedan siete');
+es(aMedias.lineas[1].saldo, 0, 'la línea convertida entera queda en cero');
+es(aMedias.lineas[2].saldo, 1, 'la que no se tocó queda entera');
+
+const entera = calcularSaldo({
+    cotizacion: COT8, lineas: LIN8,
+    notas: [nv(1, 'A'), nv(2, 'A')],
+    enlaces: [enl(1, 1, 1, 5), enl(1, 2, 2, 5), enl(2, 1, 1, 7), enl(2, 2, 3, 1)],
+});
+es(entera.parcial, false, 'convertida del todo ya no está a medias');
+es(entera.pendientes, 0, 'sin líneas pendientes');
+
+// Anular devuelve el saldo: es la misma regla del servidor.
+const conAnulada = calcularSaldo({
+    cotizacion: COT8, lineas: LIN8,
+    notas: [nv(1, 'A'), nv(2, 'N')],
+    enlaces: [enl(1, 1, 1, 5), enl(1, 2, 2, 5), enl(2, 1, 1, 7), enl(2, 2, 3, 1)],
+});
+es(conAnulada.lineas[0].saldo, 7, 'la nota de venta anulada devuelve lo suyo');
+es(conAnulada.parcial, true, 'y la cotización vuelve a estar a medias');
+
+// Convertida fuera de la app: hay nota de venta viva y ningún enlace.
+const ciega = calcularSaldo({
+    cotizacion: COT8, lineas: LIN8, notas: [nv(1, 'A')], enlaces: [],
+});
+es(ciega.conocible, false, 'sin enlace de línea el saldo no se sabe');
+es(ciega.parcial, false, 'y no se marca a medias, que sería inventarlo');
+
+// Un enlace cuyo número volvió a repartirse no cuenta.
+const zombi = calcularSaldo({
+    cotizacion: COT8, lineas: LIN8,
+    notas: [{ numero: 1, cotizacion: 8, estado: 'A', creado: '2026-05-05 08:00:00' }],
+    enlaces: [enl(1, 1, 1, 5)],
+});
+es(zombi.conocible, false, 'un enlace con otra marca de creación no vale');
 
 console.log(`OK — ${hechas} comprobaciones`);

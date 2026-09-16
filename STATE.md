@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.18.0**
+2026-09-16 — versión **0.19.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -229,8 +229,9 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
 - [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
-      **Pasos 1 a 5 hechos**; queda el 6, las pantallas. Todo lo de servidor
-      está escrito y comprobado.
+      **Pasos 1 a 5 hechos y el 6 a medias**: las pantallas de la cotización
+      están; la de facturar desde la nota de venta espera a que exista el
+      endpoint de facturación y a que haya folios.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
       probado menos el último paso, que no se deshace. De factura queda **un
       solo folio libre, el 235**.
@@ -1096,6 +1097,23 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] `dte:verifica-documento` la enciende a la fuerza: los 199 históricos de
       INNOVAGES son comisiones y con la llave apagada no se reescribirían.
       Siguen saliendo igual que antes.
+
+### Fase 4.5, paso 6: las pantallas del saldo
+- [x] Ficha de la cotización: «convertida a medias: quedan 2 de 3 líneas» con el
+      detalle, y el botón **«Nota de venta por el saldo»**, que convierte sólo
+      lo pendiente y con la cantidad pendiente.
+- [x] Lista de cotizaciones: etiqueta **«A medias»**.
+- [x] **Se calcula sin señal**: `linea_origen` baja como maestro y
+      `mobile/src/saldo.js` repite la regla de `Saldo.php`. Las dos copias se
+      comprueban en `npm run pruebas` (152 comprobaciones).
+- [x] **Convertir no mandaba de qué línea venía cada línea.** Sin eso ni una
+      conversión completa dejaba enlace y toda cotización quedaba en «no se
+      sabe». Ahora `cot_linea` viaja siempre.
+- [x] Comprobado a 360 px en las tres densidades.
+- [ ] **Falta el botón de facturar desde la nota de venta.** No hay endpoint de
+      facturación ni pantalla de factura —la fase 4 llegó hasta el servicio—, y
+      con **un solo folio** ese botón gastaría el 235 y dejaría un documento sin
+      enviar al SII. `Facturacion::propuesta()` ya devuelve lo que precargaría.
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres

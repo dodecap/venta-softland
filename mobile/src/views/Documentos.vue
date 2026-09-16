@@ -7,6 +7,7 @@ import { monto, fecha, nombre as nombreDe } from '../catalogos';
 import { dia } from '../panel/periodo';
 import { situacion } from '../panel/metricas';
 import { TIPOS, estado } from '../documentos';
+import { parciales } from '../saldo';
 import { useAccionCrear } from '../crear';
 import { contarPendientes, porEnviar } from '../pendientes';
 import { conectado } from '../red';
@@ -31,6 +32,13 @@ const router = useRouter();
 
 const tipo = computed(() => route.meta.tipo);
 const def = computed(() => TIPOS[tipo.value]);
+
+/*
+ * Las cotizaciones convertidas a medias. Softland no distingue este caso: su
+ * estado `V` dice «tiene nota de venta» y nada más, así que sin esta marca hay
+ * que entrar una por una para saber cuál dejó algo fuera.
+ */
+const aMedias = ref(new Set());
 
 const busqueda = ref('');
 const filtroEstado = ref('');
@@ -154,6 +162,10 @@ async function cargar() {
         // acaba de escribirlos y tiene que verlos, no suponer que se perdieron.
         sinEnviar.value = (await contarPendientes())
             .filter((p) => p.accion === `${tipo.value}.crear`);
+
+        aMedias.value = tipo.value === 'cotizacion'
+            ? await parciales(documentos.value.map((d) => d.numero))
+            : new Set();
 
         await cargarNombres();
     } finally {
@@ -306,6 +318,7 @@ function quitarAtencion() {
                     <div class="item-linea">{{ nombres[d.cliente] || d.cliente }}</div>
                     <div class="item-meta">
                         <span class="etiqueta gris">{{ estado(tipo, d.estado).rotulo }}</span>
+                        <span class="etiqueta cian" v-if="aMedias.has(d.numero)">A medias</span>
                         <span> · {{ fecha(d.fecha) }}</span>
                         <span v-if="d.contacto"> · {{ d.contacto }}</span>
                         <span v-if="d.vendedor"> · {{ nombreDe('vendedores', d.vendedor) }}</span>

@@ -42,6 +42,27 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.19.0 — El saldo se ve: convertida a medias y nota de venta por lo que queda
+*2026-09-16*
+
+- **Paso 6 de la fase 4.5**, la parte de la cotización. La ficha dice
+  «convertida a medias: quedan 2 de 3 líneas» con el detalle de lo que falta, y
+  el botón pasa a llamarse **«Nota de venta por el saldo»**, que convierte sólo
+  lo pendiente y con la cantidad pendiente.
+- **La lista marca «A medias»**, que es lo que Softland no sabe distinguir: su
+  estado `V` dice «tiene nota de venta» y nada más.
+- **Se calcula en el teléfono, sin señal.** `linea_origen` baja como un maestro
+  más y `mobile/src/saldo.js` repite la regla de `Saldo.php`. Se repite porque
+  esto se mira en terreno; un dato que sólo aparece con cobertura no sirve.
+- **Convertir ahora manda `cot_linea`** en cada línea. Sin eso, ni una
+  conversión completa dejaba enlace y toda cotización quedaba en «no se sabe».
+- **Y dice cuándo no lo sabe**: una cotización convertida desde el Softland de
+  escritorio no tiene enlace de línea, y la ficha lo avisa en vez de inventar
+  un saldo.
+- `npm run pruebas` cubre la regla del teléfono con doce comprobaciones más,
+  incluidas las dos que duelen: anular devuelve el saldo, y un enlace cuyo
+  número volvió a repartirse no cuenta.
+
 ### 0.18.0 — La llave del receptor: el ciclo normal por omisión, la comisión bajo llave
 *2026-09-16*
 
