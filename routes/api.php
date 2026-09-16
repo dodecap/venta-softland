@@ -56,6 +56,10 @@ Route::middleware('auth.api')->group(function () {
     // se escribe bajo /admin.
     Route::get('/identidad', [IdentidadController::class, 'index']);
     Route::get('/identidad/logo', [IdentidadController::class, 'logo']);
+    // El segundo logo: la marca que la empresa representa. En el papel de
+    // INNOVAGES van los dos, y el orden cambia según el documento.
+    Route::get('/identidad/logo/{cual}', [IdentidadController::class, 'logo'])
+        ->where('cual', 'logo|secundario');
 
     Route::get('/cotizaciones/{numero}', [CotizacionController::class, 'show'])->whereNumber('numero');
     Route::post('/cotizaciones', [CotizacionController::class, 'store']);
@@ -131,6 +135,7 @@ Route::middleware('auth.api')->group(function () {
         Route::put('/configuracion/conexion', [ConfiguracionController::class, 'guardarConexion']);
         Route::put('/configuracion/correo', [ConfiguracionController::class, 'guardarCorreo']);
         Route::put('/configuracion/facturacion', [ConfiguracionController::class, 'guardarFacturacion']);
+        Route::put('/configuracion/orden-compra', [ConfiguracionController::class, 'guardarOrdenCompra']);
         Route::post('/configuracion/correo/probar', [ConfiguracionController::class, 'probarCorreo']);
 
         // Identidad corporativa: datos de la empresa, logo y condiciones que
@@ -138,6 +143,10 @@ Route::middleware('auth.api')->group(function () {
         Route::put('/identidad', [IdentidadController::class, 'guardar']);
         Route::post('/identidad/logo', [IdentidadController::class, 'subirLogo']);
         Route::delete('/identidad/logo', [IdentidadController::class, 'borrarLogo']);
+        Route::post('/identidad/logo/{cual}', [IdentidadController::class, 'subirLogo'])
+            ->where('cual', 'logo|secundario');
+        Route::delete('/identidad/logo/{cual}', [IdentidadController::class, 'borrarLogo'])
+            ->where('cual', 'logo|secundario');
 
         // Notificaciones
         Route::get('/notificaciones', [ConfiguracionController::class, 'notificaciones']);

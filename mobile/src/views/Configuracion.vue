@@ -1,7 +1,8 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
+import { definidos as atributosDefinidos } from '../atributos';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 
@@ -21,6 +22,24 @@ const destinoPrueba = ref('');
  */
 const facturacion = ref({ receptor_editable: false, envio_automatico: true, envio_softland: null });
 
+/*
+ * La orden de compra al proveedor.
+ *
+ * Qué atributo va en cada hueco del papel no se puede adivinar: los atributos
+ * los define cada empresa, y los huecos tienen nombre propio —«OBSERVACIÓN»,
+ * «TIPO DE VENTA»— que no se llama como el atributo que los llena.
+ */
+const ordenCompra = ref({
+    proveedor: '', proveedor_nombre: null, contacto: '', correo: '',
+    atributo_observacion: '', atributo_tipo_venta: '', atributo_fecha: '',
+});
+
+const atributos = ref([]);
+
+/** Los de fecha sólo pueden llenar el hueco de fecha; los demás, los otros dos. */
+const atributosFecha = computed(() => atributos.value.filter((a) => a.control === 'fecha'));
+const atributosTexto = computed(() => atributos.value.filter((a) => a.control !== 'fecha'));
+
 onMounted(cargar);
 
 async function cargar() {
@@ -30,6 +49,8 @@ async function cargar() {
         conexion.value = { ...c.conexion, sa_password: '', softland_password: '' };
         correo.value = { ...c.correo, password: '' };
         facturacion.value = { ...facturacion.value, ...(c.facturacion || {}) };
+        ordenCompra.value = { ...ordenCompra.value, ...(c.orden_compra || {}) };
+        atributos.value = await atributosDefinidos();
     } catch (e) {
         error.value = e.message;
     } finally {
@@ -47,6 +68,20 @@ async function guardarFacturacion(campo) {
     } catch (e) {
         error.value = e.message;
         await cargar();
+    } finally {
+        guardando.value = '';
+    }
+}
+
+async function guardarOrdenCompra() {
+    limpiar();
+    guardando.value = 'orden_compra';
+    try {
+        const r = await api.guardarOrdenCompra(ordenCompra.value);
+        ordenCompra.value = { ...ordenCompra.value, ...r };
+        aviso.value = 'Guardado.';
+    } catch (e) {
+        error.value = e.message;
     } finally {
         guardando.value = '';
     }
@@ -168,6 +203,74 @@ async function probarCorreo() {
                             venta registra la venta al cliente final y la factura le cobra la
                             comisión a otra empresa.
                         </p>
+                    </div>
+                </div>
+
+                <!-- Sólo tiene sentido con atributos definidos: sin ellos el
+                     papel no tiene con qué llenar sus dos líneas y la tarjeta
+                     sobra. -->
+                <div class="tarjeta">
+                    <div class="tarjeta-cabecera">Orden de compra al proveedor</div>
+                    <div class="tarjeta-cuerpo">
+                        <p class="ayuda">
+                            La nota de venta sale también como orden de compra: los mismos datos
+                            dirigidos a quien tiene que despachar. Aquí se dice a quién se le pide y
+                            qué dato va en cada línea del papel.
+                        </p>
+
+                        <label>Código del proveedor en Softland</label>
+                        <input v-model="ordenCompra.proveedor" autocapitalize="off" spellcheck="false"
+                               placeholder="89889200">
+                        <p class="ayuda" v-if="ordenCompra.proveedor_nombre">
+                            <b>{{ ordenCompra.proveedor_nombre }}</b> — su dirección, RUT y giro se leen
+                            de Softland cada vez, así que no hay que copiarlos aquí.
+                        </p>
+
+                        <div class="fila">
+                            <div>
+                                <label>Contacto</label>
+                                <input v-model="ordenCompra.contacto">
+                            </div>
+                            <div>
+                                <label>Correo</label>
+                                <input v-model="ordenCompra.correo" type="email" autocapitalize="off">
+                            </div>
+                        </div>
+
+                        <template v-if="atributos.length">
+                            <label>Qué va en «OBSERVACIÓN»</label>
+                            <select v-model="ordenCompra.atributo_observacion">
+                                <option value="">— nada —</option>
+                                <option v-for="a in atributosTexto" :key="a.codigo" :value="a.codigo">
+                                    {{ a.nombre }}
+                                </option>
+                            </select>
+
+                            <label>Qué va en «TIPO DE VENTA»</label>
+                            <select v-model="ordenCompra.atributo_tipo_venta">
+                                <option value="">— nada —</option>
+                                <option v-for="a in atributosTexto" :key="a.codigo" :value="a.codigo">
+                                    {{ a.nombre }}
+                                </option>
+                            </select>
+
+                            <label>Qué fecha lleva la orden</label>
+                            <select v-model="ordenCompra.atributo_fecha">
+                                <option value="">— la del documento —</option>
+                                <option v-for="a in atributosFecha" :key="a.codigo" :value="a.codigo">
+                                    {{ a.nombre }}
+                                </option>
+                            </select>
+                        </template>
+                        <p class="ayuda" v-else>
+                            Esta empresa no tiene atributos definidos en Softland, así que la orden
+                            sale sin las líneas de observación y tipo de venta.
+                        </p>
+
+                        <button class="boton" :disabled="guardando === 'orden_compra'"
+                                @click="guardarOrdenCompra">
+                            {{ guardando === 'orden_compra' ? 'Guardando…' : 'Guardar' }}
+                        </button>
                     </div>
                 </div>
 

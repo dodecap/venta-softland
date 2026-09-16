@@ -223,7 +223,10 @@ export const api = {
     // camino que el servidor no ve — WhatsApp, la impresora, el visor —, y
     // sirve para que la emisión guardada quede marcada como entregada.
     pdfCotizacion: (numero) => pedirPdf(`/cotizaciones/${numero}/pdf`),
-    pdfNotaVenta: (numero) => pedirPdf(`/notas-venta/${numero}/pdf`),
+    // El `formato` pide el otro papel del mismo documento: la nota de venta
+    // sale como nota de venta o como orden de compra al proveedor.
+    pdfNotaVenta: (numero, formato = null) =>
+        pedirPdf(`/notas-venta/${numero}/pdf` + (formato ? `?formato=${formato}` : '')),
     // El papel del documento legal, por su número interno: el folio se enseña
     // pero no identifica —es único dentro de su tipo y nada más—.
     pdfFactura: (tipo, numeroInterno) => pedirPdf(`/facturas/${tipo}/${numeroInterno}/pdf`),
@@ -266,6 +269,7 @@ export const api = {
     guardarConexion: (c) => pedir('/admin/configuracion/conexion', { method: 'PUT', body: c }),
     guardarCorreo: (c) => pedir('/admin/configuracion/correo', { method: 'PUT', body: c }),
     guardarFacturacion: (c) => pedir('/admin/configuracion/facturacion', { method: 'PUT', body: c }),
+    guardarOrdenCompra: (c) => pedir('/admin/configuracion/orden-compra', { method: 'PUT', body: c }),
     probarCorreo: (c) => pedir('/admin/configuracion/correo/probar', { method: 'POST', body: c }),
 
     notificaciones: () => pedir('/admin/notificaciones'),

@@ -91,6 +91,18 @@ const delServidor = ref(false);
 // Si el PDF ya está en el teléfono, verlo y mandarlo funcionan sin señal.
 const papelGuardado = ref(null);
 
+/*
+ * Qué papel se pide, cuando el documento sale en más de uno.
+ *
+ * La nota de venta tiene dos: la del cliente y la orden de compra al proveedor.
+ * No se recuerda la última elegida a propósito — son dos documentos que van a
+ * dos sitios distintos, y recordar la anterior es cómo se le manda al cliente
+ * la hoja del proveedor.
+ */
+const eligiendoPapel = ref(null);
+
+const papeles = computed(() => def.value.papeles ?? []);
+
 // Las hojas de cerrar por pérdida, anotar un seguimiento y eliminar.
 const perdiendo = ref(false);
 const siguiendo = ref(false);
@@ -349,12 +361,39 @@ async function enviarPorCorreo() {
     });
 }
 
+/**
+ * Pide el papel, preguntando cuál si el documento sale en más de uno.
+ *
+ * `accion` se guarda y se ejecuta con el formato elegido: así la pregunta es
+ * una sola para ver, mandar por correo y compartir.
+ */
+function conPapel(accion) {
+    if (papeles.value.length > 1) {
+        eligiendoPapel.value = accion;
+
+        return;
+    }
+
+    accion(null);
+}
+
+function elegirPapel(formato) {
+    const accion = eligiendoPapel.value;
+    eligiendoPapel.value = null;
+    accion?.(formato);
+}
+
+/** El tipo que entiende `pdf.js`: el del documento, o el del papel elegido. */
+function tipoPapel(formato) {
+    return formato || tipo.value;
+}
+
 /** Abre el PDF con el visor del teléfono. Con copia guardada, sin señal también. */
-async function verPapel() {
+async function verPapel(formato = null) {
     error.value = '';
     trabajando.value = true;
     try {
-        await verPdf(tipo.value, numero.value);
+        await verPdf(tipoPapel(formato), numero.value);
         papelGuardado.value = await pdfGuardado(tipo.value, numero.value);
     } catch (e) {
         error.value = e.message;
@@ -370,11 +409,11 @@ async function verPapel() {
  * lleva texto, así que el archivo se entrega por la hoja de compartir de
  * Android y ahí el vendedor elige el chat. El mensaje ya va escrito.
  */
-async function compartirPapel() {
+async function compartirPapel(formato = null) {
     error.value = '';
     trabajando.value = true;
     try {
-        const r = await compartirPdf(tipo.value, numero.value, {
+        const r = await compartirPdf(tipoPapel(formato), numero.value, {
             cliente: cliente.value?.nombre,
             total: doc.value?.total,
             moneda: simbolo(doc.value?.moneda),
@@ -753,7 +792,7 @@ function cantidad(n) {
                      guardado tampoco de la señal. -->
                 <div class="acciones-doc">
                     <button class="chip-accion" :disabled="trabajando || (! conectado && ! papelGuardado)"
-                            @click="compartirPapel">
+                            @click="conPapel(compartirPapel)">
                         <AppIcon name="compartir" :size="17" color="currentColor" /> Enviar por WhatsApp
                     </button>
                     <button class="chip-accion" :disabled="! conectado || trabajando"
@@ -761,12 +800,16 @@ function cantidad(n) {
                         <AppIcon name="correo" :size="17" color="currentColor" /> Enviar por correo
                     </button>
                     <button class="chip-accion" :disabled="trabajando || (! conectado && ! papelGuardado)"
-                            @click="verPapel">
+                            @click="conPapel(verPapel)">
                         <AppIcon name="pdf" :size="17" color="currentColor" /> Ver el documento
                     </button>
                 </div>
                 <p class="ayuda" v-if="! conectado && ! papelGuardado">
                     El documento se dibuja en el servidor. Ábrelo una vez con señal y después queda en el teléfono.
+                </p>
+                <p class="ayuda" v-if="papeles.length > 1">
+                    Esta nota de venta sale en dos papeles: el del cliente y la orden de compra al
+                    proveedor. Se pregunta cuál cada vez.
                 </p>
 
                 <!-- Lo que ya se facturó de esta nota de venta. Va aquí porque
@@ -986,6 +1029,29 @@ function cantidad(n) {
         </div>
 
         <!-- Cerrar por pérdida -->
+        <!-- Cuál de los dos papeles. Sin recordar el anterior: son dos
+             documentos que van a dos personas distintas, y recordar la última
+             elección es cómo se le manda al cliente la hoja del proveedor. -->
+        <div class="velo" v-if="eligiendoPapel" @click.self="eligiendoPapel = null">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>¿Qué documento?</h2>
+                    <button class="icono-barra" @click="eligiendoPapel = null">
+                        <AppIcon name="cerrar" :size="21" />
+                    </button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <div class="item" v-for="p in papeles" :key="p.rotulo" @click="elegirPapel(p.id)">
+                        <div class="item-estado cian"></div>
+                        <div class="item-cuerpo">
+                            <div class="item-titulo">{{ p.rotulo }}</div>
+                            <div class="item-meta">{{ p.para }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="velo" v-if="perdiendo" @click.self="perdiendo = false">
             <div class="hoja">
                 <div class="hoja-cabecera">

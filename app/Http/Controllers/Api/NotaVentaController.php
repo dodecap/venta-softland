@@ -6,6 +6,7 @@ use App\Models\Usuario;
 use App\Services\Notificaciones\Eventos;
 use App\Services\Notificaciones\Notificador;
 use Illuminate\Http\Request;
+use App\Services\Documentos\TipoDocumento;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -105,9 +106,9 @@ class NotaVentaController extends DocumentoController
      * tenga una solicitud abierta, y por eso la marca desaparece sola cuando el
      * jefe resuelve.
      */
-    protected function contextoDocumento(array $doc, array $lineas): array
+    protected function contextoDocumento(array $doc, array $lineas, ?TipoDocumento $papel = null): array
     {
-        $ctx = parent::contextoDocumento($doc, $lineas);
+        $ctx = parent::contextoDocumento($doc, $lineas, $papel);
 
         $pendiente = DB::connection('softland')->table('ventas.aprobacion')
             ->where('nv_numero', $doc['numero'] ?? 0)

@@ -66,7 +66,7 @@ class IdentidadController extends Controller
      * ese viaje. Aquí sólo se acota el tamaño para no leer 40 MB antes de
      * decidir que no.
      */
-    public function subirLogo(Request $request)
+    public function subirLogo(Request $request, string $cual = 'logo')
     {
         $request->validate([
             'logo' => 'required|file|max:2048',   // KB
@@ -75,7 +75,7 @@ class IdentidadController extends Controller
         ]);
 
         try {
-            $r = $this->identidad->guardarLogo($request->file('logo'));
+            $r = $this->identidad->guardarLogo($request->file('logo'), $cual);
         } catch (\RuntimeException $e) {
             return response()->json([
                 'message' => $e->getMessage(),
@@ -90,9 +90,9 @@ class IdentidadController extends Controller
         ]);
     }
 
-    public function borrarLogo()
+    public function borrarLogo(string $cual = 'logo')
     {
-        $this->identidad->borrarLogo();
+        $this->identidad->borrarLogo($cual);
 
         return response()->json(['ok' => true, 'message' => 'Logo eliminado.']);
     }
@@ -103,9 +103,9 @@ class IdentidadController extends Controller
      * No exige rol admin: cualquier usuario con token puede verlo, porque es la
      * marca que va en sus propios documentos. Lo que exige admin es cambiarlo.
      */
-    public function logo()
+    public function logo(string $cual = 'logo')
     {
-        $ruta = $this->identidad->rutaLogo();
+        $ruta = $this->identidad->rutaLogo($cual);
 
         if (! File::exists($ruta)) {
             return response()->json(['message' => 'No hay logo cargado.'], 404);

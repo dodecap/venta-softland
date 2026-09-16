@@ -33,6 +33,16 @@ enum TipoDocumento: string
     case NOTA_CREDITO = 'nota_credito';
     case ORDEN_SERVICIO = 'orden_servicio';
     case COMPROBANTE_COBRANZA = 'comprobante_cobranza';
+    /*
+     * La otra cara de la nota de venta en el ciclo de distribuidor.
+     *
+     * Mismo documento, mismo número y las mismas líneas, pero dirigido al
+     * **proveedor** en vez de al cliente: INNOVAGES le pide a Softland Santiago
+     * lo que su cliente le compró a él. Por eso no es un formato alternativo de
+     * la nota de venta sino un tipo documental propio — cambia el destinatario,
+     * cambia el título y cambian las columnas.
+     */
+    case ORDEN_COMPRA = 'orden_compra';
 
     /** Cómo se titula en el papel. */
     public function titulo(): string
@@ -46,6 +56,7 @@ enum TipoDocumento: string
             self::NOTA_CREDITO => 'Nota de crédito',
             self::ORDEN_SERVICIO => 'Orden de servicio',
             self::COMPROBANTE_COBRANZA => 'Comprobante de cobranza',
+            self::ORDEN_COMPRA => 'Orden de compra',
         };
     }
 
@@ -61,6 +72,7 @@ enum TipoDocumento: string
             self::NOTA_CREDITO => 'nota-de-credito',
             self::ORDEN_SERVICIO => 'orden-de-servicio',
             self::COMPROBANTE_COBRANZA => 'comprobante-de-cobranza',
+            self::ORDEN_COMPRA => 'orden-de-compra',
         };
 
         return $base.'-'.$numero.'.pdf';
@@ -75,11 +87,26 @@ enum TipoDocumento: string
     public function bloques(): array
     {
         return match ($this) {
+            /*
+             * El papel que la empresa lleva años entregando.
+             *
+             * Cada uno tiene su propia cabecera y su propio pie porque así son:
+             * la cotización abre con los dos logos y un párrafo, la nota de
+             * venta con el nombre de la empresa y el número en un recuadro, y la
+             * orden de compra con el distribuidor arriba a la izquierda. No es
+             * la misma hoja con adornos distintos.
+             */
             self::COTIZACION => [
-                'cliente', 'detalle', 'totales', 'condiciones', 'notas', 'vendedor',
+                'cabecera_cotizacion', 'intro_cotizacion', 'receptor_comercial',
+                'detalle_uf', 'condiciones_totales', 'cierre_cotizacion', 'pie_comercial',
             ],
             self::NOTA_VENTA => [
-                'cliente', 'detalle', 'totales', 'condiciones', 'despacho', 'notas', 'vendedor',
+                'cabecera_nota_venta', 'receptor_nota_venta',
+                'detalle_nota_venta', 'condiciones_totales', 'pie_comercial',
+            ],
+            self::ORDEN_COMPRA => [
+                'cabecera_orden_compra', 'receptor_orden_compra',
+                'detalle_orden_compra', 'facturar_a', 'pie_orden_compra',
             ],
             self::ORDEN_SERVICIO, self::COMPROBANTE_COBRANZA => [
                 'cliente', 'detalle', 'totales', 'notas', 'vendedor',
@@ -98,6 +125,24 @@ enum TipoDocumento: string
     }
 
     /**
+     * Otros papeles con los que puede salir este mismo documento.
+     *
+     * La nota de venta tiene dos caras: la que se le entrega al cliente y la
+     * orden de compra que se le manda al proveedor, con los mismos datos
+     * mirados desde el otro lado. No es un formato alternativo — es otro
+     * documento, con otro destinatario, y por eso se versiona aparte.
+     *
+     * @return list<self>
+     */
+    public function papelesAlternativos(): array
+    {
+        return match ($this) {
+            self::NOTA_VENTA => [self::ORDEN_COMPRA],
+            default => [],
+        };
+    }
+
+    /**
      * Sobre qué hoja se dibuja.
      *
      * Los comerciales van en `base`, la hoja de la casa. Los legales van en
@@ -108,7 +153,12 @@ enum TipoDocumento: string
      */
     public function plantilla(): string
     {
-        return $this->emiteDte() ? 'dte' : 'base';
+        return match (true) {
+            $this->emiteDte() => 'dte',
+            // Los tres papeles del negocio, con la identidad de la empresa.
+            in_array($this, [self::COTIZACION, self::NOTA_VENTA, self::ORDEN_COMPRA], true) => 'empresa',
+            default => 'base',
+        };
     }
 
     /**
@@ -173,7 +223,7 @@ enum TipoDocumento: string
                 'N' => 'Nula',
                 'R' => 'Perdida',
             ],
-            self::NOTA_VENTA => [
+            self::NOTA_VENTA, self::ORDEN_COMPRA => [
                 'P' => 'Pendiente',
                 'A' => 'Aprobada',
                 'N' => 'Nula',
@@ -191,12 +241,19 @@ enum TipoDocumento: string
         return $this->estados()[$c] ?? $c;
     }
 
-    /** Cómo lo nombran el maestro y la app (`$this->recurso()` de los controladores). */
+    /**
+     * Cómo lo nombran el maestro y la app (`$this->recurso()` de los controladores).
+     *
+     * La orden de compra dice `nota_venta` porque **es** una nota de venta
+     * mirada desde el otro lado: el mismo número, las mismas líneas y el mismo
+     * total, dirigidos al proveedor en vez de al cliente. No tiene tablas
+     * propias ni correlativo propio.
+     */
     public function recurso(): string
     {
         return match ($this) {
             self::COTIZACION => 'cotizacion',
-            self::NOTA_VENTA => 'nota_venta',
+            self::NOTA_VENTA, self::ORDEN_COMPRA => 'nota_venta',
             default => $this->value,
         };
     }

@@ -57,6 +57,19 @@ const TIPOS = {
         archivo: 'nota-de-venta',
         pedir: (n) => api.pdfNotaVenta(n),
     },
+    /*
+     * La otra cara de la nota de venta: lo mismo pedido al proveedor.
+     *
+     * Va como tipo aparte y no como una opción de la nota de venta porque son
+     * dos papeles distintos que se mandan a dos personas distintas — y cada uno
+     * necesita su propia copia guardada. Si compartieran clave, abrir uno
+     * borraría el otro del teléfono.
+     */
+    orden_compra: {
+        rotulo: 'Orden de compra',
+        archivo: 'orden-de-compra',
+        pedir: (n) => api.pdfNotaVenta(n, 'orden_compra'),
+    },
     factura: {
         rotulo: 'Factura',
         archivo: 'factura',

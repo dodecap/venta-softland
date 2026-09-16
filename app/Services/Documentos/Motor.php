@@ -116,6 +116,12 @@ class Motor
     private function paginar(Dompdf $dompdf): void
     {
         $canvas = $dompdf->getCanvas();
+
+        // En un documento de una hoja el «Página 1 de 1» no informa de nada y
+        // se come el sitio del pie. El paginado existe para el de tres.
+        if ($canvas->get_page_count() < 2) {
+            return;
+        }
         $metrics = $dompdf->getFontMetrics();
         $fuente = $metrics->getFont('DejaVu Sans');
 
@@ -159,6 +165,24 @@ class Motor
             'bloques' => $tipo->bloques(),
             'identidad' => $identidad,
             'logo' => $this->identidad->logoDataUri(),
+            // El segundo escudo: la marca que la empresa representa. Una que no
+            // represente a nadie no lo sube y las plantillas dibujan sólo el
+            // que haya.
+            'logo_secundario' => $this->identidad->logoSecundarioDataUri(),
+            // La voz de la empresa, que es texto y no lógica.
+            'presentacion' => $identidad['presentacion'] ?? '',
+            'nota_pago' => $identidad['nota_pago'] ?? '',
+            'despedida' => $identidad['despedida'] ?? '',
+            // Las condiciones **sin** la forma de pago ni la UF: en el papel
+            // comercial la primera va en la caja del cliente y la segunda cierra
+            // la lista, en negrita.
+            'condiciones_empresa' => array_merge(
+                $this->lineasDe($identidad['condiciones_comerciales'] ?? ''),
+                $this->lineasDe($identidad['datos_bancarios'] ?? ''),
+            ),
+            // La UF con la que se calculó el documento. Sin ella, los números en
+            // UF de la rejilla no se pueden comprobar.
+            'uf_documento' => $this->ufDelDocumento($datos, $lineas),
             'columnas' => $this->columnas($identidad['modelo_negocio'], $lineas),
             'impuestos' => ! empty($datos['impuestos']) ? $datos['impuestos'] : $this->impuestos($doc),
             'vigencia' => $this->vigencia($tipo, $doc, $identidad),
@@ -283,6 +307,33 @@ class Motor
      * No se copian las condiciones del PDF de referencia: son de Softland
      * Ingeniería y sólo sirvieron de ejemplo de estructura.
      */
+    /** Un texto de varias líneas, como lista. Las vacías se van. */
+    private function lineasDe(string $texto): array
+    {
+        return array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $texto) ?: [])));
+    }
+
+    /**
+     * El valor de la UF que usó el documento.
+     *
+     * Sale de la equivalencia de sus propias líneas y no de la UF de hoy: un
+     * documento de hace tres meses se reimprime con la UF de entonces, que es
+     * con la que se calcularon sus totales. Sólo aparece si algo va en UF.
+     */
+    private function ufDelDocumento(array $datos, array $lineas): ?float
+    {
+        // La equivalencia distinta de 1 es lo que dice que la línea se tarifó
+        // en otra moneda: el precio va en la del producto y el total en la del
+        // documento. No hace falta mirar qué moneda es.
+        foreach ($lineas as $l) {
+            if ((float) ($l['equiv'] ?? 1) > 1) {
+                return (float) $l['equiv'];
+            }
+        }
+
+        return null;
+    }
+
     private function condiciones(array $datos, array $identidad): array
     {
         $lineas = [];

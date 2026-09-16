@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Usuario;
 use App\Services\Documentos\Emision;
+use App\Services\Documentos\ReglasOrdenCompra;
 use App\Services\Documentos\TipoDocumento;
 use App\Services\Notificaciones\Notificador;
 use App\Services\Softland\Maestros;
@@ -314,16 +315,23 @@ abstract class DocumentoController extends Controller
             return response()->json(['message' => $this->noEncontrado()], 404);
         }
 
+        // Un documento puede salir en más de un papel. La nota de venta tiene
+        // dos: la que se le entrega al cliente y la orden de compra que se le
+        // manda al proveedor, con los mismos datos mirados desde el otro lado.
+        // Se versionan por separado, que es lo correcto: son dos cosas que se
+        // entregan a dos personas distintas.
+        $tipoPapel = $this->papelPedido($request);
+
         $r = $emision->emitir(
-            $this->tipoDoc(),
+            $tipoPapel,
             $numero,
-            $this->contextoDocumento($doc, $this->lineasDocumento($numero)),
+            $this->contextoDocumento($doc, $this->lineasDocumento($numero), $tipoPapel),
             $u,
         );
 
         return response($r['pdf'], 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$this->tipoDoc()->archivo($numero).'"',
+            'Content-Disposition' => 'inline; filename="'.$tipoPapel->archivo($numero).'"',
             // Para que el teléfono sepa si lo que tiene guardado sigue vigente
             // sin volver a bajar 60 KB.
             'X-Documento-Version' => (string) $r['version'],
@@ -463,7 +471,29 @@ abstract class DocumentoController extends Controller
      * emisión guarda exactamente esto — si faltara un dato, faltaría también en
      * el archivo histórico.
      */
-    protected function contextoDocumento(array $doc, array $lineas): array
+    /**
+     * Qué papel se pidió.
+     *
+     * Por omisión el del propio documento. `?formato=` permite pedir otro de
+     * los que ese documento admite — hoy sólo la nota de venta admite un
+     * segundo, y pedir uno que no corresponde se ignora en vez de fallar: un
+     * enlace viejo tiene que seguir dando el papel de siempre.
+     */
+    protected function papelPedido(Request $request): TipoDocumento
+    {
+        $pedido = trim((string) $request->query('formato', ''));
+        $propio = $this->tipoDoc();
+
+        if ($pedido === '' || $pedido === $propio->value) {
+            return $propio;
+        }
+
+        return in_array($pedido, array_column($propio->papelesAlternativos(), 'value'), true)
+            ? TipoDocumento::from($pedido)
+            : $propio;
+    }
+
+    protected function contextoDocumento(array $doc, array $lineas, ?TipoDocumento $papel = null): array
     {
         $conn = DB::connection('softland');
         $t = fn ($v) => trim((string) ($v ?? ''));
@@ -510,7 +540,75 @@ abstract class DocumentoController extends Controller
             'impuestos' => $this->impuestosDe((int) ($doc['numero'] ?? 0)),
             'uf' => $this->ufDe($doc['fecha'] ?? null),
             'moneda_producto' => $this->monedaDeLasLineas($lineas),
+        ] + $this->contextoDelPapel($papel ?? $this->tipoDoc(), $doc, $lineas);
+    }
+
+    /**
+     * Lo que sólo necesita un papel concreto.
+     *
+     * Vive aquí y no en la plantilla por la razón de siempre: una vista que
+     * consulta se dibuja distinto cada vez, y la emisión guarda exactamente
+     * esto. Lo que aquí no esté, allá no existe.
+     */
+    protected function contextoDelPapel(TipoDocumento $papel, array $doc, array $lineas): array
+    {
+        if ($papel !== TipoDocumento::ORDEN_COMPRA) {
+            return [];
+        }
+
+        $reglas = new ReglasOrdenCompra;
+        $huecos = $reglas->huecos();
+        $atributos = $this->atributosDelDocumento((int) ($doc['numero'] ?? 0));
+
+        return [
+            // La rejilla de la orden lleva ocho columnas y descripciones que
+            // envuelven, así que el renglón es más alto y caben menos que en
+            // los otros dos papeles.
+            'renglones_por_pagina' => 18,
+            'proveedor' => $reglas->proveedor(),
+            // El código del producto **en el proveedor**, que no es el nuestro.
+            // Vacío en los que no lo tienen, y así sale en el papel.
+            'codigos_proveedor' => DB::connection('softland')->table('softland.iw_tprod')
+                ->whereIn('CodProd', array_column($lineas, 'producto'))
+                ->pluck('DesProd2', 'CodProd')
+                ->mapWithKeys(fn ($d, $c) => [trim($c) => trim((string) $d)])->all(),
+            // La fecha de la orden: la del atributo que la empresa haya
+            // señalado —«cuándo se le mandó esto al proveedor»— y, si no hay
+            // ninguno, la del documento.
+            'fecha_orden' => $atributos[$huecos['fecha']] ?? ($doc['fecha'] ?? null),
+            'observacion_orden' => $atributos[$huecos['observacion']] ?? null,
+            'tipo_venta_orden' => $atributos[$huecos['tipo_venta']] ?? null,
         ];
+    }
+
+    /**
+     * Los atributos del documento, ya en palabras.
+     *
+     * En el papel no sirve el código de la opción sino su texto: lo que se lee
+     * es «MIGRACION CLOUD - ONPREMISE», no «27».
+     *
+     * @return array<int, string>
+     */
+    protected function atributosDelDocumento(int $numero): array
+    {
+        if ($numero <= 0) {
+            return [];
+        }
+
+        $conn = DB::connection('softland');
+        $valores = [];
+
+        foreach ($conn->table('ventas.nv_atributo_valor')->where('nv_numero', $numero)->get() as $v) {
+            $valores[(int) $v->cod] = match (true) {
+                $v->opcion !== null => trim((string) $conn->table('softland.NW_NventaTVAtr')
+                    ->where('CodTat', $v->cod)->where('IdMaestro', 4)
+                    ->where('CodTAtE', $v->opcion)->value('DescripcionLista')),
+                $v->fecha !== null => substr((string) $v->fecha, 0, 10),
+                default => trim((string) $v->texto),
+            };
+        }
+
+        return $valores;
     }
 
     /**
@@ -527,10 +625,18 @@ abstract class DocumentoController extends Controller
             return [];
         }
 
+        // La comparación se hace **en PHP y sobre el nombre limpio**, no en el
+        // SQL. Softland guarda nombres con tabuladores al final —«LUIS
+        // VARGAS\t»— y `=` de SQL Server perdona los espacios sobrantes pero no
+        // los tabuladores: el contacto no se encontraba nunca y el papel salía
+        // sin teléfono. Son cuatro contactos por cliente; recorrerlos no cuesta
+        // nada.
+        $limpio = fn ($v) => preg_replace('/\s+/u', ' ', trim((string) $v));
+
         $c = DB::connection('softland')->table('softland.cwtaxco')
             ->where('CodAuc', $doc['cliente'] ?? '')
-            ->where('NomCon', $nombre)
-            ->first(['FonCon', 'Email']);
+            ->get(['NomCon', 'FonCon', 'Email'])
+            ->first(fn ($f) => $limpio($f->NomCon) === $limpio($nombre));
 
         return [
             'nombre' => $nombre,

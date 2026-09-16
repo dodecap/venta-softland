@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Documentos\ReglasOrdenCompra;
 use App\Services\Dte\ReglasFactura;
 use App\Services\Notificaciones\Eventos;
 use App\Services\Notificaciones\Notificador;
@@ -59,6 +60,13 @@ class ConfiguracionController extends Controller
                 // enseña para que quien elige no tenga que abrir el ERP.
                 'envio_softland' => (new ReglasFactura)->envioSegunSoftland(),
             ],
+            // La orden de compra al proveedor: a quién se le pide y qué
+            // atributo de la nota de venta va en cada hueco con nombre del
+            // papel. Sin esto el documento se dibuja igual, pero sin
+            // destinatario y sin esas dos líneas.
+            'orden_compra' => (new ReglasOrdenCompra)->valores() + [
+                'proveedor_nombre' => (new ReglasOrdenCompra)->proveedor()['nombre'] ?? null,
+            ],
         ]);
     }
 
@@ -95,6 +103,49 @@ class ConfiguracionController extends Controller
             'receptor_editable' => $reglas->receptorEditable(),
             'envio_automatico' => $reglas->envioAutomatico(),
         ]);
+    }
+
+    /**
+     * Guarda la configuración de la orden de compra al proveedor.
+     *
+     * El proveedor se guarda por su **código** en Softland, no copiando su
+     * ficha: si le cambian la dirección en el ERP, el próximo papel sale con la
+     * nueva. Copiarla sería tener dos verdades esperando a diferenciarse.
+     *
+     * Los atributos se guardan por su código y no por su nombre: los nombres
+     * los cambia cualquiera desde el ERP.
+     */
+    public function guardarOrdenCompra(Request $request)
+    {
+        $data = $request->validate([
+            'proveedor' => 'nullable|string|max:12',
+            'contacto' => 'nullable|string|max:60',
+            'correo' => 'nullable|email|max:120',
+            'atributo_observacion' => 'nullable|integer',
+            'atributo_tipo_venta' => 'nullable|integer',
+            'atributo_fecha' => 'nullable|integer',
+        ]);
+
+        if (! empty($data['proveedor'])) {
+            $existe = DB::connection('softland')->table('softland.cwtauxi')
+                ->where('CodAux', $data['proveedor'])->exists();
+
+            if (! $existe) {
+                return response()->json([
+                    'message' => 'Ese código no existe en Softland.',
+                    'errors' => ['proveedor' => ['Ese código no existe en Softland.']],
+                ], 422);
+            }
+        }
+
+        $reglas = new ReglasOrdenCompra;
+        $reglas->guardar($data);
+        ReglasOrdenCompra::olvidar();
+
+        return response()->json(
+            (new ReglasOrdenCompra)->valores()
+            + ['proveedor_nombre' => (new ReglasOrdenCompra)->proveedor()['nombre'] ?? null]
+        );
     }
 
     /**

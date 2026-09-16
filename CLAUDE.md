@@ -270,6 +270,17 @@ La cotización y la nota de venta salen en PDF por un **motor de documentos**
 (`app/Services/Documentos/`, plantillas en `resources/views/documentos/`). Lo
 que hay que saber antes de tocar nada de esto:
 
+- **Hay tres hojas, no una**: `base` para lo genérico, `empresa` para la
+  cotización, la nota de venta y la orden de compra —el papel que la empresa
+  lleva años entregando— y `dte` para los legales. El tipo dice cuál usa y qué
+  bloques lleva; el motor recorre bloques y no sabe de tipos.
+- **La orden de compra es un tipo documental, no un formato.** Es la nota de
+  venta mirada desde el otro lado: mismo número y mismas líneas, dirigidas al
+  proveedor, con el cliente final en «FACTURAR A». Se versiona aparte porque se
+  entrega a otra persona. A quién se le pide y qué atributo llena cada hueco del
+  papel es configuración (`ventas.config`, clave `orden_compra`).
+- **El proveedor se guarda por su código**, no copiando su ficha: se lee de
+  `cwtauxi` cada vez. Copiarla es tener dos verdades esperando a diferenciarse.
 - **Un tipo documental es un dato, no una plantilla.** `TipoDocumento` declara
   título y bloques; el motor recorre los bloques. Agregar un documento es
   agregar un `case`, no copiar una plantilla.

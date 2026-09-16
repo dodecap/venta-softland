@@ -43,6 +43,9 @@ class Identidad
         // del SII es la ciudad del contribuyente, y la resolución está en
         // `soempre`—, así que normalmente no hay nada que escribir aquí.
         'sii_oficina', 'sii_resolucion', 'sii_resolucion_anio',
+        // La voz de la empresa en la cotización: cómo abre, qué dice del pago y
+        // cómo se despide. Son textos, no lógica, y por eso se editan.
+        'presentacion', 'nota_pago', 'despedida',
     ];
 
     /** Índigo corporativo de Softland, el mismo de la app. */
@@ -79,6 +82,7 @@ class Identidad
             ? $ficha['modelo_negocio']
             : 'MIXTO';
         $ficha['tiene_logo'] = File::exists($this->rutaLogo());
+        $ficha['tiene_logo_secundario'] = File::exists($this->rutaLogo('secundario'));
 
         return static::$cache = $ficha;
     }
@@ -128,6 +132,17 @@ class Identidad
             // emitir documentos electrónicos.
             'sii_resolucion' => $t($e->DTENumeroResol ?? ''),
             'sii_resolucion_anio' => substr($t($e->DTEFechaResol ?? ''), 0, 4),
+            // Los textos con los que sale la cotización el primer día. No son
+            // de ninguna empresa en particular —son la fórmula de cualquier
+            // cotización comercial— y se cambian desde Identidad.
+            'presentacion' => 'Atendiendo a su amable solicitud estamos enviando cotización de los '
+                .'productos requeridos, para nosotros es un placer poner nuestra empresa a su servicio.',
+            'nota_pago' => 'En caso de pago con cheques, el primero debe ser al día y su monto será '
+                .'de acuerdo con la distribución del número de cheques que se acuerde, debiendo '
+                .'siempre cubrir el IVA en el primer cheque.',
+            'despedida' => 'Agradeciendo su atención y confianza hacia nuestra empresa le hago llegar '
+                .'mis saludos quedando a su disposición para atender cualquier consulta respecto de '
+                .'la presente cotización.',
         ];
     }
 
@@ -173,9 +188,26 @@ class Identidad
      * una ruta que Apache interpreta es la receta clásica de la ejecución
      * remota. Se sirve por la API, con token, y nunca por el servidor web.
      */
-    public function rutaLogo(): string
+    public function rutaLogo(string $cual = 'logo'): string
     {
-        return storage_path('app/private/identidad/logo.png');
+        return storage_path('app/private/identidad/'.($cual === 'secundario' ? 'logo-2' : 'logo').'.png');
+    }
+
+    /**
+     * Hay dos logos, y el segundo no es un adorno.
+     *
+     * INNOVAGES es representante regional de Softland, y su papel lleva los dos
+     * escudos: el suyo y el de la marca que representa. En la cotización el de
+     * Softland va a la izquierda y el propio a la derecha; en la nota de venta,
+     * al revés. Es la identidad que el cliente lleva años recibiendo.
+     *
+     * Se guarda igual que el primero —decodificado y vuelto a codificar— y vive
+     * en el mismo sitio. Una empresa que no represente a nadie no lo sube, y
+     * las plantillas dibujan sólo el que haya.
+     */
+    public function logoSecundarioDataUri(): ?string
+    {
+        return $this->dataUriDe($this->rutaLogo('secundario'));
     }
 
     /**
@@ -189,7 +221,7 @@ class Identidad
      *
      * @throws \RuntimeException con un motivo que se le puede mostrar al administrador
      */
-    public function guardarLogo(UploadedFile $archivo): array
+    public function guardarLogo(UploadedFile $archivo, string $cual = 'logo'): array
     {
         $mime = $archivo->getMimeType();   // por contenido (finfo), no por extensión
         if (! in_array($mime, ['image/png', 'image/jpeg'], true)) {
@@ -238,22 +270,22 @@ class Identidad
         imagecopyresampled($destino, $origen, 0, 0, 0, 0, $nuevoAncho, $nuevoAlto, $ancho, $alto);
         imagedestroy($origen);
 
-        File::ensureDirectoryExists(dirname($this->rutaLogo()));
+        File::ensureDirectoryExists(dirname($this->rutaLogo($cual)));
 
         ob_start();
         imagepng($destino, null, 6);
         $png = ob_get_clean();
         imagedestroy($destino);
 
-        File::put($this->rutaLogo(), $png);
+        File::put($this->rutaLogo($cual), $png);
         static::$cache = null;
 
         return ['ancho' => $nuevoAncho, 'alto' => $nuevoAlto, 'bytes' => strlen($png)];
     }
 
-    public function borrarLogo(): void
+    public function borrarLogo(string $cual = 'logo'): void
     {
-        File::delete($this->rutaLogo());
+        File::delete($this->rutaLogo($cual));
         static::$cache = null;
     }
 
@@ -267,11 +299,14 @@ class Identidad
      */
     public function logoDataUri(): ?string
     {
-        if (! File::exists($this->rutaLogo())) {
-            return null;
-        }
+        return $this->dataUriDe($this->rutaLogo());
+    }
 
-        return 'data:image/png;base64,'.base64_encode(File::get($this->rutaLogo()));
+    private function dataUriDe(string $ruta): ?string
+    {
+        return File::exists($ruta)
+            ? 'data:image/png;base64,'.base64_encode(File::get($ruta))
+            : null;
     }
 
     // ---------------------------------------------------------------- varios

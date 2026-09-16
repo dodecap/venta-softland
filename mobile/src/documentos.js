@@ -38,6 +38,18 @@ export const TIPOS = {
         },
     },
     nota_venta: {
+        /*
+         * Los papeles con los que puede salir. El primero es el suyo.
+         *
+         * La orden de compra es el mismo documento mirado desde el otro lado:
+         * lo que el cliente compró, pedido al proveedor. Es el espejo de lo que
+         * declara `TipoDocumento` en el servidor, y los dos tienen que decir lo
+         * mismo — igual que los estados.
+         */
+        papeles: [
+            { id: null, rotulo: 'Nota de venta', para: 'Para el cliente' },
+            { id: 'orden_compra', rotulo: 'Orden de compra', para: 'Para el proveedor' },
+        ],
         titulo: 'Notas de venta',
         singular: 'Nota de venta',
         icono: 'notaVenta',

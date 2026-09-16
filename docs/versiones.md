@@ -42,6 +42,45 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.29.0 — Los tres papeles del negocio, con el formato de la empresa
+*2026-09-16*
+
+- **La cotización y la nota de venta salen con el papel de la empresa**, no con
+  el diseño que habíamos inventado a ciegas: los dos logos —el propio y el de la
+  marca que representa—, las barras grises, la rejilla que llena la hoja, las
+  condiciones abajo a la izquierda y la caja de totales a su derecha.
+- **La orden de compra al proveedor es un tipo documental nuevo**, no un formato
+  alternativo de la nota de venta. Es el mismo trato mirado desde el otro lado:
+  mismo número y mismas líneas, dirigidos a quien tiene que despachar, con el
+  cliente final en «FACTURAR A». Se versiona aparte, que es lo correcto — son
+  dos papeles que se entregan a dos personas distintas.
+- **Al pedir el papel de una nota de venta se pregunta cuál**, y no se recuerda
+  la elección anterior a propósito: recordarla es cómo se le manda al cliente la
+  hoja del proveedor.
+- **Los números cuadran con los papeles reales.** La cotización 8487 sale con
+  2.100.258 / 164.742 / 399.049 / 2.664.049, y la nota de venta 2036 con
+  1.554.822 / 11.021.811 / 2.094.144 / 14.670.777 — los mismos que imprimió
+  Softland, al peso.
+- **Dos columnas de la orden salen de sitios que había que encontrar**: el
+  código del producto **en el proveedor** vive en `iw_tprod.DesProd2` —vacío en
+  los que no lo tienen, y por eso en el papel original sólo aparece en cuatro de
+  diez líneas— y el porcentaje de descuento se calcula, porque Softland guarda
+  la plata y no el porcentaje.
+- **Un segundo logo en Identidad.** INNOVAGES es representante regional de
+  Softland y su papel lleva los dos escudos, en distinto orden según el
+  documento. Una empresa que no represente a nadie no lo sube y las plantillas
+  dibujan sólo el que haya.
+- **A quién se le pide y qué atributo va en cada hueco es configuración**, en
+  Cuenta → Configuración. El proveedor se guarda por su **código**: su
+  dirección, RUT y giro se leen de Softland cada vez, en vez de copiarlos y
+  tener dos verdades esperando a diferenciarse.
+- **Arreglado de paso: el contacto no se encontraba nunca.** Softland guarda los
+  nombres con tabuladores al final —«LUIS VARGAS\t»— y el `=` de SQL Server
+  perdona los espacios sobrantes pero no los tabuladores. El papel salía sin
+  teléfono y nadie lo había notado.
+- El «Página 1 de 1» desapareció de los documentos de una hoja: no informaba de
+  nada y se comía el sitio del pie.
+
 ### 0.28.0 — Envío automático o manual, y borrar lo que no viajó
 *2026-09-16*
 
