@@ -42,6 +42,45 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.25.0 — Emitir y enviar son un solo acto, con cola a los dos lados
+*2026-09-16*
+
+- **Emitir una factura la manda al SII en la misma petición.** Antes eran dos
+  pasos y el segundo dependía de que alguien se acordara: así es como una
+  factura del día 30 termina emitida el 2, en otro mes tributario. Si el SII no
+  contesta, el documento queda escrito y en rojo, y el servidor lo reintenta
+  solo — la petición no se cae, porque el folio ya se gastó y decir «falló» a
+  secas sería mentir.
+- **El permiso se corrió de sitio.** Mandar al SII ya no exige rol de
+  facturación: quien puede emitir, manda, porque son el mismo acto. El permiso
+  que tiene sentido es «quién puede emitir», y se aplica antes.
+- **El timbre se guarda antes de enviar, no después.** Es el cambio más fino de
+  esta versión: el timbre lleva dentro la hora exacta en que se timbró, y el
+  código de barras del papel tiene que decir lo mismo que el XML que recibió el
+  SII. Generándolo dos veces salen dos timbres. Ahora se genera una vez, se
+  guarda, y se reusa para reintentar y para imprimir.
+- **`dte_doccab.Proceso` ya no se escribe.** Es `varchar(10)` —«Venta Softland»
+  no cabe— y está en NULL en las 4.798 filas de las dos empresas. Habría
+  reventado en el primer envío de verdad, que es justo donde este camino se
+  estrena.
+- **Cola en el teléfono**: sin señal, facturar deja el documento en la bandeja
+  de salida y sale solo al volver la red. Lo guardado **no es una factura** —sin
+  folio y sin timbre, los dos los pone el servidor— y la pantalla lo dice con
+  esas palabras, porque no hay número que darle al cliente.
+- **Cola en el servidor**: `dte:pendientes` manda lo escrito que no viajó y
+  recoge los veredictos de lo que viajó. Esa segunda mitad es la que hace que el
+  verde aparezca solo: el SII no avisa de nada.
+- **Se emite sola cuando el mundo sigue igual; se pregunta cuando cambió.** Una
+  factura que esperaba en la bandeja y llega cuando su nota de venta ya se
+  facturó entera no se emite a ciegas: vuelve preguntando, y la bandeja ofrece
+  «emitir igual». La nota de venta anulada no tiene salida y se dice.
+- **La factura es idempotente por `client_uuid`**, como la cotización y la nota
+  de venta. Aquí protege de algo más caro: dos envíos serían dos folios.
+- **La lista de facturas quedó como las otras listas.** Estaba hecha con un
+  `button`, que trae los estilos del navegador y la dejaba con pinta de recuadro
+  de otra app. Y la franja del SII pasó a rojo/ámbar/verde: desde que emitir y
+  enviar son lo mismo, «sin enviar» es una avería, no un paso del camino.
+
 ### 0.24.0 — Facturar no exige ser vendedor, y lo emitido tiene su lista
 *2026-09-16*
 

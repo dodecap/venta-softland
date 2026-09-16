@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { idb } from '../idb';
 import { monto, fecha } from '../catalogos';
+import { estadoSii } from '../documentos';
 import { facturasEmitidas } from '../saldo';
 import { useAccionCrear } from '../crear';
 import { conectado } from '../red';
@@ -160,12 +161,14 @@ function abrir(d) {
 
             <Aviso tipo="error" v-if="errorRefresco">{{ errorRefresco }}</Aviso>
 
-            <!-- Lo que falta mandar se dice arriba y no como una etiqueta más:
-                 un documento escrito y sin enviar no existe para el fisco, y es
-                 lo único de esta lista que hay que hacer hoy. -->
-            <Aviso tipo="info" v-if="sinEnviar && filtro !== 'sin_enviar'">
+            <!-- Desde que emitir y enviar son un solo acto, esto es una avería,
+                 no una tarea pendiente del día: o el SII no contestó, o el
+                 documento salió del Softland de escritorio. Va arriba y en
+                 rojo. -->
+            <Aviso tipo="error" v-if="sinEnviar && filtro !== 'sin_enviar'">
                 Hay <b>{{ sinEnviar }}</b> {{ sinEnviar === 1 ? 'documento escrito' : 'documentos escritos' }}
-                que todavía no {{ sinEnviar === 1 ? 'viajó' : 'viajaron' }} al SII.
+                que no {{ sinEnviar === 1 ? 'llegó' : 'llegaron' }} al SII. El servidor lo reintenta
+                solo; desde la ficha se puede mandar ahora.
             </Aviso>
 
             <div class="pestanas en-linea">
@@ -190,35 +193,38 @@ function abrir(d) {
                 Aquí aparecen las de los últimos 12 meses, una vez que sincronices.
             </Vacio>
 
-            <button class="item" v-for="d in documentos" :key="`${d.tipo}-${d.numero_interno}`"
-                    @click="abrir(d)">
-                <!-- Izquierda, el documento; derecha, el SII. Son dos estados
-                     distintos y de nada sirve mezclarlos: una factura puede
-                     estar perfecta en inventario y no haber salido. -->
+            <!-- Misma fila que en cotizaciones y notas de venta: título, cliente
+                 y etiquetas. Franja izquierda el documento, franja derecha el
+                 SII — son dos estados distintos y mezclarlos sería no poder ver
+                 de lejos la factura que está impecable y no ha salido.
+
+                 Va en un `div` y no en un `button`: el botón trae los estilos
+                 del navegador —texto centrado, otra tipografía— y la fila se
+                 veía como un recuadro de otra app. -->
+            <div class="item" v-for="d in documentos" :key="`${d.tipo}-${d.numero_interno}`"
+                 @click="abrir(d)">
                 <div class="item-estado" :class="d.anulada || d.acreditada ? 'gris' : TIPO[d.tipo]?.color"></div>
                 <div class="item-cuerpo">
                     <div class="item-titulo">
                         {{ TIPO[d.tipo]?.rotulo || d.tipo }} Nº {{ d.folio }}
                         · {{ monto(d.total, d.moneda) }}
                     </div>
+                    <div class="item-linea">{{ nombres[d.cliente] || d.cliente }}</div>
                     <div class="item-meta">
-                        <span>{{ nombres[d.cliente] || d.cliente }}</span>
-                        <span> · {{ fecha(d.fecha) }}</span>
-                    </div>
-                    <div class="item-meta">
+                        <!-- El color nunca es la única señal: lo que dice la
+                             franja lo dice también la etiqueta, con palabras. -->
+                        <span class="etiqueta" :class="estadoSii(d).color">{{ estadoSii(d).rotulo }}</span>
                         <span v-if="d.anula_a" class="etiqueta gris">Anula la Nº {{ d.anula_a }}</span>
                         <span v-else-if="d.acreditada" class="etiqueta gris">
                             Anulada con la NC Nº {{ d.acreditada }}
                         </span>
                         <span v-else-if="d.anulada" class="etiqueta gris">Anulada</span>
+                        <span> · {{ fecha(d.fecha) }}</span>
                         <span v-if="d.nota_venta"> · NV Nº {{ d.nota_venta }}</span>
                     </div>
                 </div>
-                <div class="item-sync"
-                     :class="d.aceptada ? '' : (d.track_id ? 'pendiente' : 'sin-enviar')"
-                     :title="d.aceptada ? 'Aceptada por el SII'
-                         : (d.track_id ? 'Enviada, sin veredicto' : 'Sin enviar al SII')"></div>
-            </button>
+                <div class="item-sync" :class="estadoSii(d).color"></div>
+            </div>
         </div>
     </div>
 </template>

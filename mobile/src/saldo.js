@@ -258,6 +258,53 @@ export async function facturadoDe(notaVenta) {
 }
 
 /**
+ * Qué facturar de una nota de venta, calculado **en el teléfono**.
+ *
+ * Es el gemelo sin señal de lo que devuelve el servidor en
+ * `/notas-venta/:n/facturar`. Cuando hay red manda el servidor, que ve lo que
+ * facturó el ERP hace un minuto; sin red, esto es lo que hay, y es lo mismo
+ * mientras el almacén esté al día.
+ *
+ * Lo único que no se puede saber sin red son **los folios**: los reparte
+ * Softland y no hay copia en el teléfono. Va en `null`, que quiere decir «no se
+ * sabe», no «no quedan».
+ */
+export async function propuestaLocal(numero) {
+    const nv = await idb.obtener('notas_venta', Number(numero));
+
+    if (! nv) return null;
+
+    const facturado = await facturadoDe(numero);
+    const lineas = await idb.porIndice('nota_venta_lineas', 'nota_venta', Number(numero));
+
+    return {
+        nota_venta: Number(numero),
+        cliente: nv.cliente,
+        moneda: nv.moneda,
+        centro_costo: nv.centro_costo || null,
+        condicion: nv.condicion || null,
+        vendedor: nv.vendedor || '',
+        estado: nv.estado,
+        receptor_editable: false,
+        conocible: true,
+        motivo: null,
+        folios: null,
+        lineas: (lineas || []).map((l) => {
+            const pedida = Number(l.cantidad || 0);
+            const hecha = facturado.get(clave(l.linea)) || 0;
+
+            return {
+                linea: l.linea,
+                producto: l.producto,
+                pedida,
+                facturada: hecha,
+                saldo: pedida - hecha,
+            };
+        }),
+    };
+}
+
+/**
  * Las facturas de una nota de venta, con lo que hay que saber de cada una.
  *
  * `acreditada` es el folio de la nota de crédito que la anuló, si la hay. Se

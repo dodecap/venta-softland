@@ -116,6 +116,10 @@ class FacturaController extends Controller
         $u = $this->usuario($request);
 
         $data = $request->validate([
+            'client_uuid' => 'nullable|string|max:64',
+            // «Sé lo que hago»: lo manda la bandeja cuando el vendedor
+            // responde que sí a una factura que llegó tarde.
+            'confirmado' => 'nullable|boolean',
             'nota_venta' => 'nullable|integer|min:1',
             'receptor' => 'required|string|max:12',
             'vendedor' => 'nullable|string|max:4',
@@ -137,6 +141,10 @@ class FacturaController extends Controller
             if (! $nv || ! $this->alcanza($request, $nv->VenCod)) {
                 return response()->json(['message' => 'Esa nota de venta no existe o no es tuya.'], 404);
             }
+
+            if ($pare = $this->elMundoCambio($nv, (bool) ($data['confirmado'] ?? false))) {
+                return $pare;
+            }
         }
 
         // De quién es la venta. Con nota de venta detrás no se pregunta: lo
@@ -151,6 +159,8 @@ class FacturaController extends Controller
         try {
             $doc = $this->facturacion->escribir([
                 'tipo' => TipoDte::FACTURA,
+                'client_uuid' => $data['client_uuid'] ?? null,
+                'usuario_id' => (int) $u->id,
                 'receptor' => $data['receptor'],
                 'vendedor' => $vendedor,
                 // `softland_user`, no `usuario`: esa propiedad no existe y se
@@ -172,7 +182,11 @@ class FacturaController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json($this->documento($doc['tipo'], $doc['nroint']), 201);
+        return response()->json(
+            $this->documento($doc['tipo'], $doc['nroint'])
+                + ['sii' => $this->mandarAlSii($doc['tipo'], $doc['nroint'])],
+            201
+        );
     }
 
     /**
@@ -235,7 +249,10 @@ class FacturaController extends Controller
         $u = $this->usuario($request);
         $doc = $this->documento($letra, $numeroInterno);
         $factura = $doc['documento'];
-        $data = $request->validate(['razon' => 'nullable|string|max:90']);
+        $data = $request->validate([
+            'razon' => 'nullable|string|max:90',
+            'client_uuid' => 'nullable|string|max:64',
+        ]);
 
         // Las líneas las arma el servidor y no se aceptan del teléfono: la
         // petición ni siquiera tiene dónde traerlas.
@@ -257,6 +274,8 @@ class FacturaController extends Controller
         try {
             $doc = $this->facturacion->escribir([
                 'tipo' => TipoDte::NOTA_CREDITO,
+                'client_uuid' => $data['client_uuid'] ?? null,
+                'usuario_id' => (int) $u->id,
                 'receptor' => $factura['cliente'],
                 // Lo pisa el de la factura que anula; va por si esa no tuviera.
                 'vendedor' => trim((string) $u->ven_cod),
@@ -288,7 +307,11 @@ class FacturaController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json($this->documento($doc['tipo'], $doc['nroint']), 201);
+        return response()->json(
+            $this->documento($doc['tipo'], $doc['nroint'])
+                + ['sii' => $this->mandarAlSii($doc['tipo'], $doc['nroint'])],
+            201
+        );
     }
 
     /**
@@ -338,14 +361,13 @@ class FacturaController extends Controller
      */
     public function enviar(Request $request, string $tipo, int $numeroInterno)
     {
-        $u = $this->usuario($request);
-
-        if (! $u->esRol('facturacion', 'admin')) {
-            return response()->json([
-                'message' => 'Mandar un documento al SII lo hace facturación o administración.',
-            ], 403);
-        }
-
+        // Sin barrera de rol, a propósito, y es un cambio respecto de antes.
+        // Emitir y mandar son un solo acto desde que la app manda sola al
+        // emitir: quien puede escribir el documento ya está haciendo el acto
+        // tributario, y separar el permiso sólo conseguía que la factura del
+        // vendedor se quedara esperando a que alguien de la oficina se
+        // acordara. El permiso que sí tiene sentido es «quién puede emitir», y
+        // ése se aplica antes, al escribir.
         $letra = strtoupper($tipo);
         $doc = $this->documento($letra, $numeroInterno);
 
@@ -436,6 +458,21 @@ class FacturaController extends Controller
             ]);
         }
 
+        // «EPR» es «envío procesado»: el SII terminó de mirarlo.
+        $resuelto = in_array($envio['estado'], ['EPR', 'DOK'], true);
+
+        // Y se anota, que es lo que hace que el verde aparezca solo. El SII no
+        // avisa: hasta que alguien pregunta, no se sabe, y si nadie guarda la
+        // respuesta hay que volver a preguntar cada vez.
+        if ($resuelto && $tipoDte = TipoDte::desdeSoftland($letra, $doc['documento']['subtipo'])) {
+            (new Emision(Certificado::desdeConfiguracion()))->anotarVeredicto(
+                $tipoDte,
+                $doc['documento']['folio'],
+                aceptado: (int) $envio['rechazados'] === 0 && (int) $envio['aceptados'] > 0,
+                motivo: trim($envio['glosa'].' · rechazados '.$envio['rechazados'].', con reparos '.$envio['reparos']),
+            );
+        }
+
         return response()->json([
             'enviado' => true,
             'track_id' => $track,
@@ -445,9 +482,100 @@ class FacturaController extends Controller
             'aceptados' => $envio['aceptados'],
             'rechazados' => $envio['rechazados'],
             'reparos' => $envio['reparos'],
-            // «EPR» es «envío procesado»: el SII terminó de mirarlo.
-            'resuelto' => in_array($envio['estado'], ['EPR', 'DOK'], true),
+            'resuelto' => $resuelto,
         ]);
+    }
+
+    /**
+     * Lo que pudo cambiar mientras la factura esperaba en la bandeja.
+     *
+     * Con la cola del teléfono, entre escribir la factura y emitirla pueden
+     * pasar horas, y en ese rato otro la pudo facturar desde el ERP o alguien
+     * pudo anular la nota de venta. Reservar el saldo sin red no es posible
+     * —ningún sistema puede—, pero emitir a ciegas sí se puede evitar.
+     *
+     * De ahí la regla: **se emite sola cuando el mundo sigue igual; se pregunta
+     * cuando cambió.** Lo que se puede confirmar vuelve con `confirmable`, y la
+     * bandeja ofrece «emitir igual»; lo que no —una nota de venta anulada— no
+     * tiene salida y se dice así.
+     *
+     * Facturar de más está permitido y no se toca: es legítimo y pasa. Lo que
+     * se pregunta es facturar algo que **ya no queda**, que es distinto.
+     */
+    private function elMundoCambio(object $nv, bool $confirmado)
+    {
+        $estado = strtoupper(trim((string) $nv->nvEstado));
+
+        if ($estado === 'N') {
+            return response()->json([
+                'message' => 'Esa nota de venta está anulada: no se factura.',
+            ], 409);
+        }
+
+        if ($estado === 'P') {
+            return response()->json([
+                'message' => 'Esa nota de venta todavía espera aprobación.',
+            ], 409);
+        }
+
+        if ($confirmado) {
+            return null;
+        }
+
+        $saldo = $this->saldo->deNotaVenta((int) $nv->NVNumero);
+        $queda = array_sum(array_map(fn ($l) => max(0.0, (float) $l['saldo']), $saldo['lineas']));
+
+        if ($saldo['conocible'] && $queda <= 0.0001) {
+            return response()->json([
+                'message' => 'Esta nota de venta ya está facturada entera. Si la factura que '
+                    .'preparaste sigue haciendo falta, confírmala y se emite igual.',
+                'confirmable' => true,
+            ], 409);
+        }
+
+        return null;
+    }
+
+    /**
+     * Mandarlo al SII ahora mismo, en cuanto queda escrito.
+     *
+     * **Emitir y enviar son un solo acto.** Un documento escrito y no enviado
+     * no existe para el fisco, y esperar a que alguien se acuerde de mandarlo
+     * es cómo una factura del día 30 termina emitida el 2.
+     *
+     * Lo que **no** hace es tumbar la petición si el SII no contesta: el
+     * documento ya está escrito y el folio ya se gastó, así que decir «falló»
+     * a secas sería mentir. Se devuelve lo que pasó, el teléfono lo pinta en
+     * rojo y la tarea `dte:pendientes` lo reintenta sola.
+     *
+     * @return array{enviado: bool, track_id?: string, glosa?: string, error?: string}
+     */
+    private function mandarAlSii(string $letra, int $nroInt): array
+    {
+        try {
+            $cert = Certificado::desdeConfiguracion();
+            $emision = new Emision($cert);
+            $doc = $this->documento($letra, $nroInt)['documento'];
+            $tipoDte = TipoDte::desdeSoftland($letra, $doc['subtipo']);
+
+            // Reenvío del mismo `client_uuid`: el documento ya existía y ya
+            // había viajado. Decir «no se pudo enviar» aquí sería asustar por
+            // haber hecho las cosas bien.
+            if ($tipoDte && $ya = $emision->seguimiento($tipoDte, (int) $doc['folio'])) {
+                return ['enviado' => true, 'track_id' => $ya, 'glosa' => 'Ya estaba enviada.'];
+            }
+
+            $r = $emision->emitir($letra, $nroInt);
+
+            return [
+                'enviado' => true,
+                'track_id' => $r['trackId'],
+                'glosa' => $r['glosa'],
+                'aviso' => $cert->avisaVencimiento(),
+            ];
+        } catch (Throwable $e) {
+            return ['enviado' => false, 'error' => $e->getMessage()];
+        }
     }
 
     /** Un documento emitido, con su detalle. */

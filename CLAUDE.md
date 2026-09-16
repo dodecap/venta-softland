@@ -374,11 +374,29 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
 Desde la fase 4 la app emite el DTE. Lo que hay que saber antes de tocar nada de
 esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
 
-- **Mandar al SII lo hace facturación o administración, no el vendedor.**
-  Escribir la factura es trabajo del vendedor; mandarla al fisco es un acto
-  tributario de la empresa. Y **enviado no es aceptado**: lo primero es que
-  viajó, lo segundo que el SII lo miró, y el veredicto tarda minutos, así que
-  consultarlo es una acción aparte.
+- **Emitir y enviar son un solo acto.** La app escribe el documento y lo manda
+  al SII en la misma petición: separarlos hacía que la factura del día 30 se
+  emitiera el 2, en otro mes tributario, porque dependía de que alguien se
+  acordara. Quien puede emitir, manda; el permiso que tiene sentido es «quién
+  puede emitir». Y **enviado no es aceptado**: lo primero es que viajó, lo
+  segundo que el SII lo miró, y el veredicto tarda minutos, así que consultarlo
+  es una acción aparte — la hace `dte:pendientes`, que también reintenta lo que
+  no salió.
+- **El teléfono nunca elige un folio.** El folio lo reparte Softland dentro del
+  servidor y el timbre se firma con una llave que no sale de la base: un
+  teléfono sin señal no puede fabricar una factura ni reservarle un número. Lo
+  que queda en la bandeja de salida es una **intención**, sin folio y sin
+  timbre, y se emite al llegar al servidor — en orden de llegada, no de
+  escritura. Por eso dos teléfonos offline no pueden chocar.
+- **El timbre se guarda antes de enviar.** Lleva dentro la hora en que se
+  timbró, y el código de barras del papel tiene que decir exactamente lo mismo
+  que el XML que recibió el SII. Se genera una vez (`Emision::preparar`), se
+  guarda, y se reusa para reintentar y para imprimir. Regenerarlo da otro
+  timbre.
+- **Se emite sola cuando el mundo sigue igual; se pregunta cuando cambió.** Una
+  factura que esperaba en la bandeja y llega cuando su nota de venta ya se
+  facturó entera vuelve preguntando, no se emite a ciegas. Facturar de más sigue
+  permitido: lo que se pregunta es facturar lo que ya no queda.
 - **La app llega hasta inventario y facturación, con el DTE emitido, y para
   ahí.** La centralización —contabilidad, registro de ventas, cuenta corriente
   del cliente— es un procedimiento aparte que se corre desde Softland, y no

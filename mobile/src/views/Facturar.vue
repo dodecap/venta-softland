@@ -5,6 +5,8 @@ import { api } from '../api';
 import { idb } from '../idb';
 import { monto, nombre as nombreDe } from '../catalogos';
 import { calcularTotales } from '../documentos';
+import { propuestaLocal } from '../saldo';
+import { encolar, nuevoUuid } from '../pendientes';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
@@ -40,6 +42,8 @@ const error = ref('');
 const trabajando = ref(false);
 const confirmando = ref(false);
 const emitida = ref(null);
+const encolada = ref(false);
+const sii = ref(null);
 
 onMounted(cargar);
 
@@ -47,7 +51,20 @@ async function cargar() {
     cargando.value = true;
     error.value = '';
     try {
-        const r = await api.propuestaFactura(numero.value);
+        // Con señal manda el servidor, que ve lo que el ERP facturó hace un
+        // minuto. Sin señal se calcula aquí, que es lo mismo mientras el
+        // almacén esté al día — y es lo que permite dejar la factura escrita
+        // en terreno en vez de confiar en que alguien se acuerde después.
+        const r = conectado.value
+            ? await api.propuestaFactura(numero.value)
+            : await propuestaLocal(numero.value);
+
+        if (! r) {
+            error.value = 'Esa nota de venta no está en el teléfono y no hay señal para traerla.';
+
+            return;
+        }
+
         propuesta.value = r;
 
         // Sólo lo que queda. Lo ya facturado no se vuelve a ofrecer, aunque se
@@ -84,28 +101,54 @@ async function ponerNombres() {
 
 const totales = computed(() => calcularTotales(lineas.value.filter((l) => l.cantidad > 0)));
 
-const sinFolios = computed(() => (propuesta.value?.folios?.libres ?? 0) <= 0);
+// Sin folios no se emite. Ojo con el caso sin señal: ahí `folios` es `null`,
+// que quiere decir «no se sabe» y no «no quedan» — bloquear ahí sería impedir
+// justo lo que la bandeja vino a permitir.
+const sinFolios = computed(() => !! propuesta.value?.folios && propuesta.value.folios.libres <= 0);
 const hayQueFacturar = computed(() => lineas.value.some((l) => l.cantidad > 0));
 
 /** Facturar de más está permitido, pero tiene que verse. */
 const deMas = computed(() => lineas.value.filter((l) => l.cantidad > l.saldo + 0.0001));
 
+/**
+ * Emitir, que es escribir el documento **y mandarlo al SII**, en un solo acto.
+ *
+ * Sin señal no se puede ninguna de las dos cosas: el folio lo reparte Softland
+ * y el timbre se firma con una llave que vive en el servidor. Así que lo que
+ * queda en la bandeja **no es una factura todavía** — es lo que se va a emitir
+ * en cuanto haya red, sin número y sin timbre. La pantalla lo dice con esas
+ * palabras, porque el vendedor no puede darle un número al cliente.
+ */
 async function emitir() {
     confirmando.value = false;
     trabajando.value = true;
     error.value = '';
+
+    const doc = {
+        // El mismo `client_uuid` viaje lo que viaje: emitir dos veces la misma
+        // factura son dos folios, y un folio no se devuelve.
+        client_uuid: nuevoUuid(),
+        nota_venta: numero.value,
+        receptor: propuesta.value.cliente,
+        centro_costo: propuesta.value.centro_costo,
+        condicion: propuesta.value.condicion,
+        lineas: lineas.value
+            .filter((l) => l.cantidad > 0)
+            .map((l) => ({ producto: l.producto, cantidad: l.cantidad, nv_linea: l.linea })),
+    };
+
     try {
-        const r = await api.emitirFactura({
-            nota_venta: numero.value,
-            receptor: propuesta.value.cliente,
-            centro_costo: propuesta.value.centro_costo,
-            condicion: propuesta.value.condicion,
-            lineas: lineas.value
-                .filter((l) => l.cantidad > 0)
-                .map((l) => ({ producto: l.producto, cantidad: l.cantidad, nv_linea: l.linea })),
-        });
+        if (! conectado.value) {
+            await encolar('factura.crear', doc.client_uuid, doc);
+            encolada.value = true;
+
+            return;
+        }
+
+        const r = await api.emitirFactura(doc);
 
         emitida.value = r.documento;
+        sii.value = r.sii || null;
         await idb.guardar('facturas', [r.documento]);
         await idb.guardar('factura_lineas', r.lineas || []);
     } catch (e) {
@@ -128,22 +171,44 @@ function cantidad(n) {
         </div>
 
         <div class="contenido">
-            <Aviso tipo="error" v-if="! conectado">
-                Facturar necesita señal. El folio lo reparte Softland y el número tiene que ser
-                el mismo para siempre desde que se emite, así que esto no se puede dejar pendiente.
-            </Aviso>
-
-            <div class="cargando" v-else-if="cargando">Cargando…</div>
+            <div class="cargando" v-if="cargando">Cargando…</div>
 
             <!-- Emitida. Se queda aquí, con el folio a la vista: es el dato que
                  el vendedor le dice al cliente y el que sirve para buscarla. -->
+            <!-- Guardada sin señal. Se dice lo que es —y lo que no es— sin
+                 rodeos: sin folio no hay documento, y el vendedor no tiene
+                 ningún número que darle al cliente todavía. -->
+            <template v-else-if="encolada">
+                <Aviso tipo="info">
+                    Guardada en la bandeja de salida. <b>Todavía no es una factura</b>: no tiene
+                    número ni timbre, y no se le puede entregar al cliente.
+                </Aviso>
+                <p class="ayuda">
+                    Se emite y se manda al SII sola, en cuanto el teléfono vea red. Llevará la
+                    fecha de ese día, no la de hoy.
+                </p>
+                <button class="boton" @click="router.replace(`/notas-venta/${numero}`)">
+                    Volver a la nota de venta
+                </button>
+            </template>
+
             <template v-else-if="emitida">
                 <Aviso tipo="ok">
                     Factura <b>Nº {{ emitida.folio }}</b> emitida por
                     <b>{{ monto(emitida.total, emitida.moneda) }}</b>.
                 </Aviso>
+                <!-- Emitir y mandar son un solo acto, así que aquí se dice en
+                     qué quedó el envío. Que falle no deshace la factura: el
+                     folio ya se gastó y el servidor lo reintenta solo. -->
+                <Aviso tipo="ok" v-if="sii?.enviado">
+                    Enviada al SII. TrackID <b>{{ sii.track_id }}</b>. El veredicto tarda unos minutos.
+                </Aviso>
+                <Aviso tipo="error" v-else-if="sii">
+                    <b>La factura quedó escrita, pero no llegó al SII:</b> {{ sii.error }}
+                    El servidor lo reintenta solo; también se puede mandar a mano desde la ficha.
+                </Aviso>
                 <p class="ayuda">
-                    Queda escrita en inventario y facturación. Enviarla al SII es un paso aparte.
+                    Queda escrita en inventario y facturación.
                 </p>
                 <button class="boton" @click="router.replace(`/notas-venta/${numero}`)">
                     Volver a la nota de venta
@@ -161,12 +226,17 @@ function cantidad(n) {
                 <template v-if="propuesta">
                 <!-- Los folios, antes que nada: enterarse de que no hay después
                      de teclear el documento es la peor forma de enterarse. -->
+                <Aviso tipo="info" v-if="! conectado">
+                    Sin señal. Lo que escribas queda en la bandeja y se emite solo al volver la
+                    red: no se puede dar un número al cliente hasta entonces.
+                </Aviso>
+
                 <Aviso tipo="error" v-if="sinFolios">
                     <b>No quedan folios de factura.</b> Hay que pedirle un CAF nuevo al SII y
                     cargarlo en Softland. Hasta entonces no se puede emitir, ni desde aquí ni
                     desde el ERP.
                 </Aviso>
-                <Aviso tipo="info" v-else-if="propuesta.folios.libres <= 3">
+                <Aviso tipo="info" v-else-if="propuesta.folios && propuesta.folios.libres <= 3">
                     Quedan <b>{{ propuesta.folios.libres }}</b>
                     {{ propuesta.folios.libres === 1 ? 'folio' : 'folios' }} de factura.
                     Ésta se llevaría el <b>Nº {{ propuesta.folios.siguiente }}</b>.
@@ -245,7 +315,9 @@ function cantidad(n) {
 
                     <button class="boton" :disabled="sinFolios || ! hayQueFacturar || trabajando"
                             @click="confirmando = true">
-                        {{ trabajando ? 'Emitiendo…' : 'Emitir la factura' }}
+                        <template v-if="trabajando">Emitiendo…</template>
+                        <template v-else-if="! conectado">Dejar en la bandeja</template>
+                        <template v-else>Emitir la factura</template>
                     </button>
                     <p class="ayuda centrado" v-if="sinFolios">
                         Sin folios no hay documento que emitir.
@@ -260,23 +332,39 @@ function cantidad(n) {
         <div class="velo" v-if="confirmando" @click.self="confirmando = false">
             <div class="hoja">
                 <div class="hoja-cabecera">
-                    <h2>Emitir la factura</h2>
+                    <h2>{{ conectado ? 'Emitir la factura' : 'Guardar para emitir' }}</h2>
                     <button class="icono-barra" @click="confirmando = false">
                         <AppIcon name="cerrar" :size="21" />
                     </button>
                 </div>
                 <div class="hoja-cuerpo">
-                    <p>
-                        Se emite la factura <b>Nº {{ propuesta?.folios?.siguiente }}</b> por
-                        <b>{{ monto(totales.total, propuesta?.moneda) }}</b>
-                        a {{ cliente?.nombre || propuesta?.cliente }}.
-                    </p>
-                    <p class="ayuda">
-                        Un folio emitido no se devuelve. Lo que salga mal se corrige con una nota
-                        de crédito, no borrando.
-                    </p>
+                    <template v-if="conectado">
+                        <p>
+                            Se emite la factura <b>Nº {{ propuesta?.folios?.siguiente }}</b> por
+                            <b>{{ monto(totales.total, propuesta?.moneda) }}</b>
+                            a {{ cliente?.nombre || propuesta?.cliente }},
+                            <b>y se manda al SII</b>.
+                        </p>
+                        <p class="ayuda">
+                            Un folio emitido no se devuelve. Lo que salga mal se corrige con una
+                            nota de crédito, no borrando.
+                        </p>
+                    </template>
+                    <template v-else>
+                        <p>
+                            Queda guardada una factura por <b>{{ monto(totales.total, propuesta?.moneda) }}</b>
+                            a {{ cliente?.nombre || propuesta?.cliente }}, que se emitirá al volver
+                            la señal.
+                        </p>
+                        <p class="ayuda">
+                            Todavía no tiene número ni timbre: el folio lo reparte Softland. Llevará
+                            la fecha del día en que se emita.
+                        </p>
+                    </template>
                     <button class="boton" :disabled="trabajando" @click="emitir">
-                        {{ trabajando ? 'Emitiendo…' : 'Emitir' }}
+                        <template v-if="trabajando">Emitiendo…</template>
+                        <template v-else-if="conectado">Emitir</template>
+                        <template v-else>Guardar en la bandeja</template>
                     </button>
                 </div>
             </div>

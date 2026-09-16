@@ -56,6 +56,14 @@ class Facturacion
     private const REINTENTOS = 5;
 
     /**
+     * El mapa de idempotencia, en el esquema propio.
+     *
+     * **Nunca lleva prefijo de base**, ni siquiera ensayando contra otra: lo
+     * nuestro vive en un solo sitio. Misma regla que en `Saldo`.
+     */
+    private const MAPA = 'ventas.documento_app';
+
+    /**
      * @param  string|null  $base  otra base de la misma instancia, para ensayar
      *                             sin tocar producción. En producción va en null.
      */
@@ -72,6 +80,8 @@ class Facturacion
      *     receptor: string,
      *     vendedor: string,
      *     usuario: string,
+     *     usuario_id?: int,
+     *     client_uuid?: string|null,
      *     fecha?: string,
      *     bodega?: string,
      *     moneda?: string,
@@ -149,10 +159,20 @@ class Facturacion
             (float) ($spec['descuento_pct'] ?? 0),
         );
 
+        // Si este mismo documento ya se escribió, se devuelve el que hay. Es
+        // lo que protege del caso que de verdad ocurre: el teléfono emite, el
+        // servidor escribe, la respuesta se pierde por el camino y el vendedor
+        // vuelve a apretar. Sin esto salen dos facturas con dos folios para la
+        // misma venta, y un folio no se devuelve.
+        if ($ya = $this->yaEscrito($spec['client_uuid'] ?? null, $letra)) {
+            return $ya;
+        }
+
         return $this->conReintento(function () use ($spec, $tipo, $letra, $subTipo, $totales, $signo) {
             return DB::connection(self::CONN)->transaction(function () use ($spec, $tipo, $letra, $subTipo, $totales, $signo) {
                 $nroInt = (int) $this->bloqueada('iw_gsaen')->where('Tipo', $letra)->max('NroInt') + 1;
                 $folio = $this->folio($tipo);
+                $spec['_creado_en'] = date('Y-m-d H:i:s');
 
                 $this->tabla('iw_gsaen')->insert(
                     $this->encabezado($spec, $letra, $subTipo, $nroInt, $folio, $totales, $signo)
@@ -165,10 +185,74 @@ class Facturacion
                 }
 
                 $this->referencia($spec, $letra, $nroInt);
+                $this->marcarEscrito($spec, $letra, $nroInt, $spec['_creado_en']);
 
                 return ['tipo' => $letra, 'nroint' => $nroInt, 'folio' => $folio];
             });
         });
+    }
+
+    /**
+     * El documento que este `client_uuid` ya escribió, si sigue vivo.
+     *
+     * Las dos mitades importan. Que exista la fila sólo dice que *alguna vez*
+     * se escribió ese número; `NroInt` se calcula por máximo y puede repartirse
+     * otra vez si el documento se borró. La huella es el instante de creación,
+     * guardado a la vez aquí y en `FecHoraCreacion`.
+     *
+     * @return array{tipo: string, nroint: int, folio: int}|null
+     */
+    private function yaEscrito(?string $uuid, string $letra): ?array
+    {
+        if (! $uuid) {
+            return null;
+        }
+
+        $fila = DB::connection(self::CONN)->table(self::MAPA)
+            ->where('client_uuid', $uuid)->orderByDesc('id')->first();
+
+        if (! $fila) {
+            return null;
+        }
+
+        $doc = DB::connection(self::CONN)->table($this->califica('iw_gsaen'))
+            ->where('Tipo', $letra)->where('NroInt', (int) $fila->numero)
+            ->first(['Folio', 'FecHoraCreacion']);
+
+        if ($doc && $this->instante($doc->FecHoraCreacion) === $this->instante($fila->creado_en)) {
+            return ['tipo' => $letra, 'nroint' => (int) $fila->numero, 'folio' => (int) $doc->Folio];
+        }
+
+        // El mapa apunta a un documento que ya no es ése. Se olvida, y el
+        // documento se escribe de nuevo: es lo que el teléfono vino a pedir.
+        DB::connection(self::CONN)->table(self::MAPA)
+            ->where('id', $fila->id)->delete();
+
+        return null;
+    }
+
+    /** Deja la huella para que un reenvío no escriba el documento dos veces. */
+    private function marcarEscrito(array $spec, string $letra, int $nroInt, string $creado): void
+    {
+        if (empty($spec['client_uuid'])) {
+            return;
+        }
+
+        DB::connection(self::CONN)->table(self::MAPA)->insert([
+            'client_uuid' => $spec['client_uuid'],
+            'tipo' => $letra === 'N' ? 'nota_credito' : 'factura',
+            'numero' => $nroInt,
+            'creado_en' => $creado,
+            'usuario_id' => $spec['usuario_id'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /** Al segundo, que es como lo guardan las dos tablas. */
+    private function instante(mixed $valor): string
+    {
+        return substr((string) $valor, 0, 19);
     }
 
     /**
@@ -259,7 +343,7 @@ class Facturacion
             'Sistema' => 'IW',
             'Proceso' => 'Venta Softland',
             'TtdCod' => $spec['ttd'] ?? 'EL',
-            'FecHoraCreacion' => date('Y-m-d H:i:s'),
+            'FecHoraCreacion' => $spec['_creado_en'],
 
             'FactorCostoImportacion' => 1.0,
             'TipoServicioSII' => 3,

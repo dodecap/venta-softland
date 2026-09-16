@@ -5,7 +5,9 @@ import { api } from '../api';
 import { db } from '../db';
 import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe } from '../catalogos';
+import { estadoSii as leerEstadoSii } from '../documentos';
 import { facturasEmitidas } from '../saldo';
+import { nuevoUuid } from '../pendientes';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
@@ -13,11 +15,10 @@ import Aviso from '../components/Aviso.vue';
 /*
  * La ficha de un documento emitido.
  *
- * Aquí termina el camino del vendedor y empieza el de facturación: escribirlo
- * es trabajo de quien vende, mandarlo al fisco es un acto tributario de la
- * empresa. Por eso «Enviar al SII» sólo aparece para administración y
- * facturación — el servidor lo comprueba igual; esto sólo evita enseñar un
- * botón que iba a responder 403.
+ * Lo normal es que aquí no haya nada que hacer: la factura se manda al SII en
+ * el mismo acto en que se emite. «Enviar al SII» está para lo que no salió —el
+ * SII caído, el documento escrito desde el Softland de escritorio— y para no
+ * tener que esperar a la tarea que barre lo pendiente.
  *
  * Se lee **sin señal**: el documento y sus líneas están en el teléfono. Lo que
  * necesita red es actuar —enviar, preguntar, anular—, y cada botón lo dice.
@@ -96,9 +97,10 @@ async function cargar() {
 const esNotaCredito = computed(() => tipo.value === 'N');
 const anulada = computed(() => String(doc.value?.estado || '').trim().toUpperCase() === 'N');
 
-const puedeEnviarAlSii = computed(
-    () => !! usuario.value && (usuario.value.es_admin || usuario.value.rol === 'facturacion')
-);
+// Quien puede emitir, puede mandar: son el mismo acto desde que la app manda
+// sola al emitir. Separarlo sólo conseguía que la factura del vendedor se
+// quedara esperando a que alguien de la oficina se acordara.
+const puedeEnviarAlSii = computed(() => !! usuario.value);
 
 /**
  * Mandar el documento al SII.
@@ -145,10 +147,11 @@ async function anular() {
     error.value = '';
 
     try {
-        const r = await api.emitirNotaCredito(tipo.value, numeroInterno.value, razonNc.value);
+        const r = await api.emitirNotaCredito(tipo.value, numeroInterno.value, razonNc.value, nuevoUuid());
         await idb.guardar('facturas', [r.documento]);
         await idb.guardar('factura_lineas', r.lineas || []);
-        aviso.value = `Nota de crédito Nº ${r.documento.folio} emitida: esta factura queda anulada.`;
+        aviso.value = `Nota de crédito Nº ${r.documento.folio} emitida: esta factura queda anulada.`
+            + (r.sii?.enviado ? ` Enviada al SII, TrackID ${r.sii.track_id}.` : '');
         await cargar();
     } catch (e) {
         error.value = e.message;
@@ -182,12 +185,18 @@ function cantidad(n) {
                 <Aviso tipo="ok" v-if="doc.aceptada">
                     Aceptada por el SII.
                 </Aviso>
-                <Aviso tipo="info" v-else-if="doc.track_id">
+                <Aviso tipo="info" v-else-if="doc.track_id && ! doc.motivo_sii">
                     Enviada al SII, todavía sin veredicto. TrackID <b>{{ doc.track_id }}</b>.
                 </Aviso>
-                <Aviso tipo="info" v-else-if="! anulada">
-                    <b>Escrita, sin enviar al SII.</b> Está en inventario y facturación con su
-                    folio, pero para el fisco todavía no existe.
+                <Aviso tipo="error" v-else-if="doc.motivo_sii">
+                    <b>El SII la rechazó:</b> {{ doc.motivo_sii }}
+                </Aviso>
+                <!-- Desde que emitir y mandar son un solo acto, esto es una
+                     avería y no un paso pendiente: o el SII no contestó, o el
+                     documento salió del Softland de escritorio. -->
+                <Aviso tipo="error" v-else-if="! anulada">
+                    <b>Escrita, no llegó al SII.</b> Está en inventario y facturación con su folio,
+                    pero para el fisco todavía no existe. El servidor lo reintenta solo.
                 </Aviso>
 
                 <Aviso tipo="info" v-if="doc.acreditada">
@@ -203,6 +212,7 @@ function cantidad(n) {
                         <div><span>Cliente</span><b>{{ cliente?.nombre || doc.cliente }}</b></div>
                         <div v-if="cliente?.rut"><span>RUT</span><b>{{ cliente.rut }}</b></div>
                         <div><span>Fecha</span><b>{{ fecha(doc.fecha) }}</b></div>
+                        <div><span>Ante el SII</span><b>{{ leerEstadoSii(doc).rotulo }}</b></div>
                         <div v-if="doc.vendedor">
                             <span>Vendedor</span><b>{{ nombreDe('vendedores', doc.vendedor) }}</b>
                         </div>

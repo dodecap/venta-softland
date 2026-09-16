@@ -266,9 +266,14 @@ html.con-barra .contenido {
 .item-sync { flex: 0 0 8px; background: var(--verde); }
 .item-sync.pendiente { background: var(--amarillo); }
 .item-sync.error { background: var(--rojo); }
-/* En la lista de facturas la franja derecha dice el estado ante el SII, no la
-   sincronización: escrito y sin enviar es lo que hay que hacer, no un fallo. */
-.item-sync.sin-enviar { background: var(--cian); }
+/* En la lista de facturas la franja derecha dice el estado ante el SII y no la
+   sincronización, así que usa los mismos nombres de color que la franja del
+   documento: los pinta `estadoSii()`, que es quien decide qué significa cada
+   uno. */
+.item-sync.verde { background: var(--verde); }
+.item-sync.amarillo { background: var(--amarillo); }
+.item-sync.rojo { background: var(--rojo); }
+.item-sync.gris { background: var(--texto-suave); }
 
 .item-estado.gris { background: var(--texto-suave); }
 
@@ -690,7 +695,11 @@ input:focus, select:focus, textarea:focus {
 
 .etiqueta.gris { background: var(--fondo); color: var(--texto-suave); }
 .etiqueta.verde { background: #eafaf0; color: #1a6b38; }
-.etiqueta.roja { background: #fdecec; color: #8a1f1f; }
+.etiqueta.roja,
+/* `rojo` y `amarillo` son los nombres que usa `estadoSii()`, que pinta con el
+   mismo token la franja y la etiqueta: una sola palabra decide los dos. */
+.etiqueta.rojo { background: #fdecec; color: #8a1f1f; }
+.etiqueta.amarillo { background: #fff5e0; color: #7a4e00; }
 /* «A medias»: convertida en parte. Va en cian, el acento de la casa, porque no
    es un problema ni un estado del ERP — es trabajo que queda por hacer. */
 .etiqueta.cian { background: #e6f7fd; color: #0b6c8c; }

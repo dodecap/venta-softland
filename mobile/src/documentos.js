@@ -62,6 +62,28 @@ export function estado(tipo, codigo) {
 }
 
 /**
+ * En qué quedó un documento con el SII.
+ *
+ * Es **otro estado**, no una variante del anterior: el de arriba dice si el
+ * documento está vigente o anulado en el ERP, y éste dice si existe para el
+ * fisco. Una factura puede estar impecable en inventario y no haber salido
+ * nunca, y ésa es justamente la que hay que ver de lejos.
+ *
+ * Desde que emitir y enviar son un solo acto, «sin enviar» dejó de ser un paso
+ * del camino y pasó a ser una avería: o el SII no contestó, o el documento se
+ * escribió desde el Softland de escritorio. Por eso va en rojo y no en cian.
+ *
+ * Vive aquí, con el otro, para que la lista y la ficha no puedan discrepar.
+ */
+export function estadoSii(d) {
+    if (! d?.track_id) return { rotulo: 'Sin enviar al SII', color: 'rojo' };
+    if (d.aceptada) return { rotulo: 'Aceptada por el SII', color: 'verde' };
+    if (d.motivo_sii) return { rotulo: 'Rechazada por el SII', color: 'rojo' };
+
+    return { rotulo: 'Enviada, esperando al SII', color: 'amarillo' };
+}
+
+/**
  * Las líneas de un documento, en orden y con el precio ya convertido.
  *
  * Softland guarda el precio de la línea en la moneda **del producto** y el

@@ -80,18 +80,66 @@ class Emision
             );
         }
 
-        $sobre = (new Sobre($this->cert, $this->base))
-            ->armar([['tipo' => $tipoSoftland, 'nroInt' => $nroInt]]);
+        $documento = $this->preparar($cab, $tipo);
 
-        $documento = (new Documento($this->base))->armar($tipoSoftland, $nroInt, $this->cert);
+        return $this->despachar($cab, $tipo, $documento);
+    }
+
+    /**
+     * Timbrar, firmar y **dejarlo guardado**, sin mandarlo todavía.
+     *
+     * Este paso existe separado del envío por una razón que no se ve hasta que
+     * algo falla: **el timbre lleva dentro la hora exacta en que se timbró**, y
+     * el código de barras del papel tiene que decir exactamente lo mismo que el
+     * XML que recibió el SII. Si el envío falla y mañana se vuelve a generar el
+     * documento, sale otro timbre — y el papel que ya se imprimió deja de
+     * corresponder.
+     *
+     * Así que se genera una vez, se guarda, y de ahí en adelante se reusa: para
+     * reintentar el envío y para imprimir. Un documento preparado y no enviado
+     * es un documento que existe, con su folio gastado, esperando viajar.
+     *
+     * @return string el XML del documento, el guardado o el recién hecho
+     */
+    public function preparar(object $cab, TipoDte $tipo): string
+    {
+        if ($guardado = $this->documentoGuardado($cab, $tipo)) {
+            return $guardado;
+        }
+
+        $documento = (new Documento($this->base))->armar($cab->Tipo, (int) $cab->NroInt, $this->cert);
+
+        $this->guardarDocumento($cab, $tipo, (int) $cab->Folio, $documento);
+
+        return $documento;
+    }
+
+    /**
+     * Meterlo en el sobre, mandarlo y anotar el TrackID.
+     *
+     * El sobre se arma **alrededor del documento ya guardado**, no se vuelve a
+     * generar el documento: el sobre es envoltorio —su firma cubre el conjunto y
+     * su marca de tiempo da igual— y el documento es lo que el SII saca de
+     * dentro y valida por separado.
+     *
+     * @return array{trackId:string, folio:int, id:string, sobre:string, documento:string, estado:string, glosa:string}
+     */
+    public function despachar(object $cab, TipoDte $tipo, string $documento): array
+    {
         $folio = (int) $cab->Folio;
         $rutEmisor = $this->rutEmisor();
+
+        $sobre = (new Sobre($this->cert, $this->base))->armar([[
+            'tipo' => $cab->Tipo,
+            'nroInt' => (int) $cab->NroInt,
+            'xml' => $documento,
+        ]]);
 
         $sii = new Sii($this->cert, $this->ambiente);
         $respuesta = $sii->enviar($sobre['xml'], $rutEmisor, $this->nombreArchivo($rutEmisor, $tipo, $folio, 'S'));
 
         try {
-            $this->guardar($cab, $tipo, $folio, $rutEmisor, $documento, $sobre, $respuesta['trackId']);
+            $this->guardarEnvio($cab, $tipo, $folio, $rutEmisor, $sobre, $respuesta['trackId']);
         } catch (Throwable $e) {
             // El envío ya ocurrió. Decirlo con el TrackID delante es la
             // diferencia entre recuperarlo a mano y volver a mandar el folio.
@@ -113,6 +161,26 @@ class Emision
         ];
     }
 
+    /** El XML del documento que ya se generó, si se generó. */
+    public function documentoGuardado(object $cab, TipoDte $tipo): ?string
+    {
+        $xml = DB::connection(self::CONN)->table($this->califica('dte_archivos'))
+            ->where('Tipo', $cab->Tipo)->where('NroInt', (int) $cab->NroInt)
+            ->where('TipoXML', 'D')->where('TipoDTE', $tipo->value)
+            ->orderByDesc('FechaGenDTE')
+            ->value('Archivo');
+
+        $xml = trim((string) $xml);
+
+        return $xml === '' ? null : $xml;
+    }
+
+    /** La cabecera de un documento de inventario, para quien la necesite fuera. */
+    public function documentoDe(string $tipoSoftland, int $nroInt): object
+    {
+        return $this->cabecera($tipoSoftland, $nroInt);
+    }
+
     /** El `TrackID` de un folio ya enviado, o null si no se ha mandado. */
     public function seguimiento(TipoDte $tipo, int $folio): ?string
     {
@@ -126,63 +194,124 @@ class Emision
     }
 
     /**
-     * Deja constancia del envío.
+     * Deja guardado el documento timbrado, antes de que viaje.
      *
-     * Todo dentro de una transacción: o queda el XML y el seguimiento, o no
-     * queda nada. Media constancia es peor que ninguna, porque se lee como si
-     * estuviera completa.
+     * Escribe el XML en `dte_archivos` y el timbre en `dte_doccab.FirmaDTE`,
+     * que es de donde el ERP —y nuestro PDF— sacan el código de barras. Lo que
+     * **no** escribe es el TrackID ni `EnviadoSII`: eso es del envío, y todavía
+     * no ocurrió. Un documento con timbre y sin TrackID es exactamente lo que
+     * se ve en rojo en la lista.
      */
-    private function guardar(object $cab, TipoDte $tipo, int $folio, string $rutEmisor, string $documento, array $sobre, string $trackId): void
+    private function guardarDocumento(object $cab, TipoDte $tipo, int $folio, string $documento): void
     {
-        DB::connection(self::CONN)->transaction(function () use ($cab, $tipo, $folio, $rutEmisor, $documento, $sobre, $trackId) {
+        DB::connection(self::CONN)->transaction(function () use ($cab, $tipo, $folio, $documento) {
+            $rutEmisor = $this->rutEmisor();
             $ahora = date('Y-m-d H:i:s');
+            $nombre = $this->nombreArchivo($rutEmisor, $tipo, $folio, 'D');
 
-            $idDocumento = $this->archivo($cab, $tipo, $folio, 'D', $this->nombreArchivo($rutEmisor, $tipo, $folio, 'D'), $documento);
-            $this->archivo($cab, $tipo, $folio, 'SS', $this->nombreArchivo($rutEmisor, $tipo, $folio, 'S'), $sobre['xml']);
-
-            $timbre = Timbre::extraer($documento);
+            $idDocumento = $this->archivo($cab, $tipo, $folio, 'D', $nombre, $documento);
 
             $datos = [
+                'Tipo' => $cab->Tipo,
+                'NroInt' => (int) $cab->NroInt,
+                'FechaGenDTE' => $ahora,
+                'Archivo' => $nombre,
+                'IDXMLDoc' => $idDocumento,
+                // `Proceso` **no se escribe**: es `varchar(10)` —«Venta
+                // Softland» no cabe— y está en NULL en las 4.798 filas de las
+                // dos empresas. El ERP no la usa. Escribirla reventaba el
+                // primer envío de verdad, que es donde este camino se estrena.
+            ];
+
+            if ($timbre = Timbre::extraer($documento)) {
+                // El ERP imprime el código de barras desde aquí, no desde el XML.
+                $datos['FirmaDTE'] = '<TED version="1.0">'.$timbre[0]
+                    .'<FRMT algoritmo="SHA1withRSA">'.$timbre[1].'</FRMT></TED>';
+            }
+
+            $this->escribirSeguimiento($cab, $tipo, $folio, $rutEmisor, $datos);
+        });
+    }
+
+    /**
+     * Deja constancia del envío.
+     *
+     * Todo dentro de una transacción: o queda el XML del sobre y el
+     * seguimiento, o no queda nada. Media constancia es peor que ninguna,
+     * porque se lee como si estuviera completa.
+     */
+    private function guardarEnvio(object $cab, TipoDte $tipo, int $folio, string $rutEmisor, array $sobre, string $trackId): void
+    {
+        DB::connection(self::CONN)->transaction(function () use ($cab, $tipo, $folio, $rutEmisor, $sobre, $trackId) {
+            $ahora = date('Y-m-d H:i:s');
+
+            $this->archivo($cab, $tipo, $folio, 'SS', $this->nombreArchivo($rutEmisor, $tipo, $folio, 'S'), $sobre['xml']);
+
+            $this->escribirSeguimiento($cab, $tipo, $folio, $rutEmisor, [
                 'Tipo' => $cab->Tipo,
                 'NroInt' => (int) $cab->NroInt,
                 'IDSetDTESII' => $sobre['id'],
                 'TrackID' => $trackId,
                 'EnviadoSII' => 1,
                 'FechaEnvioSII' => $ahora,
-                'FechaGenDTE' => $ahora,
-                'Archivo' => $this->nombreArchivo($rutEmisor, $tipo, $folio, 'D'),
-                'IDXMLDoc' => $idDocumento,
-                'Proceso' => 'Venta Softland',
-            ];
-
-            if ($timbre !== null) {
-                // El ERP imprime el código de barras desde aquí, no desde el XML.
-                $datos['FirmaDTE'] = '<TED version="1.0">'.$timbre[0]
-                    .'<FRMT algoritmo="SHA1withRSA">'.$timbre[1].'</FRMT></TED>';
-            }
-
-            $tabla = DB::connection(self::CONN)->table($this->califica('dte_doccab'))
-                ->where('RUTEmisor', $rutEmisor)
-                ->where('TipoDTE', $tipo->value)
-                ->where('Folio', $folio);
-
-            if ($tabla->exists()) {
-                $tabla->update($datos);
-
-                return;
-            }
-
-            // No debería pasar: el repartidor de folios deja la fila al
-            // entregarlo. Si no está, se crea con lo mínimo para que el folio no
-            // quede huérfano.
-            DB::connection(self::CONN)->table($this->califica('dte_doccab'))->insert($datos + [
-                'RUTEmisor' => $rutEmisor,
-                'TipoDTE' => $tipo->value,
-                'Folio' => $folio,
-                'FchEmis' => $cab->Fecha ?? $ahora,
-                'RUTRecep' => null,
             ]);
         });
+    }
+
+    /**
+     * Anota el veredicto del SII en la fila del documento.
+     *
+     * Lo escribe quien pregunta —la ficha o la tarea que barre lo pendiente—,
+     * porque hasta que alguien pregunta, no se sabe: el SII no avisa.
+     */
+    public function anotarVeredicto(TipoDte $tipo, int $folio, bool $aceptado, ?string $motivo): void
+    {
+        DB::connection(self::CONN)->table($this->califica('dte_doccab'))
+            ->where('RUTEmisor', $this->rutEmisor())
+            ->where('TipoDTE', $tipo->value)
+            ->where('Folio', $folio)
+            ->update([
+                'AceptadoSII' => $aceptado ? 1 : 0,
+                // El motivo sólo tiene sentido cuando no se aceptó: guardarlo
+                // con la aceptación dejaría la fila diciendo dos cosas.
+                'Motivo' => $aceptado ? null : $this->recorta($motivo),
+            ]);
+    }
+
+    private function recorta(?string $texto, int $largo = 250): ?string
+    {
+        $texto = trim((string) $texto);
+
+        return $texto === '' ? null : mb_substr($texto, 0, $largo);
+    }
+
+    /**
+     * Escribe en `dte_doccab`, actualizando o creando según haga falta.
+     *
+     * Lo normal es actualizar: el repartidor de folios deja la fila al entregar
+     * el número. Insertar es el caso raro, y está para que el folio no quede
+     * huérfano si algún día no la dejara.
+     */
+    private function escribirSeguimiento(object $cab, TipoDte $tipo, int $folio, string $rutEmisor, array $datos): void
+    {
+        $tabla = DB::connection(self::CONN)->table($this->califica('dte_doccab'))
+            ->where('RUTEmisor', $rutEmisor)
+            ->where('TipoDTE', $tipo->value)
+            ->where('Folio', $folio);
+
+        if ($tabla->exists()) {
+            $tabla->update($datos);
+
+            return;
+        }
+
+        DB::connection(self::CONN)->table($this->califica('dte_doccab'))->insert($datos + [
+            'RUTEmisor' => $rutEmisor,
+            'TipoDTE' => $tipo->value,
+            'Folio' => $folio,
+            'FchEmis' => $cab->Fecha ?? date('Y-m-d H:i:s'),
+            'RUTRecep' => null,
+        ]);
     }
 
     /** Guarda un XML en `dte_archivos` y devuelve su identificador. */

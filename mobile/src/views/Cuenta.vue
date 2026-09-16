@@ -8,7 +8,7 @@ import { cambiarDensidad, densidad, ETIQUETAS } from '../densidad';
 import { conectado } from '../red';
 import { abrirSoporte, NUMERO_VISIBLE } from '../soporte';
 import { contarRegistros, corridas, inventarioLocal, progreso, sincronizando, sincronizar as sincronizarMaestros } from '../sync';
-import { contarPendientes, descartar, enviarPendientes, porEnviar } from '../pendientes';
+import { confirmarPendiente, contarPendientes, descartar, enviarPendientes, porEnviar } from '../pendientes';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import FilaAjuste from '../components/FilaAjuste.vue';
@@ -155,8 +155,27 @@ async function reintentarPendientes() {
 function rotuloPendiente(p) {
     if (p.accion === 'cotizacion.crear') return `Nueva cotización de ${p.datos.cliente}`;
     if (p.accion === 'nota_venta.crear') return `Nueva nota de venta de ${p.datos.cliente}`;
+    if (p.accion === 'factura.crear') return `Factura por emitir a ${p.datos.receptor}`;
     if (p.accion === 'cliente.crear') return `Nuevo cliente ${p.datos.nombre}`;
     return `Cambios en ${p.datos.nombre || p.clave}`;
+}
+
+/*
+ * «Emitir igual» sale sólo cuando el servidor preguntó, no cuando rechazó.
+ *
+ * La diferencia importa: un rechazo por datos no mejora insistiendo, y ofrecer
+ * un botón que vuelve a fallar es peor que no ofrecerlo. El servidor marca con
+ * `confirmable` el único caso que sí mejora — la factura que esperaba y llegó
+ * cuando su nota de venta ya estaba facturada entera.
+ */
+function sePuedeConfirmar(p) {
+    return p.estado === 'rechazado' && p.confirmable;
+}
+
+async function confirmarEmision(p) {
+    if (! confirm('Se emite la factura igualmente y se manda al SII. Gasta un folio y no se deshace.')) return;
+    await confirmarPendiente(p.uuid);
+    await refrescar();
 }
 
 async function descartarPendiente(p) {
@@ -231,6 +250,8 @@ async function salir() {
                                 :detalle="p.estado === 'rechazado' ? p.mensaje : 'Esperando señal'"
                                 :peligro="p.estado === 'rechazado'">
                         <template #control>
+                            <button class="enlace" v-if="sePuedeConfirmar(p)"
+                                    @click.stop="confirmarEmision(p)">Emitir igual</button>
                             <button class="enlace" @click.stop="descartarPendiente(p)">Descartar</button>
                         </template>
                     </FilaAjuste>

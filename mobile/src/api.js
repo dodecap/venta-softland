@@ -207,8 +207,11 @@ export const api = {
     // Anular una factura es emitir la nota de crédito que la devuelve entera.
     // Las líneas las arma el servidor desde la factura: no se mandan.
     propuestaNotaCredito: (tipo, numeroInterno) => pedir(`/facturas/${tipo}/${numeroInterno}/nota-credito`),
-    emitirNotaCredito: (tipo, numeroInterno, razon) =>
-        pedir(`/facturas/${tipo}/${numeroInterno}/nota-credito`, { method: 'POST', body: { razon } }),
+    emitirNotaCredito: (tipo, numeroInterno, razon, clientUuid = null) =>
+        pedir(`/facturas/${tipo}/${numeroInterno}/nota-credito`, {
+            method: 'POST',
+            body: { razon, client_uuid: clientUuid },
+        }),
 
     // El SII. Mandarlo es lo más irreversible de la app; preguntar en qué quedó
     // es una consulta aparte, porque el veredicto tarda minutos.

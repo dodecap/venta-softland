@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.24.0**
+2026-09-16 — versión **0.25.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -237,6 +237,10 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       está escrita** —NroInt 203, a NETDOMAIN EIRL, 1.000 con IVA, de la nota de
       venta 2065— y **no ha viajado al SII**: no tiene fila en `dte_doccab`.
       Mandarla es lo que queda.
+- [ ] **Programar `dte:pendientes` en el Task Scheduler de `srv`**, cada 5
+      minutos. **A propósito no está creada todavía**: en cuanto corra, manda
+      sola la factura 235, y ése es el primer envío de verdad — el que hay que
+      apretar a mano, mirándolo.
 - [ ] **No quedan folios de factura.** El 235 era el último del CAF cargado; de
       nota de crédito queda uno, el 16. Hasta que se cargue un CAF nuevo en
       Softland no se puede emitir otra factura, ni desde la app ni desde el ERP.

@@ -53,7 +53,8 @@ export function nuevoUuid() {
  * es exactamente lo que después se puede mandar por la red.
  *
  * @param {string} accion  `cliente.crear` | `cliente.editar` |
- *                         `cotizacion.crear` | `nota_venta.crear`
+ *                         `cotizacion.crear` | `nota_venta.crear` |
+ *                         `factura.crear`
  * @param {string} clave   A qué afecta: el código del cliente, o el
  *                         `client_uuid` del documento cuando todavía no tiene
  *                         número de Softland.
@@ -71,6 +72,33 @@ export async function encolar(accion, clave, datos) {
     await idb.guardar('pendientes', [item]);
     await contarPendientes();
     return item;
+}
+
+/**
+ * Vuelve a intentar una operación que el servidor rechazó, diciendo que sí.
+ *
+ * Existe por un caso y sólo uno: la factura que esperaba en la bandeja y, al
+ * llegar, se encontró con que el mundo había cambiado —la nota de venta ya se
+ * facturó entera mientras tanto—. El servidor no la emite a ciegas, pregunta; y
+ * esto es la respuesta.
+ *
+ * No es un «reintentar» genérico: lo que vuelve a salir lleva la confirmación
+ * escrita, así que el servidor deja de preguntar y emite.
+ */
+export async function confirmarPendiente(uuid) {
+    const item = (await idb.todos('pendientes')).find((p) => p.uuid === uuid);
+
+    if (! item) return;
+
+    await idb.guardar('pendientes', [{
+        ...item,
+        estado: 'pendiente',
+        mensaje: '',
+        datos: { ...item.datos, confirmado: true },
+    }]);
+
+    await contarPendientes();
+    await enviarPendientes();
 }
 
 /** ¿Esta ficha tiene algo sin enviar? Es lo que pinta la franja ámbar. */
@@ -95,7 +123,8 @@ export async function descartar(uuid) {
 
     // Un documento que no llegó a salir no existe en ninguna parte: se va
     // entero y no deja rastro. No hay nada que reponer desde el servidor.
-    if (item?.accion === 'cotizacion.crear' || item?.accion === 'nota_venta.crear') {
+    if (item?.accion === 'cotizacion.crear' || item?.accion === 'nota_venta.crear'
+        || item?.accion === 'factura.crear') {
         await idb.borrar('pendientes', uuid);
         await contarPendientes();
         return;
@@ -169,10 +198,14 @@ export async function enviarPendientes() {
                 }
 
                 // El servidor lo rechazó por lo que trae, no por el camino.
+                // `confirmable` distingue «esto no va a mejorar» de «esto
+                // necesita que alguien diga que sí»: lo segundo tiene salida y
+                // la bandeja la ofrece.
                 await idb.guardar('pendientes', [{
                     ...item,
                     estado: 'rechazado',
                     mensaje: e.message,
+                    confirmable: e.datos?.confirmable === true,
                 }]);
                 resumen.fallidos++;
             }
@@ -196,6 +229,14 @@ async function enviarUno(item) {
 
     if (item.accion === 'nota_venta.crear') {
         return api.crearNotaVenta(item.datos);
+    }
+
+    // La factura se emite **y se manda al SII** en la misma petición: lo que
+    // aquí esperaba no era el papel, era el acto entero. El `client_uuid`
+    // protege igual que en los demás, y ahí protege de algo más caro — dos
+    // envíos serían dos folios, y un folio no se devuelve.
+    if (item.accion === 'factura.crear') {
+        return api.emitirFactura(item.datos);
     }
 
     if (item.accion === 'cliente.crear') {
@@ -223,6 +264,13 @@ async function enviarUno(item) {
 async function aplicarRespuesta(item, r) {
     if (r?.cotizacion || r?.nota_venta) {
         return guardarDocumento(r);
+    }
+
+    if (item.accion === 'factura.crear' && r?.documento) {
+        await idb.guardar('facturas', [r.documento]);
+        await idb.guardar('factura_lineas', r.lineas || []);
+
+        return;
     }
 
     if (! r?.cliente) return;
