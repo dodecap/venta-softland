@@ -441,7 +441,7 @@ La segunda se comprueba mandando además una línea inválida: si el error que
 llega es el de la línea y no el del receptor, la regla dejó pasar. Ninguna de
 las dos gasta folio, porque las dos fallan antes de pedirlo.
 
-### Paso 6 — Las pantallas ✅ hecho a medias (0.19.0)
+### Paso 6 — Las pantallas ✅ hecho (0.19.0 y 0.20.0)
 
 **Hecho: la cotización.** La ficha dice «convertida a medias: quedan 2 de 3
 líneas» con el detalle de lo que falta; el botón pasa a llamarse **«Nota de
@@ -460,19 +460,34 @@ cada línea. Sin eso, ni una conversión completa dejaba enlace, y **toda**
 cotización habría quedado en «no se sabe» para siempre. Ahora `cot_linea` viaja
 siempre, se convierta entera o a medias.
 
-**Pendiente: la factura.** El botón de facturar desde la nota de venta **no se
-hizo**, y no por falta de tiempo:
+**Y la factura** (0.20.0). Desde la ficha de la nota de venta, «Facturar» abre
+una pantalla con lo pendiente precargado y editable.
 
-- no hay endpoint de facturación ni pantalla de factura — la fase 4 llegó hasta
-  el servicio, y construirlas es un trozo del tamaño de todas las pantallas de
-  la fase 3;
-- queda **un solo folio de factura**. Un botón «Facturar» en el teléfono hoy
-  gastaría el 235 y dejaría un documento sin enviar al SII, porque el envío
-  tampoco está conectado a la app.
+Tres cosas que no están en ninguna otra pantalla, porque ninguna otra gasta algo
+que no se recupera:
 
-Lo que sí está listo para cuando se haga: `Facturacion::propuesta()` devuelve lo
-pendiente con sus cantidades, que es exactamente lo que esa pantalla necesita
-precargar.
+- **los folios se dicen antes**, no después de teclear el documento, y la
+  confirmación nombra el folio que va a gastar;
+- **el precio no tiene campo**. Lo pone la nota de venta; un campo desactivado
+  invita a pelearse con él, y no tenerlo dice mejor que no es una decisión de
+  quien factura;
+- **necesita señal**, a propósito. Un documento tributario no se guarda en una
+  bandeja de salida: el folio lo reparte Softland y el número tiene que ser el
+  mismo para siempre desde que se emite.
+
+**Contar folios no es contar los que no están usados.** El repartidor
+(`DTE_pdblEntregaFolioDTE`) va hacia adelante: entrega el siguiente al último
+usado y devuelve −1 si ningún CAF lo cubre. No rellena huecos, y en INNOVAGES
+hay 33 folios de rangos viejos sin rastro que no va a repartir jamás. Contarlos
+daba **38** donde la realidad es **uno** — un número de más que habría hecho
+planificar el mes con folios que no existen. Se cuenta avanzando desde el último
+usado *dentro de algún CAF*, que es literalmente lo que hará el repartidor.
+
+**Y «facturado 5 de 12» ya dice la verdad.** Ese avance se leía de
+`nw_detnv.nvCantFact`, que está en cero en las 3.824 líneas de cada empresa: la
+ficha decía «facturado 0 de 12» desde siempre. Ahora sale de sumar las líneas de
+factura vigentes que apuntan a cada línea, menos lo que devolvieron las notas de
+crédito.
 
 **Comprobado** a 360 px en las tres escalas de densidad (0,92 · 1 · 1,1): el
 aviso con su lista, la fila de acciones —que se desplaza, como todas— y la

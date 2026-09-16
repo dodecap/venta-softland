@@ -200,3 +200,59 @@ export async function parciales(numeros) {
 
     return aMedias;
 }
+
+/**
+ * Cuánto se ha facturado de una nota de venta, línea por línea.
+ *
+ * **No sale de `nvCantFact`.** Esa columna y sus seis hermanas están en cero en
+ * las 3.824 líneas de cada empresa: Softland no las mantiene, ni siquiera con
+ * 941 facturas de NETDOMAIN nacidas de una nota de venta. Leerlas daba
+ * «facturado 0 de 12» para siempre.
+ *
+ * Sale de sumar las líneas de factura **vigentes** que apuntan a cada línea de
+ * la nota de venta (`nvCorrela`), y de restar lo que devolvieron las notas de
+ * crédito. Es la misma resta del servidor.
+ *
+ * @returns {Promise<Map<string, number>>} la clave de cada línea con su cantidad facturada
+ */
+export async function facturadoDe(notaVenta) {
+    const [documentos, lineas] = await Promise.all([
+        idb.porIndice('facturas', 'nota_venta', Number(notaVenta)),
+        idb.todos('factura_lineas'),
+    ]);
+
+    const vigentes = new Map(
+        (documentos || [])
+            .filter((d) => (d.estado || '').trim().toUpperCase() !== 'N')
+            .map((d) => [`${d.tipo}-${d.numero_interno}`, d])
+    );
+
+    // Las notas de crédito no cuelgan de la nota de venta sino de la factura,
+    // así que se recogen aparte: son las que devuelven.
+    const porDocumento = new Map();
+
+    for (const l of lineas || []) {
+        const k = `${l.tipo}-${l.numero_interno}`;
+        if (! porDocumento.has(k)) porDocumento.set(k, []);
+        porDocumento.get(k).push(l);
+    }
+
+    const facturado = new Map();
+
+    for (const [k, doc] of vigentes) {
+        for (const l of porDocumento.get(k) || []) {
+            if (! (l.nota_venta_linea > 0)) continue;
+
+            const k2 = clave(l.nota_venta_linea);
+            // La cantidad de una nota de crédito viene en negativo: sumarla tal
+            // cual ya devuelve lo suyo.
+            const suma = doc.tipo === 'N'
+                ? -Math.abs(Number(l.cantidad || 0))
+                : Number(l.cantidad || 0);
+
+            facturado.set(k2, (facturado.get(k2) || 0) + suma);
+        }
+    }
+
+    return facturado;
+}

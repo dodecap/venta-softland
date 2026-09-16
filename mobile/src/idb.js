@@ -28,7 +28,7 @@ const NOMBRE = 'venta-softland';
 // La 2 agrega `motivos_perdida` y la 3 el almacén de PDF: la migración solo
 // crea los almacenes que falten, así que subir el número es todo lo que hace
 // falta.
-const VERSION = 4;
+const VERSION = 5;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -102,6 +102,22 @@ export const ALMACENES = {
     linea_origen: {
         clave: ['nota_venta', 'linea'],
         indices: { cotizacion: 'cotizacion', nota_venta: 'nota_venta' },
+    },
+
+    /**
+     * Facturas, boletas y notas de crédito.
+     *
+     * La clave es `tipo` + `numero_interno`, que es la de Softland. El **folio**
+     * es lo que ve la gente, pero no sirve de clave: no es único entre tipos.
+     */
+    facturas: {
+        clave: ['tipo', 'numero_interno'],
+        busqueda: ['folio', 'cliente', 'glosa'],
+        indices: { cliente: 'cliente', fecha: 'fecha', nota_venta: 'nota_venta' },
+    },
+    factura_lineas: {
+        clave: ['tipo', 'numero_interno', 'linea'],
+        indices: { documento: ['tipo', 'numero_interno'] },
     },
 
     /** Estado de la sincronización: una fila por maestro. No viene del servidor. */

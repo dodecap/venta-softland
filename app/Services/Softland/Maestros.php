@@ -312,6 +312,97 @@ class Maestros
                 ),
             ],
             /*
+             * Facturas, boletas y notas de crédito electrónicas.
+             *
+             * Se identifican por `Tipo` + `NroInt`, que es la clave de Softland;
+             * el **folio** es lo que ve la gente y lo que dice el SII, pero no
+             * es único entre tipos: hay folios que existen a la vez como factura
+             * y como boleta.
+             *
+             * Bajan al teléfono por dos razones. Una es enseñarlas. La otra pesa
+             * más: **el avance de una nota de venta se calcula desde aquí**. Las
+             * siete columnas de avance de `nw_detnv` están muertas —cero
+             * registros en las dos empresas—, así que «facturado 5 de 12» sale
+             * de sumar las líneas de factura vigentes que apuntan a esa línea.
+             */
+            'facturas' => [
+                'titulo' => 'Facturas y notas de crédito',
+                'tabla' => 'softland.iw_gsaen',
+                'clave' => ['Tipo', 'NroInt'],
+                'campos' => [
+                    'tipo' => 'Tipo',
+                    'numero_interno' => 'NroInt:entero',
+                    'subtipo' => 'SubTipoDocto',
+                    'folio' => 'Folio:entero',
+                    'cliente' => 'CodAux',
+                    'vendedor' => 'CodVendedor',
+                    'moneda' => 'CodMoneda',
+                    'estado' => 'Estado',
+                    'fecha' => 'Fecha:fecha',
+                    'fecha_vencimiento' => 'FechaVenc:fecha',
+                    'nota_venta' => 'nvnumero:entero',
+                    'centro_costo' => 'CentroDeCosto',
+                    'condicion' => 'CondPago',
+                    'glosa' => 'Glosa',
+                    'neto' => 'NetoAfecto:decimal',
+                    'exento' => 'NetoExento:decimal',
+                    'iva' => 'IVA:decimal',
+                    'total' => 'Total:decimal',
+                    'enviado_sii' => 'FechaGenDTE:fecha',
+                ],
+                'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
+                    if ($ventana) {
+                        $q->where('Fecha', '>=', static::desdeHistoria());
+                    }
+                    // Sólo lo que la app entiende: venta electrónica. Las guías,
+                    // los traslados y lo interno de inventario no son suyos.
+                    $q->whereIn('Tipo', ['F', 'B', 'N']);
+                    static::soloSusVendedores($q, 'CodVendedor', $ctx);
+                },
+            ],
+            'factura_lineas' => [
+                'titulo' => 'Detalle de facturas',
+                'tabla' => 'softland.iw_gmovi',
+                'clave' => ['Tipo', 'NroInt', 'Linea'],
+                'campos' => [
+                    'tipo' => 'Tipo',
+                    'numero_interno' => 'NroInt:entero',
+                    'linea' => 'Linea:decimal',
+                    'producto' => 'CodProd',
+                    'detalle' => 'DetProd',
+                    'unidad' => 'CodUMed',
+                    'cantidad' => 'CantFacturada:decimal',
+                    // Ya en la moneda del documento: de aquí sale el `PrcItem`
+                    // del DTE, y el SII comprueba que cuadre con el total.
+                    'precio' => 'PreUniMB:decimal',
+                    'descuento' => 'TotalDescMov:decimal',
+                    'total' => 'TotLinea:decimal',
+                    // A qué línea de la nota de venta corresponde. Es el enlace
+                    // nativo, y lo que permite saber qué queda por facturar.
+                    'nota_venta_linea' => 'nvCorrela:decimal',
+                    // Y a qué línea de la factura devuelve, en una nota de crédito.
+                    'devuelve_linea' => 'FactNumLin:decimal',
+                ],
+                // El alcance se cruza por **las dos** columnas de la clave. En
+                // `iw_gsaen` el `NroInt` se repite entre tipos —hay una factura
+                // 5 y una nota de crédito 5—, así que mirar sólo el número
+                // dejaría ver líneas de documentos de otro vendedor.
+                'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
+                    $q->whereIn('Tipo', ['F', 'B', 'N']);
+                    $q->whereExists(function ($s) use ($ctx, $ventana) {
+                        $s->selectRaw('1')->from('softland.iw_gsaen AS cab')
+                            ->whereColumn('cab.Tipo', 'iw_gmovi.Tipo')
+                            ->whereColumn('cab.NroInt', 'iw_gmovi.NroInt');
+
+                        if ($ventana) {
+                            $s->where('cab.Fecha', '>=', static::desdeHistoria());
+                        }
+
+                        static::soloSusVendedores($s, 'cab.CodVendedor', $ctx);
+                    });
+                },
+            ],
+            /*
              * De qué línea de cotización salió cada línea de nota de venta.
              *
              * Es lo único del ciclo que Softland no guarda: `nwdetcot` no tiene

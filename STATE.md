@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.19.0**
+2026-09-16 — versión **0.20.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -229,9 +229,7 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
 - [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
-      **Pasos 1 a 5 hechos y el 6 a medias**: las pantallas de la cotización
-      están; la de facturar desde la nota de venta espera a que exista el
-      endpoint de facturación y a que haya folios.
+      **Terminada**: los seis pasos, con la pantalla de facturación incluida.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
       probado menos el último paso, que no se deshace. De factura queda **un
       solo folio libre, el 235**.
@@ -1110,10 +1108,13 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       conversión completa dejaba enlace y toda cotización quedaba en «no se
       sabe». Ahora `cot_linea` viaja siempre.
 - [x] Comprobado a 360 px en las tres densidades.
-- [ ] **Falta el botón de facturar desde la nota de venta.** No hay endpoint de
-      facturación ni pantalla de factura —la fase 4 llegó hasta el servicio—, y
-      con **un solo folio** ese botón gastaría el 235 y dejaría un documento sin
-      enviar al SII. `Facturacion::propuesta()` ya devuelve lo que precargaría.
+- [x] **La pantalla de facturación** (0.20.0): `FacturaController`, los maestros
+      `facturas` y `factura_lineas`, y `Facturar.vue`. Los folios se dicen antes
+      de teclear, el precio no tiene campo y la confirmación nombra el folio.
+- [x] **Contar folios no es contar los que no están usados.** El repartidor no
+      rellena huecos: la primera cuenta daba **38** donde la realidad es **uno**.
+- [x] **«Facturado 5 de 12» decía «0 de 12» desde siempre**, porque se leía de
+      `nvCantFact`. Ahora se calcula desde las líneas de factura vigentes.
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres

@@ -17,6 +17,7 @@ import Productos from './views/Productos.vue';
 import Documentos from './views/Documentos.vue';
 import Documento from './views/Documento.vue';
 import Editor from './views/Editor.vue';
+import Facturar from './views/Facturar.vue';
 import Aprobaciones from './views/Aprobaciones.vue';
 import Usuarios from './views/Usuarios.vue';
 import Configuracion from './views/Configuracion.vue';
@@ -63,6 +64,7 @@ const router = createRouter({
         { path: '/notas-venta/nuevo', component: Editor, meta: { tipo: 'nota_venta' } },
         { path: '/notas-venta/:numero', component: Documento, meta: { tipo: 'nota_venta' } },
         { path: '/notas-venta/:numero/editar', component: Editor, meta: { tipo: 'nota_venta' } },
+        { path: '/notas-venta/:numero/facturar', component: Facturar },
         // Lo que el jefe tiene que resolver. No es una pestaña: se entra desde
         // el panel y desde el aviso que llega por correo.
         { path: '/aprobaciones', component: Aprobaciones },

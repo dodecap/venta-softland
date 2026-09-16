@@ -195,6 +195,12 @@ export const api = {
     seguirCotizacion: (numero, s) => pedir(`/cotizaciones/${numero}/seguimientos`, { method: 'POST', body: s }),
     convertirCotizacion: (numero, nv) => pedir(`/cotizaciones/${numero}/nota-venta`, { method: 'POST', body: nv }),
 
+    // Facturar. La propuesta dice qué queda por facturar y **cuántos folios
+    // hay**, que es lo único de la app que se gasta sin vuelta atrás.
+    propuestaFactura: (numero) => pedir(`/notas-venta/${numero}/facturar`),
+    emitirFactura: (doc) => pedir('/facturas', { method: 'POST', body: doc }),
+    factura: (tipo, numeroInterno) => pedir(`/facturas/${tipo}/${numeroInterno}`),
+
     // El papel. `compartido` es el acuse de que el documento salió por un
     // camino que el servidor no ve — WhatsApp, la impresora, el visor —, y
     // sirve para que la emisión guardada quede marcada como entregada.

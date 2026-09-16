@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CatalogoController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\ConfiguracionController;
 use App\Http\Controllers\Api\CotizacionController;
+use App\Http\Controllers\Api\FacturaController;
 use App\Http\Controllers\Api\IdentidadController;
 use App\Http\Controllers\Api\NotaVentaController;
 use App\Http\Controllers\Api\UsuarioController;
@@ -73,6 +74,13 @@ Route::middleware('auth.api')->group(function () {
     // hoja de compartir de Android, WhatsApp, una impresora.
     Route::get('/cotizaciones/{numero}/pdf', [CotizacionController::class, 'pdf'])->whereNumber('numero');
     Route::post('/cotizaciones/{numero}/compartido', [CotizacionController::class, 'compartido'])->whereNumber('numero');
+
+    // Facturar. Es lo único de la app que gasta algo que no se recupera, así
+    // que la propuesta dice cuántos folios quedan antes de que nadie teclee.
+    Route::get('/notas-venta/{numero}/facturar', [FacturaController::class, 'propuesta'])->whereNumber('numero');
+    Route::post('/facturas', [FacturaController::class, 'store']);
+    Route::get('/facturas/{tipo}/{numero}', [FacturaController::class, 'show'])
+        ->where('tipo', '[FBN]')->whereNumber('numero');
 
     Route::get('/notas-venta/aprobaciones', [NotaVentaController::class, 'pendientes']);
     Route::get('/notas-venta/{numero}', [NotaVentaController::class, 'show'])->whereNumber('numero');

@@ -42,6 +42,28 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.20.0 — Facturar desde el teléfono, diciendo antes cuántos folios quedan
+*2026-09-16*
+
+- **La pantalla de facturación**, que cierra la fase 4.5. Desde la nota de venta
+  se factura lo pendiente, con las cantidades precargadas y editables.
+- **Los folios se dicen antes.** La propuesta trae cuántos quedan y cuál sería
+  el siguiente, y la confirmación nombra el folio que va a gastar. Enterarse de
+  que no hay después de teclear el documento es la peor forma de enterarse.
+- **Contar folios no es contar los que no están usados.** El repartidor de
+  Softland va hacia adelante y no rellena huecos: contar los libres daba **38**
+  donde la realidad es **uno**. Se cuenta lo que el repartidor va a entregar.
+- **El precio no tiene campo.** Lo pone la nota de venta; un campo desactivado
+  invita a pelearse con él, no tenerlo dice mejor que no es una decisión de
+  quien factura.
+- **Facturar necesita señal**, a propósito: un documento tributario no se guarda
+  en una bandeja de salida.
+- **`FacturaController`** con la propuesta, la emisión y la consulta; maestros
+  `facturas` y `factura_lineas` para que el teléfono los tenga sin señal.
+- **«Facturado 5 de 12» ya dice la verdad.** Se calculaba desde `nvCantFact`,
+  que está en cero en las 3.824 líneas de cada empresa: decía «0 de 12» siempre.
+  Ahora sale de las líneas de factura vigentes, menos lo acreditado.
+
 ### 0.19.0 — El saldo se ve: convertida a medias y nota de venta por lo que queda
 *2026-09-16*
 

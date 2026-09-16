@@ -6,7 +6,7 @@ import { db } from '../db';
 import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
 import { TIPOS, estado, enriquecerLineas, lineasDe, avanceFacturacion } from '../documentos';
-import { saldoCotizacion } from '../saldo';
+import { facturadoDe, saldoCotizacion } from '../saldo';
 import { conectado } from '../red';
 import { compartirPdf, olvidarPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
@@ -99,6 +99,17 @@ async function cargar() {
         if (! doc.value && conectado.value) await traerDelServidor();
 
         saldo.value = doc.value && esCotizacion.value ? await saldoCotizacion(numero.value) : null;
+
+        // El avance de la nota de venta se calcula desde las facturas, no desde
+        // `nvCantFact`: esa columna está en cero en las 3.824 líneas de cada
+        // empresa, así que leerla daba «facturado 0 de 12» para siempre.
+        if (doc.value && ! esCotizacion.value) {
+            const facturado = await facturadoDe(numero.value);
+            lineas.value = lineas.value.map((l) => ({
+                ...l,
+                facturado: facturado.get(Number(l.linea).toFixed(2)) || 0,
+            }));
+        }
         cliente.value = doc.value ? await idb.obtener('clientes', doc.value.cliente) : null;
         papelGuardado.value = doc.value ? await pdfGuardado(tipo.value, numero.value) : null;
         if (! delServidor.value) await refrescarDelServidor();
@@ -186,6 +197,21 @@ const editable = computed(() => {
 const puedeConvertir = computed(
     () => esCotizacion.value && (editable.value || parcial.value)
 );
+
+/**
+ * Facturar: sólo una nota de venta viva y aprobada, y sólo si queda algo.
+ *
+ * Una en `P` espera el visto bueno del jefe y facturarla se lo saltaría; una
+ * anulada no existe. Lo que queda por facturar lo dice el avance, que se
+ * calcula desde las facturas y no desde la columna muerta del ERP.
+ */
+const puedeFacturar = computed(() => {
+    if (esCotizacion.value) return false;
+
+    const e = (doc.value?.estado || '').trim().toUpperCase();
+
+    return ['A', 'C'].includes(e) && !! avance.value && ! avance.value.completo;
+});
 
 /** Convertida a medias: tiene nota de venta y todavía le queda algo. */
 const parcial = computed(() => !! saldo.value?.parcial);
@@ -672,6 +698,10 @@ function cantidad(n) {
                             :disabled="! conectado || trabajando" @click="convertir">
                         <AppIcon name="notaVenta" :size="17" color="currentColor" />
                         {{ parcial ? 'Nota de venta por el saldo' : 'Pasar a nota de venta' }}
+                    </button>
+                    <button class="chip-accion fuerte" v-if="puedeFacturar" :disabled="! conectado"
+                            @click="router.push(`/notas-venta/${numero}/facturar`)">
+                        <AppIcon name="factura" :size="17" color="currentColor" /> Facturar
                     </button>
                     <button class="chip-accion" v-if="puedeAprobar" :disabled="! conectado || trabajando"
                             @click="aprobar">
