@@ -261,16 +261,28 @@ class Saldo
                     });
                 }
             })
-            ->selectRaw('m.nvCorrela AS linea, SUM(m.CantFacturada) AS cantidad')
-            ->groupBy('m.nvCorrela')
+            ->selectRaw('m.nvCorrela AS linea, m.FactNumLin AS lineaFactura, '
+                .'r.CodRefSII AS sii, r.FolioRef AS folio, SUM(m.CantFacturada) AS cantidad')
+            ->groupBy('m.nvCorrela', 'm.FactNumLin', 'r.CodRefSII', 'r.FolioRef')
             ->get();
 
         $suma = [];
         $noAtribuido = 0.0;
 
         foreach ($filas as $f) {
-            if ((float) $f->linea > 0) {
-                $suma[self::clave($f->linea)] = abs((float) $f->cantidad);
+            $linea = (float) $f->linea;
+
+            // Cuando la línea de la nota de crédito no dice a qué línea de nota
+            // de venta devuelve, se llega por el otro camino: `FactNumLin` dice
+            // qué línea de la factura devuelve, y esa sí lleva `nvCorrela`. Son
+            // dos saltos en vez de uno y llegan al mismo sitio.
+            if ($linea <= 0 && (float) $f->lineaFactura > 0) {
+                $linea = $this->lineaDeNotaVenta((string) $f->sii, (string) $f->folio, (float) $f->lineaFactura);
+            }
+
+            if ($linea > 0) {
+                $clave = self::clave($linea);
+                $suma[$clave] = ($suma[$clave] ?? 0) + abs((float) $f->cantidad);
 
                 continue;
             }
@@ -279,6 +291,39 @@ class Saldo
         }
 
         return [$suma, $noAtribuido];
+    }
+
+    /**
+     * El segundo salto: de una línea de factura a la línea de nota de venta que
+     * consumía.
+     *
+     * Hace falta porque las dos columnas se reparten el trabajo sin ponerse de
+     * acuerdo. De las 320 líneas de nota de crédito de NETDOMAIN, 84 traen
+     * `nvCorrela` y sólo 13 traen `FactNumLin`; en INNOVAGES es al revés — las
+     * 12 traen `FactNumLin` y sólo 2 `nvCorrela`. Mirar una sola columna deja
+     * fuera a la mayoría en una de las dos empresas.
+     */
+    private function lineaDeNotaVenta(string $sii, string $folio, float $lineaFactura): float
+    {
+        $tipo = TipoDte::tryFrom((int) $sii);
+
+        if (! $tipo) {
+            return 0.0;
+        }
+
+        [$letra] = $tipo->claveSoftland();
+
+        $valor = DB::connection(self::CONN)
+            ->table($this->califica('iw_gmovi').' AS m')
+            ->join($this->califica('iw_gsaen').' AS s', function ($j) {
+                $j->on('s.Tipo', '=', 'm.Tipo')->on('s.NroInt', '=', 'm.NroInt');
+            })
+            ->where('s.Tipo', $letra)
+            ->where('s.Folio', (int) $folio)
+            ->where('m.Linea', $lineaFactura)
+            ->value('m.nvCorrela');
+
+        return (float) ($valor ?? 0);
     }
 
     /**

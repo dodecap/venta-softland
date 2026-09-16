@@ -339,15 +339,65 @@ Los dos rechazos ocurren **antes** de pedir folio: una línea que dice venir de
 una nota de venta sin decir de cuál, y una que cita una línea inexistente. Un
 folio no se gasta para descubrir que la petición estaba mal.
 
-### Paso 4 — Devolver el saldo al anular
+### Paso 4 — Devolver el saldo al anular ✅ hecho (0.17.0)
 
-Anular una nota de venta (`nvEstado = 'N'`) y anular una factura por nota de
-crédito tienen que dejar el saldo como estaba. Aquí hay que resolver **cómo se
-cruza la línea de la nota de crédito con la línea de la factura**: 84 de las 320
-líneas de NC de NETDOMAIN traen `nvCorrela`, o sea que no siempre.
+La parte de la nota de venta ya estaba en el paso 2. Aquí se cerró la de la
+nota de crédito, que era el hueco anotado.
 
-**Prueba:** el ciclo completo —convertir, facturar, anular, volver a facturar—
-sin que el saldo se pierda ni se duplique.
+**Cómo se cruza la línea de la nota de crédito.** Hay dos columnas y se reparten
+el trabajo sin ponerse de acuerdo:
+
+| | `nvCorrela` | `FactNumLin` |
+|---|---|---|
+| Qué dice | a qué línea de **nota de venta** devuelve | a qué línea de **factura** devuelve |
+| INNOVAGES (12 líneas) | 2 | **12** |
+| NETDOMAIN (320 líneas) | **84** | 13 |
+
+Mirar una sola deja fuera a la mayoría en una de las dos empresas. El lector
+prueba las dos: si no está `nvCorrela`, salta por `FactNumLin` a la línea de la
+factura y toma de ahí el enlace. Son dos saltos en vez de uno y llegan al mismo
+sitio.
+
+**Y no se inventa una tercera.** Quedan dos líneas en NETDOMAIN que no traen
+ninguna de las dos. Se miraron: llevan el producto `70508002` y la factura que
+acreditan lleva `70700002`. **No están devolviendo esa línea**, así que
+atribuírsela sería inventar. Un respaldo «por producto, si no hay ambigüedad»
+habría acertado a equivocarse justo ahí. Se informan y se acabó.
+
+**Lo que se escribe.** La nota de crédito hereda del documento que corrige el
+producto, el precio, el descuento y el `nvCorrela`. Así las nuestras dicen a qué
+devuelven por las dos vías a la vez, y el daño que se ve en NETDOMAIN —224
+líneas que no lo dicen por ninguna— no se repite.
+
+```
+Nota de venta 2065: 12 unidades de 22214004 a 17.500
+   ok recién creada, sin facturar
+   ok la propuesta ofrece las 12 pendientes
+   ok se rechaza una línea que dice venir de una NV sin decir de cuál
+   ok se rechaza una línea de la NV que no existe
+Factura folio 235: 5 de la línea 1 más una línea agregada a mano
+   ok facturada en parte
+   ok la línea heredada apunta a la línea 1 de la nota de venta
+   ok la línea agregada a mano no apunta a ninguna
+   ok el precio lo puso la nota de venta, no quien facturó
+   ok el encabezado dice de qué nota de venta viene
+   ok lo que queda por facturar son 7
+Nota de crédito folio 16: devuelve la factura entera
+   ok acreditada, el saldo vuelve
+   ok la nota de crédito dice qué línea de la factura devuelve
+   ok y hereda de ella el enlace a la nota de venta
+   ok la cantidad devuelta va en negativo
+   ok vuelve a haber 12 por facturar
+Anulada la nota de crédito 16
+   ok sin la nota de crédito, los 5 vuelven a consumir
+Anulada la factura 235
+   ok una factura anulada no consume
+
+Deshecho: no queda documento ni folio gastado.
+```
+
+El saldo vuelve y se va cinco veces sin perderse ni duplicarse, que es lo que
+pedía la prueba.
 
 ### Paso 5 — La llave del receptor
 

@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.16.0**
+2026-09-16 — versión **0.17.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -229,9 +229,9 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
 - [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
-      **Pasos 1, 2 y 3 hechos** (el saldo, convertir parcial y facturar
-      parcial); quedan el cruce de la nota de crédito, la llave del receptor y
-      las pantallas.
+      **Pasos 1 a 4 hechos** (el saldo, convertir parcial, facturar parcial y
+      devolver el saldo al anular); quedan la llave del receptor y las
+      pantallas.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
       probado menos el último paso, que no se deshace. De factura queda **un
       solo folio libre, el 235**.
@@ -1068,6 +1068,22 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       transacción que se deshace. **Queda un solo folio de factura, el 235**, y
       por eso la prueba factura una vez: el caso de muchas facturas por nota de
       venta lo demuestra la historia de NETDOMAIN.
+
+### Fase 4.5, paso 4: devolver el saldo al anular
+- [x] La nota de crédito **hereda del documento que corrige** producto, precio,
+      descuento y `nvCorrela`: si la línea de la factura consumía saldo, la que
+      lo devuelve dice de cuál.
+- [x] **Dos columnas y ninguna alcanza sola.** `nvCorrela` apunta a la línea de
+      nota de venta y `FactNumLin` a la de factura. En INNOVAGES las 12 líneas
+      de nota de crédito traen `FactNumLin` y sólo 2 `nvCorrela`; en NETDOMAIN
+      es al revés. El lector prueba las dos.
+- [x] **No se inventa una tercera.** Las dos líneas que no se pueden atribuir
+      llevan un producto distinto del de la factura que acreditan: no devuelven
+      esa línea. Un respaldo por producto se habría equivocado justo ahí.
+- [x] `Facturacion::propuestaNotaCredito()`.
+- [x] Ciclo completo comprobado en `ventas:verifica-facturacion`: convertir,
+      facturar en parte, acreditar, anular la nota de crédito y anular la
+      factura. 16 comprobaciones, sin gastar folio.
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres

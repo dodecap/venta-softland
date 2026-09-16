@@ -42,6 +42,28 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.17.0 — La nota de crédito devuelve el saldo, por los dos caminos
+*2026-09-16*
+
+- **Paso 4 de la fase 4.5.** La nota de crédito hereda del documento que
+  corrige el producto, el precio, el descuento y —lo que importa— el
+  `nvCorrela`: si la línea de la factura consumía saldo, la que lo devuelve dice
+  de cuál.
+- **Dos columnas se reparten el trabajo sin ponerse de acuerdo.** De las 320
+  líneas de nota de crédito de NETDOMAIN, 84 traen `nvCorrela` y sólo 13
+  `FactNumLin`; en INNOVAGES es al revés, las 12 traen `FactNumLin` y sólo 2
+  `nvCorrela`. El lector prueba las dos: si no está la primera, salta por
+  `FactNumLin` a la línea de la factura y toma de ahí el enlace.
+- **Y no se inventa la tercera.** Las dos únicas líneas que no se pueden
+  atribuir llevan un producto distinto del de la factura que acreditan: no están
+  devolviendo esa línea. Un respaldo por producto habría acertado a equivocarse
+  justo ahí.
+- `Facturacion::propuestaNotaCredito()`: las líneas que anulan un documento
+  entero, con los dos enlaces puestos.
+- El ciclo entero comprobado: convertir, facturar en parte, acreditar, anular la
+  nota de crédito y anular la factura. El saldo vuelve y se va sin perderse ni
+  duplicarse en ninguno de los cinco pasos.
+
 ### 0.16.0 — Facturar parte de la nota de venta, con el precio heredado
 *2026-09-16*
 

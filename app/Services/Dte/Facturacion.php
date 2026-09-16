@@ -105,6 +105,7 @@ class Facturacion
         }
 
         $spec = $this->heredarDeNotaVenta($spec);
+        $spec = $this->heredarDelCorregido($spec);
 
         // ## El signo se aplica fuera de la aritmética
         //
@@ -339,6 +340,109 @@ class Facturacion
         }
 
         return $spec;
+    }
+
+    /**
+     * Lo que devuelve una nota de crédito lo pone el documento que corrige.
+     *
+     * Una línea con `linea_referencia` dice qué línea de la factura está
+     * devolviendo. De ahí se hereda lo mismo que de la nota de venta —producto,
+     * precio, factor, descuento— y, sobre todo, **el `nvCorrela`**: si la línea
+     * de la factura consumía saldo de una nota de venta, la que lo devuelve
+     * tiene que decir de cuál.
+     *
+     * ## Por qué esto importa tanto
+     *
+     * Sin ese enlace, el saldo no se puede devolver. Una factura acreditada
+     * dejaría su cantidad consumida para siempre, y la línea de la nota de venta
+     * quedaría sin poder volver a facturarse. En NETDOMAIN se ve el daño ya
+     * hecho: de 320 líneas de nota de crédito, sólo 84 traen `nvCorrela` y 13
+     * traen `FactNumLin` — 224 no dicen a qué línea devuelven nada.
+     *
+     * Lo que se escribe aquí hace que las nuestras siempre lo digan, por las dos
+     * vías a la vez.
+     */
+    private function heredarDelCorregido(array $spec): array
+    {
+        $ref = $spec['referencia'] ?? null;
+        $conLinea = array_filter($spec['lineas'], fn ($l) => ($l['linea_referencia'] ?? null) !== null);
+
+        if ($conLinea === [] || ! $ref) {
+            return $spec;
+        }
+
+        $tipoRef = TipoDte::desdeSoftland($ref['tipo'] ?? 'F', $ref['subtipo'] ?? 'T');
+        [$letraRef] = $tipoRef ? $tipoRef->claveSoftland() : ['F'];
+
+        $corregido = DB::connection(self::CONN)->table($this->califica('iw_gsaen'))
+            ->where('Tipo', $letraRef)->where('Folio', (int) $ref['folio'])
+            ->first(['Tipo', 'NroInt', 'nvnumero']);
+
+        if (! $corregido) {
+            throw new RuntimeException(
+                "No está el documento {$letraRef} folio {$ref['folio']} que esta nota de crédito dice corregir."
+            );
+        }
+
+        $lineas = DB::connection(self::CONN)->table($this->califica('iw_gmovi'))
+            ->where('Tipo', $corregido->Tipo)->where('NroInt', $corregido->NroInt)
+            ->get()->keyBy(fn ($l) => Saldo::clave($l->Linea));
+
+        foreach ($spec['lineas'] as $i => $l) {
+            if (($l['linea_referencia'] ?? null) === null) {
+                continue;
+            }
+
+            $o = $lineas[Saldo::clave($l['linea_referencia'])] ?? throw new RuntimeException(
+                "El documento folio {$ref['folio']} no tiene la línea {$l['linea_referencia']}."
+            );
+
+            $spec['lineas'][$i] = [
+                'producto' => trim((string) $o->CodProd),
+                // `PreUniMB` ya está en la moneda del documento, así que el
+                // factor vuelve a 1: convertirlo otra vez lo multiplicaría dos
+                // veces.
+                'precio' => abs((float) $o->PreUniMB),
+                'equiv' => 1.0,
+                'descuento_pct' => (float) $o->PorcDescMov01,
+                'unidad' => trim((string) $o->CodUMed) ?: 'UN',
+                // El enlace a la nota de venta se hereda de la línea que se
+                // devuelve. Es lo que permite que el saldo vuelva.
+                'nv_linea' => ((float) $o->nvCorrela) > 0 ? (float) $o->nvCorrela : null,
+            ] + $l;
+        }
+
+        // Y el documento entero hereda de qué nota de venta venía lo devuelto.
+        if (($spec['nota_venta'] ?? null) === null && (int) $corregido->nvnumero > 0) {
+            $spec['nota_venta'] = (int) $corregido->nvnumero;
+        }
+
+        return $spec;
+    }
+
+    /**
+     * Las líneas de la nota de crédito que anula un documento entero.
+     *
+     * Devuelve todo lo que el documento facturó, con la cantidad en negativo y
+     * con los dos enlaces puestos: a la línea de la factura y, a través de
+     * ella, a la de la nota de venta.
+     *
+     * @return list<array{producto: string, cantidad: float, linea_referencia: float}>
+     */
+    public function propuestaNotaCredito(string $letra, int $nroInt): array
+    {
+        $lineas = DB::connection(self::CONN)->table($this->califica('iw_gmovi'))
+            ->where('Tipo', $letra)->where('NroInt', $nroInt)->orderBy('Linea')->get();
+
+        if ($lineas->isEmpty()) {
+            throw new RuntimeException("El documento {$letra}/{$nroInt} no tiene líneas.");
+        }
+
+        return $lineas->map(fn ($l) => [
+            'producto' => trim((string) $l->CodProd),
+            'cantidad' => -abs((float) $l->CantFacturada),
+            'linea_referencia' => (float) $l->Linea,
+        ])->all();
     }
 
     /**

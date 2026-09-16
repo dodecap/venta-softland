@@ -19,6 +19,12 @@ use Throwable;
  * unidades facturadas de a una— en INNOVAGES, porque **NETDOMAIN es sólo
  * lectura**.
  *
+ * ## El ciclo entero
+ *
+ * Convertir, facturar en parte, acreditar, anular la nota de crédito y anular
+ * la factura. El saldo tiene que volver y volver a irse **sin perderse ni
+ * duplicarse** en ninguno de los cinco pasos.
+ *
  * ## Por qué una sola factura y no doce
  *
  * Porque queda **un solo folio**. El repartidor de Softland entrega el 235 y a
@@ -135,7 +141,49 @@ class VentasVerificaFacturacion extends Command
         $this->comprobar('lo que queda por facturar son 7',
             count($p = $facturacion->propuesta($nv)) === 1 && abs($p[0]['cantidad'] - 7) < 0.0001);
 
-        // ---- anular la factura: el saldo vuelve entero
+        // ---- la nota de crédito: devuelve lo facturado y el saldo vuelve
+        $nc = $facturacion->escribir([
+            'tipo' => TipoDte::NOTA_CREDITO,
+            'receptor' => $cliente,
+            'vendedor' => $u->ven_cod,
+            'usuario' => 'verifica',
+            'centro_costo' => $cc,
+            'lineas' => $facturacion->propuestaNotaCredito($doc['tipo'], $doc['nroint']),
+            'referencia' => [
+                'folio' => $doc['folio'],
+                'fecha' => date('Y-m-d'),
+                'tipo' => 'F',
+                'subtipo' => 'T',
+                'codigo' => '1',
+                'razon' => 'Anula Documento',
+            ],
+        ]);
+
+        $this->line("Nota de crédito folio {$nc['folio']}: devuelve la factura entera");
+        $this->saldoEs('acreditada, el saldo vuelve', $saldo->deNotaVenta($nv), [12.0]);
+
+        $lineasNc = DB::connection('softland')->table('softland.iw_gmovi')
+            ->where('Tipo', $nc['tipo'])->where('NroInt', $nc['nroint'])->orderBy('Linea')->get();
+
+        $this->comprobar('la nota de crédito dice qué línea de la factura devuelve',
+            (float) $lineasNc[0]->FactNumLin === 1.0);
+        $this->comprobar('y hereda de ella el enlace a la nota de venta',
+            (float) $lineasNc[0]->nvCorrela === 1.0,
+            'nvCorrela = '.$lineasNc[0]->nvCorrela);
+        $this->comprobar('la cantidad devuelta va en negativo',
+            (float) $lineasNc[0]->CantFacturada < 0);
+        $this->comprobar('vuelve a haber 12 por facturar',
+            count($p2 = $facturacion->propuesta($nv)) === 1 && abs($p2[0]['cantidad'] - 12) < 0.0001);
+
+        // ---- anular la nota de crédito: lo facturado vuelve a consumir
+        DB::connection('softland')->table('softland.iw_gsaen')
+            ->where('Tipo', $nc['tipo'])->where('NroInt', $nc['nroint'])->update(['Estado' => 'N']);
+
+        $this->line("Anulada la nota de crédito {$nc['folio']}");
+        $this->saldoEs('sin la nota de crédito, los 5 vuelven a consumir',
+            $saldo->deNotaVenta($nv), [7.0]);
+
+        // ---- anular la factura: el saldo vuelve entero por el otro camino
         DB::connection('softland')->table('softland.iw_gsaen')
             ->where('Tipo', $doc['tipo'])->where('NroInt', $doc['nroint'])->update(['Estado' => 'N']);
 
