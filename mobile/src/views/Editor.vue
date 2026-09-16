@@ -7,6 +7,7 @@ import { idb, normalizar } from '../idb';
 import { monto, nombre as nombreDe, opciones } from '../catalogos';
 import { calcularTotales, cuerpoDe, TIPOS } from '../documentos';
 import { definidos as atributosDefinidos, valoresDe, vacios } from '../atributos';
+import { sumarDias } from '../seguimiento';
 import { conectado } from '../red';
 import { encolar, nuevoUuid } from '../pendientes';
 import { olvidarPdf } from '../pdf';
@@ -97,8 +98,31 @@ function vacio() {
         observacion: '',
         descuento_pct: 0,
         atributos: {},
+        // El compromiso con el que nace la cotización. Se pregunta aquí y no
+        // después porque después no vuelve nadie: el vendedor sale de la visita
+        // y no abre otra pantalla a anotar el seguimiento.
+        compromiso: { tipo: '', fecha: '', hora: '' },
         lineas: [],
     };
+}
+
+/*
+ * Los compromisos que ofrece la empresa y el que viene propuesto. Bajan con la
+ * información del servidor; si no hay ninguno definido, la pregunta no aparece
+ * y la cotización se guarda como siempre.
+ */
+const compromisos = ref([]);
+
+const ATAJOS = [
+    { rotulo: 'Mañana', dias: 1 },
+    { rotulo: 'En 3 días', dias: 3 },
+    { rotulo: 'La próxima semana', dias: 7 },
+];
+
+const hoyTexto = () => new Date().toISOString().slice(0, 10);
+
+function elegirAtajo(dias) {
+    form.value.compromiso.fecha = sumarDias(hoyTexto(), dias);
 }
 
 /*
@@ -125,6 +149,14 @@ async function cargar() {
         if (tipo.value === 'nota_venta') {
             atributos.value = await atributosDefinidos();
             form.value.atributos = vacios(atributos.value);
+        }
+
+        if (tipo.value === 'cotizacion') {
+            compromisos.value = info?.compromisos ?? [];
+            // El tipo viene propuesto; **la fecha no**. Es la única decisión
+            // que nadie puede tomar por el vendedor, y un valor por omisión la
+            // convertiría en un campo que nadie lee.
+            form.value.compromiso.tipo = info?.compromiso_por_omision || '';
         }
 
         if (editando.value) {
@@ -417,12 +449,27 @@ const totales = computed(() => calcularTotales(
     form.value.lineas, form.value.descuento_pct, ivaPct.value
 ));
 
+/*
+ * El compromiso es obligatorio en una cotización nueva.
+ *
+ * No por burocracia: una cotización sin próximo paso se enfría en silencio y
+ * nadie vuelve a abrirla para anotarlo. Aquí el vendedor tiene el contexto —
+ * acaba de hablar con el cliente— y son dos toques.
+ *
+ * Al **corregir** no se pide: el seguimiento se anota desde la ficha, que es
+ * donde corresponde. Al duplicar sí, porque es una cotización nueva.
+ */
+const pideCompromiso = computed(() =>
+    tipo.value === 'cotizacion' && ! editando.value && compromisos.value.length > 0
+);
+
 const puedeGuardar = computed(() =>
     !! form.value.cliente
     && !! form.value.vendedor
     && form.value.lineas.length > 0
     && form.value.lineas.every((l) => Number(l.cantidad) > 0)
     && (! esNV.value || !! form.value.centro_costo)
+    && (! pideCompromiso.value || !! form.value.compromiso.fecha)
 );
 
 // ------------------------------------------------------------------ guardar
@@ -682,6 +729,37 @@ function cantidad(n) {
                     </div>
                 </template>
 
+                <!-- La única pregunta del cierre, y es la que hace que el
+                     seguimiento exista: cuándo se vuelve a tocar al cliente.
+                     Ninguna fecha viene marcada — un valor por omisión aquí
+                     convierte esto en un campo que nadie lee. -->
+                <template v-if="pideCompromiso">
+                    <div class="seccion"><h2>¿Cuándo vuelves a tocarlo?</h2></div>
+
+                    <select v-model="form.compromiso.tipo">
+                        <option v-for="c in compromisos" :key="c.codigo" :value="c.codigo">
+                            {{ c.nombre }}
+                        </option>
+                    </select>
+
+                    <div class="acciones-doc">
+                        <button class="chip-accion" v-for="a in ATAJOS" :key="a.dias"
+                                :class="{ fuerte: form.compromiso.fecha === sumarDias(hoyTexto(), a.dias) }"
+                                @click="elegirAtajo(a.dias)">{{ a.rotulo }}</button>
+                    </div>
+
+                    <div class="fila">
+                        <div>
+                            <label>Fecha</label>
+                            <input v-model="form.compromiso.fecha" type="date">
+                        </div>
+                        <div class="angosto">
+                            <label>Hora</label>
+                            <input v-model="form.compromiso.hora" type="time">
+                        </div>
+                    </div>
+                </template>
+
                 <button class="boton" :disabled="! puedeGuardar || guardando" @click="guardar">
                     {{ guardando ? 'Guardando…' : (editando ? 'Guardar cambios' : `Crear ${def.singular.toLowerCase()}`) }}
                 </button>
@@ -690,6 +768,9 @@ function cantidad(n) {
                     <template v-else-if="! form.vendedor">Falta elegir el vendedor.</template>
                     <template v-else-if="! form.lineas.length">Falta agregar al menos un producto.</template>
                     <template v-else-if="esNV && ! form.centro_costo">Falta el centro de costo.</template>
+                    <template v-else-if="pideCompromiso && ! form.compromiso.fecha">
+                        Falta decir cuándo vuelves a contactar al cliente.
+                    </template>
                     <template v-else>Hay una línea sin cantidad.</template>
                 </p>
             </template>

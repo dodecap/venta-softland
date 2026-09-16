@@ -9,6 +9,7 @@ import {
 import { rango, anterior, largoEnDias, dia } from '../src/panel/periodo.js';
 import { calcular, pendientes, situacion, ultimos } from '../src/panel/metricas.js';
 import { calcularSaldo } from '../src/saldo.js';
+import { estado as estadoCompromiso, cuando, hora, sumarDias } from '../src/seguimiento.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -328,5 +329,49 @@ const zombi = calcularSaldo({
     enlaces: [enl(1, 1, 1, 5)],
 });
 es(zombi.conocible, false, 'un enlace con otra marca de creación no vale');
+
+
+/* ---------------------------------------------------------- seguimiento
+ *
+ * El compromiso con el cliente. La regla la usan el panel para contar y la
+ * lista para filtrar, así que una sola copia y aquí queda fijada: dos copias
+ * son un panel que dice «4» y una lista que muestra 5.
+ */
+const DIA_COMPROMISO = '2026-09-16';
+const abierta = { estado: 'P' };
+
+es(estadoCompromiso(abierta, null, DIA_COMPROMISO), 'sin_compromiso',
+    'abierta y sin nada prometido: es la que se enfría sola');
+es(estadoCompromiso(abierta, { cuando: '2026-09-15' }, DIA_COMPROMISO), 'atrasado', 'la fecha ya pasó');
+es(estadoCompromiso(abierta, { cuando: '2026-09-16' }, DIA_COMPROMISO), 'hoy', 'toca hoy');
+es(estadoCompromiso(abierta, { cuando: '2026-09-18' }, DIA_COMPROMISO), 'proximo', 'dentro de la semana');
+es(estadoCompromiso(abierta, { cuando: '2026-11-30' }, DIA_COMPROMISO), null,
+    'muy lejos todavía: no es trabajo de esta semana');
+
+// La hora no puede cambiar el día: un compromiso a las 23:00 de hoy es de hoy.
+es(estadoCompromiso(abierta, { cuando: '2026-09-16 23:00:00' }, DIA_COMPROMISO), 'hoy',
+    'con hora sigue siendo hoy');
+
+// Una cotización vendida o perdida no espera ninguna llamada, y contarla sería
+// inflar la lista con trabajo que no existe.
+es(estadoCompromiso({ estado: 'V' }, { cuando: '2026-09-15' }, DIA_COMPROMISO), null, 'vendida no cuenta');
+es(estadoCompromiso({ estado: 'R' }, null, DIA_COMPROMISO), null, 'perdida no cuenta');
+// Las cotizaciones viejas de INNOVAGES no tienen estado escrito, y están
+// abiertas: tratarlas como cerradas las escondería.
+es(estadoCompromiso({ estado: '' }, null, DIA_COMPROMISO), 'sin_compromiso', 'sin estado es abierta');
+
+es(cuando('2026-09-16', DIA_COMPROMISO), 'hoy', 'hoy se dice «hoy»');
+es(cuando('2026-09-17', DIA_COMPROMISO), 'mañana', 'mañana');
+es(cuando('2026-09-15', DIA_COMPROMISO), 'ayer', 'ayer');
+es(cuando('2026-09-19', DIA_COMPROMISO), 'en 3 días', 'lo que viene');
+es(cuando('2026-09-12', DIA_COMPROMISO), 'hace 4 días', 'lo que se pasó');
+
+es(hora('2026-09-16 10:30:00'), '10:30', 'la hora del compromiso');
+es(hora('2026-09-16 00:00:00'), '', 'las 00:00 son «sin hora», no medianoche');
+es(hora('2026-09-16'), '', 'sin hora');
+
+es(sumarDias('2026-09-30', 1), '2026-10-01', 'cruza de mes');
+es(sumarDias('2026-12-31', 1), '2027-01-01', 'cruza de año');
+es(sumarDias('2026-09-16', -1), '2026-09-15', 'hacia atrás');
 
 console.log(`OK — ${hechas} comprobaciones`);

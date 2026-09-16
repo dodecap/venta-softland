@@ -251,6 +251,18 @@ export function cuerpoDe(form) {
         // vacío, porque «no viene» y «viene en blanco» son cosas distintas —
         // lo primero no toca nada y lo segundo borra lo que hubiera.
         atributos: form.atributos ?? undefined,
+        // El próximo paso, prometido al crear la cotización y enviado **con
+        // ella**: si fuera una segunda petición y se perdiera, quedaría una
+        // cotización sin compromiso, que es justo lo que esto viene a evitar.
+        compromiso: form.compromiso?.fecha
+            ? {
+                tipo: form.compromiso.tipo || null,
+                // La hora pegada a la fecha, como en el seguimiento: es lo que
+                // hace que el compromiso sirva en un calendario.
+                fecha: form.compromiso.fecha
+                    + (form.compromiso.hora ? ' '+form.compromiso.hora+':00' : ''),
+            }
+            : undefined,
         vendedor: form.vendedor || null,
         contacto: form.contacto || null,
         moneda: form.moneda || '01',

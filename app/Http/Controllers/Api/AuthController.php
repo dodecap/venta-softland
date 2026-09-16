@@ -124,6 +124,13 @@ class AuthController extends Controller
                 // qué va a pasar al apretar, y saber si «sin enviar» es una
                 // avería —rojo— o el paso siguiente del trabajo —ámbar—.
                 'envio_automatico' => (new \App\Services\Dte\ReglasFactura)->envioAutomatico(),
+                // Los compromisos que esta empresa ofrece y su escalera de
+                // avance. Van aquí y no como maestro porque el teléfono los
+                // necesita para **dibujar un formulario**, no para buscar: son
+                // seis filas y una lista de números.
+                'compromisos' => (new \App\Services\Softland\ReglasSeguimiento)->compromisos(),
+                'avance' => (new \App\Services\Softland\ReglasSeguimiento)->avance(),
+                'compromiso_por_omision' => (new \App\Services\Softland\ReglasSeguimiento)->compromisoPorOmision(),
             ],
             'sincronizado_at' => now()->toIso8601String(),
         ]);

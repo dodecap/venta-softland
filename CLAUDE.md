@@ -346,6 +346,29 @@ propia hoja (`documentos/dte.blade.php`). Lo que hay que saber:
 - **El pie no lleva paginado**: ese sitio es del acuse de recibo de la ley
   19.983, que es texto de ley. El «Página 2 de 2» va bajo el recuadro del folio.
 
+## El seguimiento: lo que se quedó de hacer
+
+- **Un compromiso es una promesa: un verbo y una fecha.** No dice cuán cerca
+  está el cierre. Mezclarlo con eso —que es lo que pasa cuando el maestro
+  `nwttcomp` se llena de porcentajes— hace que una venta al 90 % «retroceda» al
+  acordar una llamada. El compromiso vive en Softland; **el avance**, que es el
+  otro eje, en `ventas.cotizacion_avance`.
+- **La app no interpreta los códigos de `nwttcomp`**: los lee y los muestra.
+  Cuáles se ofrecen lo dice `ventas.config`, y los viejos no se borran nunca —
+  `nwtsegui` tiene clave foránea al maestro.
+- **No hay columna de «cumplido».** El compromiso vivo de una cotización es el
+  de su **última** anotación, y anotar la siguiente cierra la anterior. Una
+  anotación sin próxima fecha la deja sin compromiso, que es el «ya está hecho».
+- **La cotización nace con su compromiso**, en la misma transacción: la primera
+  anotación la deduce la app y la segunda la promete el vendedor. Separarlas
+  dejaría cotizaciones sin próximo paso, que es lo que esto vino a evitar.
+- **Ninguna fecha viene marcada por omisión.** Un campo obligatorio siempre
+  relleno es un campo que nadie lee.
+- **El avance no se pisa, se agrega.** Una fila por cambio: sin historia no se
+  puede saber cuáles llevan semanas sin moverse, que son las que hay que mirar.
+- **Al calendario se va por una intención de Android**, no escribiendo en él:
+  sin permisos, sin dependencias y funcionando sin señal.
+
 ## El panel de control
 
 El panel comercial se está rediseñando. Lo que hay que saber antes de tocar

@@ -65,6 +65,15 @@ const esJefe = computed(() => ['admin', 'supervisor'].includes(usuario.value?.ro
  */
 const porAprobar = ref(0);
 
+/* Si hay algo que enseñar del seguimiento. Sin compromisos definidos en el ERP
+   —o sin ninguno anotado todavía— el bloque no aparece: un panel con cuatro
+   ceros no informa, ocupa. */
+const hayCompromisos = computed(() => {
+    const c = m.value?.compromisos;
+
+    return !! c && (c.atrasado || c.hoy || c.proximo || c.sin_compromiso);
+});
+
 /* Cambia lo que significa una factura sin enviar: avería o tarea pendiente. */
 const envioAutomatico = ref(true);
 
@@ -342,6 +351,48 @@ const atencion = computed(() => {
         });
     }
 
+    // Los compromisos van **antes** que las cotizaciones por vencer: un
+    // compromiso atrasado es una promesa que se le hizo a una persona, y eso
+    // pesa más que un documento que cumple días.
+    const comp = m.value?.compromisos;
+
+    if (comp?.atrasado) {
+        lista.push({
+            id: 'compromisos-atrasados',
+            icono: 'aviso',
+            nivel: 'urgente',
+            titulo: `${comp.atrasado} ${comp.atrasado === 1 ? 'compromiso atrasado' : 'compromisos atrasados'}`,
+            sub: comp.atrasado === 1 ? 'Quedaste de hacerlo y ya pasó la fecha' : 'Quedaste de hacerlos y ya pasó la fecha',
+            ir: () => router.push('/cotizaciones?atencion=compromiso_atrasado'),
+        });
+    }
+
+    if (comp?.hoy) {
+        lista.push({
+            id: 'compromisos-hoy',
+            icono: 'cotizacion',
+            nivel: 'aviso',
+            titulo: `${comp.hoy} ${comp.hoy === 1 ? 'compromiso para hoy' : 'compromisos para hoy'}`,
+            sub: 'Es lo que hay que hacer antes de que termine el día',
+            ir: () => router.push('/cotizaciones?atencion=compromiso_hoy'),
+        });
+    }
+
+    // El más silencioso de todos: una cotización abierta que nadie prometió
+    // volver a tocar no aparece en ninguna otra lista, y se enfría sola.
+    if (comp?.sin_compromiso) {
+        lista.push({
+            id: 'sin-compromiso',
+            icono: 'cotizacion',
+            nivel: 'frio',
+            titulo: `${comp.sin_compromiso} sin próximo paso`,
+            sub: comp.sin_compromiso === 1
+                ? 'Está abierta y nadie quedó de volver a tocarla'
+                : 'Están abiertas y nadie quedó de volver a tocarlas',
+            ir: () => router.push('/cotizaciones?atencion=sin_compromiso'),
+        });
+    }
+
     if (p?.por_vencer.n) {
         lista.push({
             id: 'por-vencer',
@@ -575,6 +626,41 @@ const pct = computed(() => {
                         <AppIcon name="avanzar" :size="14" color="currentColor" />
                     </button>
                 </div>
+
+                <!-- Los compromisos: lo que hay que hacer hoy, no lo que se
+                     vendió. Va justo debajo del KPI de venta porque es la
+                     pregunta que se hace el vendedor al abrir la app por la
+                     mañana, y antes del embudo porque es de hoy. -->
+                <template v-if="hayCompromisos">
+                    <div class="seccion">
+                        <h2>Mis compromisos</h2>
+                        <span class="sub">lo que quedaste de hacer</span>
+                    </div>
+
+                    <div class="compromisos">
+                        <button class="tarjeta-compromiso" :class="{ apagada: ! m.compromisos.atrasado }"
+                                @click="m.compromisos.atrasado && router.push('/cotizaciones?atencion=compromiso_atrasado')">
+                            <span class="n" :class="{ rojo: m.compromisos.atrasado }">{{ m.compromisos.atrasado }}</span>
+                            <span class="rot">atrasados</span>
+                        </button>
+                        <button class="tarjeta-compromiso" :class="{ apagada: ! m.compromisos.hoy }"
+                                @click="m.compromisos.hoy && router.push('/cotizaciones?atencion=compromiso_hoy')">
+                            <span class="n" :class="{ ambar: m.compromisos.hoy }">{{ m.compromisos.hoy }}</span>
+                            <span class="rot">para hoy</span>
+                        </button>
+                        <button class="tarjeta-compromiso" :class="{ apagada: ! m.compromisos.proximo }"
+                                @click="m.compromisos.proximo && router.push('/cotizaciones?atencion=compromiso_proximo')">
+                            <span class="n">{{ m.compromisos.proximo }}</span>
+                            <span class="rot">esta semana</span>
+                        </button>
+                    </div>
+
+                    <p class="ayuda" v-if="m.compromisos.sin_compromiso">
+                        Y hay <b>{{ m.compromisos.sin_compromiso }}</b>
+                        {{ m.compromisos.sin_compromiso === 1 ? 'cotización abierta' : 'cotizaciones abiertas' }}
+                        sin próximo paso.
+                    </p>
+                </template>
 
                 <div class="seccion">
                     <h2>Embudo comercial</h2>

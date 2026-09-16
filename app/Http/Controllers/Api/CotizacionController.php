@@ -105,6 +105,7 @@ class CotizacionController extends DocumentoController
             'cotizacion' => $doc,
             'lineas' => $this->lineasDocumento($numero, false),
             'seguimientos' => $this->seguimientosDe($numero),
+            'avance' => $this->ventas->avanceDe($numero),
             // El historial es de **este** documento. Sin la fecha de nacimiento,
             // una cotización recién escrita heredaría las entregas de la que
             // tuvo ese número antes de que alguien la borrara.
@@ -194,14 +195,37 @@ class CotizacionController extends DocumentoController
 
         $data = $request->validate([
             'descripcion' => 'required|string|max:2000',
-            'tipo' => 'nullable|string|max:2',
+            // Tres, no dos: `nwtsegui.TipComp` es `varchar(3)` y los códigos
+            // de compromiso ocupan los tres. Con dos, «LLA» se rechazaba.
+            'tipo' => 'nullable|string|max:3',
             'contacto' => 'nullable|string|max:30',
+            // Con hora, que es lo que hace que sirva en el calendario.
             'proximo_contacto' => 'nullable|date',
+            // El avance viaja con el seguimiento porque se mueve en el mismo
+            // momento: uno vuelve de la reunión y sabe las dos cosas a la vez.
+            'avance' => 'nullable|integer|min:1|max:99',
         ]);
 
         $this->ventas->anotarSeguimiento($numero, $data, $u);
 
-        return response()->json(['seguimientos' => $this->seguimientosDe($numero)], 201);
+        if (! empty($data['avance'])) {
+            try {
+                $this->ventas->fijarAvance($numero, (int) $data['avance'], $u);
+            } catch (\RuntimeException $e) {
+                // Un avance fuera de la escalera no puede tumbar el
+                // seguimiento, que es lo que de verdad se vino a anotar.
+                return response()->json([
+                    'seguimientos' => $this->seguimientosDe($numero),
+                    'avance' => $this->ventas->avanceDe($numero),
+                    'aviso' => $e->getMessage(),
+                ], 201);
+            }
+        }
+
+        return response()->json([
+            'seguimientos' => $this->seguimientosDe($numero),
+            'avance' => $this->ventas->avanceDe($numero),
+        ], 201);
     }
 
     /**
@@ -306,7 +330,7 @@ class CotizacionController extends DocumentoController
     private function seguimientosDe(int $numero): array
     {
         return DB::connection('softland')->table('softland.nwtsegui')
-            ->where('CotNum', $numero)->orderBy('NroSeg')
+            ->where('CotNum', $numero)->orderByDesc('NroSeg')
             ->get()->map(fn ($s) => [
                 'numero' => (int) $s->NroSeg,
                 'fecha' => $s->FecSeg,

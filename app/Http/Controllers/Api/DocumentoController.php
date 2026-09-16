@@ -105,6 +105,14 @@ abstract class DocumentoController extends Controller
             // dice la base, y es distinto en cada empresa. `Ventas` los
             // contrasta contra la definición antes de escribir nada.
             'atributos' => 'nullable|array|max:50',
+            // El próximo paso, que se promete al crear la cotización y viaja
+            // **con ella**. Si fuera una segunda petición y se perdiera,
+            // quedaría una cotización sin compromiso — que es justo el agujero
+            // que esto viene a tapar.
+            'compromiso' => 'nullable|array',
+            'compromiso.tipo' => 'nullable|string|max:3',
+            'compromiso.fecha' => 'nullable|date',
+            'compromiso.descripcion' => 'nullable|string|max:2000',
         ]);
 
         $data['vendedor'] = $this->vendedorDe($data, $request);
@@ -408,8 +416,33 @@ abstract class DocumentoController extends Controller
         $canal = in_array($canal, ['whatsapp', 'descarga', 'impresion'], true) ? $canal : 'descarga';
 
         $emision->marcarEnviado($this->tipoDoc(), $numero, $canal, $doc['creado'] ?? null);
+        $this->anotarEntrega($numero, $canal);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * La entrega deja su propia anotación de seguimiento.
+     *
+     * Es el dato más fiable de todos porque **no depende de que alguien se
+     * acuerde**: la app sabe cuándo el documento salió y por dónde, así que la
+     * historia del contacto con el cliente se escribe sola.
+     *
+     * Sólo en la cotización: los seguimientos de Softland cuelgan de `CotNum` y
+     * no existen para la nota de venta.
+     */
+    protected function anotarEntrega(int $numero, string $canal): void
+    {
+        if ($this->tipoDoc() !== TipoDocumento::COTIZACION) {
+            return;
+        }
+
+        try {
+            $this->ventas->anotarEntrega($numero, $canal);
+        } catch (\Throwable $e) {
+            // Una anotación que falla no puede tumbar una entrega que ya
+            // ocurrió: el documento está en manos del cliente.
+        }
     }
 
     // ----------------------------------------------------------------- correo
@@ -441,6 +474,10 @@ abstract class DocumentoController extends Controller
                 'contenido' => $r['pdf'],
                 'mime' => 'application/pdf',
             ];
+        }
+
+        if ($conPdf && $numero > 0) {
+            $this->anotarEntrega($numero, 'correo');
         }
 
         $notificador->disparar(

@@ -42,6 +42,51 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.30.0 — El compromiso con el cliente, y el calendario
+*2026-09-16*
+
+- **Un compromiso es una promesa: un verbo y una fecha.** No dice nada de cuán
+  cerca está el cierre, y confundirlo con eso es lo que pasaba: el maestro
+  `nwttcomp` estaba lleno de porcentajes, y entonces una venta al 90 % que queda
+  en una llamada «retrocedía» a la primera etapa. Ahora son dos ejes en dos
+  sitios — el compromiso en Softland, donde va, y el avance en una tabla nuestra.
+- **Seis códigos nuevos** (`LLA`, `VIS`, `PRO`, `DEM`, `ESP`, `COT`) sin tocar
+  los cinco viejos, que se quedan porque `nwtsegui` tiene clave foránea al
+  maestro y las 34 anotaciones de 2022 tienen que seguir leyéndose. Cuáles se
+  ofrecen lo dice la configuración; la app **no interpreta códigos**.
+- **La cotización nace con su compromiso.** Dos anotaciones en la misma
+  transacción que la cotización: la primera la deduce la app —crear la
+  cotización *es* «enviar la propuesta, hoy»— y la segunda la promete el
+  vendedor. Sin la fecha del próximo paso, la cotización no se guarda.
+- **El segundo es el único que se pregunta, y ninguna fecha viene marcada.** Un
+  campo obligatorio que siempre viene relleno se convierte en un campo que nadie
+  lee; el panel diría «23 compromisos hoy» todos los días y en dos semanas nadie
+  lo miraría.
+- **La entrega se anota sola.** Cuando el documento sale por WhatsApp o por
+  correo queda su seguimiento, con el canal y la fecha. Es el dato más fiable de
+  todos porque no depende de que alguien se acuerde.
+- **El contacto se llena solo**, de la propia cotización. Se escribía en blanco
+  desde el principio.
+- **El panel cuenta compromisos**: atrasados, de hoy y de esta semana, con sus
+  avisos y su filtro en la lista. Y el cuarto estado, que es el que más plata
+  recupera: **sin próximo paso** — abierta y sin nadie que prometiera volver a
+  tocarla. No aparecía en ninguna otra pantalla.
+- **La regla se escribe una vez** (`seguimiento.js`): la usan el panel para
+  contar y la lista para filtrar. Veinte comprobaciones la fijan.
+- **El avance va de 10 en 10 y con historia.** Una fila por cambio, no un valor
+  que se pisa: así se puede saber cuándo una venta pasó de 50 a 90 y cuáles
+  llevan semanas sin moverse. Sin 0 ni 100 — que se perdió o que se vendió ya lo
+  dice el estado.
+- **El compromiso se pasa al calendario del teléfono**, con casilla marcada por
+  omisión. No escribimos en el calendario: se lanza la intención de Android y la
+  atiende el calendario que el vendedor ya usa. **Cero permisos nuevos** — el
+  APK sigue pidiendo los mismos cuatro de siempre — y funciona sin señal, que es
+  donde se anota un compromiso.
+- Un plugin nativo de cuarenta líneas dentro del proyecto, en vez de una
+  dependencia entera para lanzar una intención.
+- De paso: el tipo de compromiso se validaba a **dos** caracteres y la columna
+  es `varchar(3)`. «LLA» se habría rechazado siempre.
+
 ### 0.29.1 — La oficina comercial no es el domicilio tributario
 *2026-09-16*
 

@@ -28,7 +28,7 @@ const NOMBRE = 'venta-softland';
 // La 2 agrega `motivos_perdida` y la 3 el almacén de PDF: la migración solo
 // crea los almacenes que falten, así que subir el número es todo lo que hace
 // falta.
-const VERSION = 8;
+const VERSION = 9;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -101,6 +101,23 @@ export const ALMACENES = {
      * ninguno. Lo que se dibuje sale de aquí, no de una lista escrita en el
      * código.
      */
+    /*
+     * El seguimiento de las cotizaciones: qué se quedó de hacer con cada
+     * cliente y cuándo. Bajan al teléfono porque el panel cuenta compromisos y
+     * el panel se calcula sin señal.
+     */
+    compromisos: { clave: 'codigo' },
+    seguimientos: {
+        clave: ['cotizacion', 'numero'],
+        indices: { cotizacion: 'cotizacion' },
+    },
+    /* La historia del avance, no sólo el último: con ella se puede decir
+       «lleva seis semanas en 70 %», que es la pregunta que importa. */
+    cotizacion_avance: {
+        clave: 'id',
+        indices: { cotizacion: 'cotizacion' },
+    },
+
     nv_atributos: { clave: 'codigo' },
     nv_atributo_opciones: { clave: ['atributo', 'codigo'], indices: { atributo: 'atributo' } },
     nv_atributo_valores: {

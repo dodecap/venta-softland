@@ -88,10 +88,118 @@ class Ventas
                 );
                 $this->escribirDetalleCotizacion($numero, $doc);
                 $this->marcarEscrito($data['client_uuid'] ?? null, 'cotizacion', $numero, $u, $creado);
+                $this->primerSeguimiento($numero, $data);
 
                 return $numero;
             });
         });
+    }
+
+    /**
+     * Las dos anotaciones con las que nace una cotización.
+     *
+     * **La primera no se pregunta**: crear la cotización *es* «enviar la
+     * propuesta, hoy». Eso ocurrió de verdad, así que se anota sin molestar a
+     * nadie. Un campo obligatorio que siempre viene relleno se convierte en un
+     * campo que nadie lee; esto no es un campo, es el registro de un hecho.
+     *
+     * **La segunda es la única que importa** y la elige el vendedor: cuándo
+     * vuelve a tocar al cliente. Nadie más lo sabe y no se puede deducir.
+     *
+     * Las dos van en la transacción de la cotización. Si fueran una petición
+     * aparte y se perdiera, quedaría exactamente lo que esto viene a evitar:
+     * una cotización sin próximo paso.
+     */
+    private function primerSeguimiento(int $numero, array $data): void
+    {
+        $reglas = new ReglasSeguimiento;
+        $proximo = $data['compromiso'] ?? null;
+
+        $this->escribirSeguimiento($numero, [
+            'descripcion' => 'Cotización creada.',
+            'tipo' => $reglas->compromisoInicial(),
+            'proximo_contacto' => null,
+        ]);
+
+        if (! empty($proximo['fecha'])) {
+            $this->escribirSeguimiento($numero, [
+                'descripcion' => trim((string) ($proximo['descripcion'] ?? '')) ?: 'Próximo contacto acordado.',
+                'tipo' => $proximo['tipo'] ?? $reglas->compromisoPorOmision(),
+                'proximo_contacto' => $proximo['fecha'],
+            ]);
+        }
+    }
+
+    /**
+     * Mueve el avance de una cotización.
+     *
+     * Se **agrega una fila**, no se pisa la anterior: el valor de hoy es la
+     * última, y la historia contesta dos preguntas que el valor pisado no puede
+     * — cuándo se movió de 50 a 90, y cuáles llevan semanas sin moverse.
+     *
+     * No se escribe si el porcentaje es el mismo que ya tenía: el historial es
+     * de los cambios, y una fila que repite la anterior no cuenta nada.
+     */
+    public function fijarAvance(int $numero, int $pct, Usuario $u): bool
+    {
+        if (! in_array($pct, (new ReglasSeguimiento)->avance(), true)) {
+            throw new RuntimeException('Ese porcentaje de avance no está en la escalera de la empresa.');
+        }
+
+        if ($this->avanceDe($numero) === $pct) {
+            return false;
+        }
+
+        $this->conn()->table('ventas.cotizacion_avance')->insert([
+            'cot_num' => $numero,
+            // La huella, por lo de siempre: el correlativo es `MAX + 1` y un
+            // número vuelve a repartirse cuando su documento se borra.
+            'cot_creado_en' => $this->conn()->table('softland.nwcotiza')
+                ->where('CotNum', $numero)->value('FechaHoraCreacion'),
+            'pct' => $pct,
+            'usuario_id' => $u->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return true;
+    }
+
+    /** El avance de hoy: la última fila que siga apuntando a esta cotización. */
+    public function avanceDe(int $numero): ?int
+    {
+        $nacida = $this->conn()->table('softland.nwcotiza')
+            ->where('CotNum', $numero)->value('FechaHoraCreacion');
+
+        $fila = $this->conn()->table('ventas.cotizacion_avance')
+            ->where('cot_num', $numero)->orderByDesc('id')->first();
+
+        if (! $fila) {
+            return null;
+        }
+
+        return substr((string) $fila->cot_creado_en, 0, 19) === substr((string) $nacida, 0, 19)
+            ? (int) $fila->pct
+            : null;
+    }
+
+    /**
+     * El seguimiento que queda cuando el documento sale de verdad al cliente.
+     *
+     * La app sabe cuándo se entrega —lleva el acuse de la emisión—, así que la
+     * historia real del contacto se escribe sola: qué día salió y por dónde.
+     * Nadie teclea nada, y es el dato más fiable de todos porque no depende de
+     * que alguien se acuerde de anotarlo.
+     */
+    public function anotarEntrega(int $numero, string $canal): void
+    {
+        $canales = ['correo' => 'por correo', 'whatsapp' => 'por WhatsApp', 'visor' => 'en pantalla'];
+
+        $this->conn()->transaction(fn () => $this->escribirSeguimiento($numero, [
+            'descripcion' => 'Cotización entregada al cliente '.($canales[$canal] ?? $canal).'.',
+            'tipo' => (new ReglasSeguimiento)->compromisoEntrega(),
+            'proximo_contacto' => null,
+        ]));
     }
 
     /** Reescribe una cotización existente: cabecera, líneas e impuestos. */
@@ -123,23 +231,74 @@ class Ventas
     /** Anota un seguimiento. `NroSeg` es correlativo dentro de la cotización. */
     public function anotarSeguimiento(int $numero, array $data, Usuario $u): int
     {
-        return $this->conn()->transaction(function () use ($numero, $data) {
-            $nro = (int) $this->bloqueado('softland.nwtsegui')
-                ->where('CotNum', $numero)->max('NroSeg') + 1;
+        return $this->conn()->transaction(fn () => $this->escribirSeguimiento($numero, $data));
+    }
 
-            $this->conn()->table('softland.nwtsegui')->insert([
-                'CotNum' => $numero,
-                'NroSeg' => $nro,
-                'FecSeg' => now()->startOfDay(),
-                'HorSeg' => now(),
-                'FecProComp' => $data['proximo_contacto'] ?? null,
-                'TipComp' => $data['tipo'] ?? null,
-                'Contacto' => $data['contacto'] ?? null,
-                'Descripcion' => $data['descripcion'],
-            ]);
+    /**
+     * Escribe una anotación de seguimiento. **Sin transacción propia**: va
+     * dentro de la de quien llama, porque casi siempre acompaña a otra cosa —
+     * la cotización que se acaba de crear, el documento que se acaba de
+     * entregar—. Separarlas dejaría cotizaciones sin su compromiso, que es
+     * justo el agujero que esto viene a tapar.
+     *
+     * ## Lo que se llena solo
+     *
+     * El correlativo, la fecha y la hora. Y el **contacto**, que hasta ahora se
+     * escribía en blanco aunque la cotización lo tuviera delante: es la persona
+     * con la que se habló, y no tiene sentido pedírsela a quien acaba de
+     * hablar con ella.
+     *
+     * ## Lo que se comprueba
+     *
+     * Que el compromiso exista en el maestro de la empresa. `nwtsegui` tiene
+     * clave foránea a `nwttcomp`: un código inventado no reventaría con un
+     * error entendible sino con el nombre de un constraint de SQL Server.
+     *
+     * @param  array{descripcion: string, tipo?: string|null, contacto?: string|null,
+     *               proximo_contacto?: string|null}  $data
+     */
+    private function escribirSeguimiento(int $numero, array $data): int
+    {
+        $nro = (int) $this->bloqueado('softland.nwtsegui')
+            ->where('CotNum', $numero)->max('NroSeg') + 1;
 
-            return $nro;
-        });
+        $tipo = trim((string) ($data['tipo'] ?? ''));
+
+        if ($tipo !== '' && ! $this->conn()->table('softland.nwttcomp')->where('codcomp', $tipo)->exists()) {
+            $tipo = '';
+        }
+
+        $this->conn()->table('softland.nwtsegui')->insert([
+            'CotNum' => $numero,
+            'NroSeg' => $nro,
+            'FecSeg' => now()->startOfDay(),
+            'HorSeg' => now(),
+            // Con hora si la hay. Softland deja aquí las 00:00 porque su
+            // pantalla nunca pidió una; ponerla es más información y no le
+            // estorba — la columna es `datetime` desde siempre.
+            'FecProComp' => $data['proximo_contacto'] ?? null,
+            'TipComp' => $tipo ?: null,
+            'Contacto' => $this->recortar($data['contacto'] ?? $this->contactoDeCotizacion($numero), 30),
+            'Descripcion' => $data['descripcion'],
+        ]);
+
+        return $nro;
+    }
+
+    /** Con quién se habla en esta cotización, según la propia cotización. */
+    private function contactoDeCotizacion(int $numero): ?string
+    {
+        $nombre = trim((string) $this->conn()->table('softland.nwcotiza')
+            ->where('CotNum', $numero)->value('NomCon'));
+
+        return $nombre === '' ? null : $nombre;
+    }
+
+    private function recortar(?string $texto, int $largo): ?string
+    {
+        $texto = trim((string) $texto);
+
+        return $texto === '' ? null : mb_substr($texto, 0, $largo);
     }
 
     // --------------------------------------------------------- nota de venta

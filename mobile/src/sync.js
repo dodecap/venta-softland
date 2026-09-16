@@ -66,7 +66,8 @@ let enCurso = null;
 export const GRUPOS = {
     // `linea_origen` va con las dos: dice qué se llevó cada nota de venta de su
     // cotización, así que lo necesitan la ficha de una y la lista de la otra.
-    cotizaciones: ['cotizaciones', 'cotizacion_lineas', 'linea_origen', 'notas_venta'],
+    cotizaciones: ['cotizaciones', 'cotizacion_lineas', 'linea_origen', 'notas_venta',
+        'seguimientos', 'cotizacion_avance'],
     // Las facturas van con la nota de venta porque su avance —«facturado 5 de
     // 12»— se calcula desde ellas: las columnas que Softland tiene para eso
     // están muertas.

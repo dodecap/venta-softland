@@ -10,6 +10,7 @@
 
 import { idb } from '../idb';
 import { facturasEmitidas } from '../saldo';
+import { resumen as resumenCompromisos } from '../seguimiento';
 import { calcular, pendientes, ultimos } from './metricas';
 
 export async function panel({ rango, comparar = null, vendedores = null, hoy, vigencia = 30, recientes = 5 }) {
@@ -26,6 +27,10 @@ export async function panel({ rango, comparar = null, vendedores = null, hoy, vi
         actual: calcular({ cotizaciones, notas, rango, vendedores }),
         anterior: comparar ? calcular({ cotizaciones, notas, rango: comparar, vendedores }) : null,
         pendientes: pendientes({ cotizaciones, vendedores, hoy, vigencia }),
+        // Los compromisos con el cliente: lo que hay que hacer hoy y lo que se
+        // quedó sin hacer. Va aparte de `pendientes` porque responde a otra
+        // pregunta — aquélla mira la vigencia del documento, ésta la promesa.
+        compromisos: await resumenCompromisos({ cotizaciones, vendedores, hoy }),
         // La actividad reciente sale de la misma lectura: pedirla aparte sería
         // volver a recorrer IndexedDB por lo que ya está en memoria.
         recientes: {

@@ -8,6 +8,8 @@ import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
 import { TIPOS, estado, enriquecerLineas, lineasDe, avanceFacturacion } from '../documentos';
 import { facturadoDe, facturasDe, saldoCotizacion } from '../saldo';
 import { comoTexto, definidos as atributosDefinidos, valoresDe } from '../atributos';
+import { agendar, calendarioDisponible } from '../calendario';
+import { cuando as cuandoTexto, hora as horaDe, sumarDias } from '../seguimiento';
 import { conectado } from '../red';
 import { compartirPdf, olvidarPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
@@ -108,7 +110,41 @@ const perdiendo = ref(false);
 const siguiendo = ref(false);
 const borrando = ref(false);
 const formPerdida = ref({ motivo: '', observacion: '' });
-const formSeguimiento = ref({ descripcion: '', proximo_contacto: '' });
+/*
+ * El seguimiento, que son tres preguntas y sólo dos se teclean.
+ *
+ * `compromiso` y `fecha` son la promesa —qué y cuándo—; `avance` es otro eje y
+ * por eso va aparte: se puede estar al 90 % y quedar en una llamada.
+ */
+const formSeguimiento = ref(vacioSeguimiento());
+const compromisos = ref([]);
+const escaleraAvance = ref([]);
+/* Ojo con el nombre: `avance` a secas ya es el de facturación de la nota de
+   venta. Éste es otro — cuán cerca está de cerrarse la venta. */
+const avanceCotizacion = ref(null);
+const agendarEnCalendario = ref(true);
+
+function vacioSeguimiento() {
+    return { descripcion: '', tipo: '', fecha: '', hora: '', avance: '' };
+}
+
+/** Los chips de fecha: lo que se promete de verdad, en un toque. */
+const ATAJOS = [
+    { rotulo: 'Mañana', dias: 1 },
+    { rotulo: 'En 3 días', dias: 3 },
+    { rotulo: 'La próxima semana', dias: 7 },
+];
+
+const hoyTexto = () => new Date().toISOString().slice(0, 10);
+
+/** El compromiso en palabras. Un código suelto no le dice nada a nadie. */
+function nombreCompromiso(codigo) {
+    return compromisos.value.find((c) => c.codigo === codigo)?.nombre || 'Próximo contacto';
+}
+
+function elegirAtajo(dias) {
+    formSeguimiento.value.fecha = sumarDias(hoyTexto(), dias);
+}
 
 // Por qué el servidor no dejó eliminar. Sólo él lo sabe: en el teléfono no
 // está si el documento se facturó, si generó picking o si ya salió al cliente.
@@ -150,6 +186,12 @@ async function cargar() {
             }));
             facturas.value = await facturasDe(numero.value);
         }
+        if (esCotizacion.value && doc.value) {
+            const info = await db.getServidorInfo();
+            compromisos.value = info?.compromisos ?? [];
+            escaleraAvance.value = info?.avance ?? [];
+        }
+
         if (! esCotizacion.value && doc.value) {
             atributos.value = await atributosDefinidos();
             // Lo traído del servidor manda: una nota de venta de hace años no
@@ -180,6 +222,7 @@ async function traerDelServidor() {
         doc.value = esCotizacion.value ? r.cotizacion : r.nota_venta;
         lineas.value = await enriquecerLineas(r.lineas ?? []);
         seguimientos.value = r.seguimientos ?? [];
+        avanceCotizacion.value = r.avance ?? null;
         aprobacion.value = r.aprobacion ?? null;
         atributosServidor.value = r.atributos ?? null;
         delServidor.value = true;
@@ -195,7 +238,9 @@ async function refrescarDelServidor() {
     if (! conectado.value || ! doc.value) return;
     try {
         if (esCotizacion.value) {
-            seguimientos.value = (await api.cotizacion(numero.value)).seguimientos ?? [];
+            const c = await api.cotizacion(numero.value);
+            seguimientos.value = c.seguimientos ?? [];
+            avanceCotizacion.value = c.avance ?? null;
         } else {
             const r = await api.notaVenta(numero.value);
             aprobacion.value = r.aprobacion ?? null;
@@ -522,15 +567,71 @@ async function eliminar() {
     }
 }
 
+/**
+ * Anota el seguimiento y, si dejó un compromiso, lo ofrece al calendario.
+ *
+ * El calendario va **después** de guardar y no antes: si el servidor rechazara
+ * la anotación, no quedaría un evento agendado de algo que no existe. Y no se
+ * ofrece cuando no hay próximo paso — no hay nada que agendar.
+ */
 async function anotarSeguimiento() {
-    if (! formSeguimiento.value.descripcion.trim()) return;
+    const f = formSeguimiento.value;
+
+    if (! f.descripcion.trim()) return;
+
     await conServidor(async () => {
-        const r = await api.seguirCotizacion(numero.value, formSeguimiento.value);
+        const r = await api.seguirCotizacion(numero.value, {
+            descripcion: f.descripcion,
+            tipo: f.tipo || null,
+            // La hora viaja pegada a la fecha: `FecProComp` es `datetime` y la
+            // hora es lo que hace que el compromiso sirva en un calendario.
+            proximo_contacto: f.fecha ? `${f.fecha}${f.hora ? ' '+f.hora+':00' : ''}` : null,
+            avance: f.avance || null,
+        });
+
         seguimientos.value = r.seguimientos ?? [];
-        formSeguimiento.value = { descripcion: '', proximo_contacto: '' };
+        avanceCotizacion.value = r.avance ?? avanceCotizacion.value;
         siguiendo.value = false;
-        aviso.value = 'Seguimiento anotado.';
+        aviso.value = r.aviso || 'Seguimiento anotado.';
+
+        if (f.fecha && agendarEnCalendario.value) {
+            await llevarAlCalendario(f);
+        }
+
+        formSeguimiento.value = vacioSeguimiento();
     });
+}
+
+/**
+ * Pasa el compromiso al calendario del teléfono.
+ *
+ * No escribimos en el calendario: le pedimos al sistema que abra su pantalla de
+ * nuevo evento con todo relleno. Así no hace falta permiso de calendario —de
+ * los que asustan— y el vendedor ve qué queda agendado y puede moverlo.
+ */
+async function llevarAlCalendario(f) {
+    const compromiso = compromisos.value.find((c) => c.codigo === f.tipo);
+    const quien = cliente.value?.nombre || doc.value?.cliente || '';
+
+    try {
+        await agendar({
+            titulo: `${compromiso?.nombre || 'Seguimiento'} — ${quien}`,
+            descripcion: [
+                `${def.value.singular} N° ${numero.value}`
+                    + (doc.value?.total ? ` · ${monto(doc.value.total, doc.value.moneda)}` : ''),
+                doc.value?.contacto ? `Contacto: ${doc.value.contacto}` : '',
+                f.descripcion,
+            ].filter(Boolean).join('\n'),
+            // La dirección sólo cuando hay que ir: el calendario ofrece cómo
+            // llegar, y eso se agradece el jueves a las nueve.
+            lugar: f.tipo === 'VIS' ? (cliente.value?.direccion || '') : '',
+            fecha: f.fecha,
+            hora: f.hora,
+            minutos: f.tipo === 'VIS' ? 60 : 30,
+        });
+    } catch (e) {
+        aviso.value = 'Seguimiento anotado. No se pudo abrir el calendario: '+e.message;
+    }
 }
 
 /**
@@ -1001,14 +1102,26 @@ function cantidad(n) {
                         <h2>Seguimiento</h2>
                         <span class="sub">{{ seguimientos.length }}</span>
                     </div>
-                    <div class="item" v-for="s in seguimientos" :key="s.numero">
-                        <div class="item-estado amarillo"></div>
+                    <!-- El compromiso vivo es el de la **última** anotación:
+                         la tabla no tiene «cumplido», y anotar la siguiente es
+                         lo que cierra la anterior. Por eso van del más nuevo al
+                         más viejo y sólo el primero puede estar pendiente. -->
+                    <div class="item" v-for="(s, i) in seguimientos" :key="s.numero">
+                        <div class="item-estado" :class="i === 0 && s.proximo_contacto ? 'amarillo' : 'gris'"></div>
                         <div class="item-cuerpo">
                             <div class="item-titulo">{{ s.descripcion }}</div>
                             <div class="item-meta">
                                 <span class="etiqueta gris">{{ fecha(s.fecha) }}</span>
                                 <span v-if="s.contacto"> · {{ s.contacto }}</span>
-                                <span v-if="s.proximo_contacto"> · vuelve el {{ fecha(s.proximo_contacto) }}</span>
+                            </div>
+                            <div class="item-meta" v-if="s.proximo_contacto">
+                                <span class="etiqueta cian">
+                                    {{ nombreCompromiso(s.compromiso) }}
+                                    · {{ cuandoTexto(s.proximo_contacto, hoyTexto()) }}
+                                    <template v-if="horaDe(s.proximo_contacto)">
+                                        a las {{ horaDe(s.proximo_contacto) }}
+                                    </template>
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -1183,12 +1296,63 @@ function cantidad(n) {
                     <button class="icono-barra" @click="siguiendo = false"><AppIcon name="cerrar" :size="21" /></button>
                 </div>
                 <div class="hoja-cuerpo">
-                    <label>Qué se hizo</label>
+                    <label>¿Qué pasó?</label>
                     <textarea v-model="formSeguimiento.descripcion" rows="3"
                               placeholder="Llamada, visita, correo…"></textarea>
 
-                    <label>Próximo contacto</label>
-                    <input v-model="formSeguimiento.proximo_contacto" type="date" class="angosto">
+                    <!-- El compromiso: un verbo y una fecha. No dice nada de
+                         cuán cerca está el cierre — para eso está el avance, que
+                         es otro eje: se puede estar al 90 % y quedar en una
+                         llamada. -->
+                    <template v-if="compromisos.length">
+                        <label>¿Qué quedaron de hacer?</label>
+                        <select v-model="formSeguimiento.tipo">
+                            <option value="">— nada pendiente —</option>
+                            <option v-for="c in compromisos" :key="c.codigo" :value="c.codigo">
+                                {{ c.nombre }}
+                            </option>
+                        </select>
+                    </template>
+
+                    <template v-if="formSeguimiento.tipo">
+                        <label>¿Para cuándo?</label>
+                        <!-- Los chips son deliberados: en terreno, abrir un
+                             calendario para poner «el martes» es lo que hace
+                             que nadie anote nada. -->
+                        <div class="acciones-doc">
+                            <button class="chip-accion" v-for="a in ATAJOS" :key="a.dias"
+                                    :class="{ fuerte: formSeguimiento.fecha === sumarDias(hoyTexto(), a.dias) }"
+                                    @click="elegirAtajo(a.dias)">{{ a.rotulo }}</button>
+                        </div>
+                        <div class="fila">
+                            <div>
+                                <label>Fecha</label>
+                                <input v-model="formSeguimiento.fecha" type="date">
+                            </div>
+                            <div class="angosto">
+                                <label>Hora</label>
+                                <input v-model="formSeguimiento.hora" type="time">
+                            </div>
+                        </div>
+
+                        <label class="interruptor" v-if="calendarioDisponible">
+                            <input type="checkbox" v-model="agendarEnCalendario">
+                            <span>Agendar en mi calendario</span>
+                        </label>
+                    </template>
+
+                    <!-- El avance va aquí porque se mueve en el mismo momento:
+                         uno vuelve de la reunión y sabe las dos cosas a la vez. -->
+                    <template v-if="escaleraAvance.length">
+                        <label>¿Cuánto avanzó la venta?</label>
+                        <select v-model="formSeguimiento.avance">
+                            <option value="">— sin cambio —</option>
+                            <option v-for="p in escaleraAvance" :key="p" :value="p">{{ p }} %</option>
+                        </select>
+                        <p class="ayuda" v-if="avanceCotizacion">
+                            Ahora está en <b>{{ avanceCotizacion }} %</b>.
+                        </p>
+                    </template>
 
                     <button class="boton" :disabled="! formSeguimiento.descripcion.trim() || trabajando"
                             @click="anotarSeguimiento">

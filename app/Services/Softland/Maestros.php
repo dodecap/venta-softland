@@ -567,6 +567,69 @@ class Maestros
                     static::soloSusVendedores($q, 'VenCod', $ctx);
                 },
             ],
+            /*
+             * Los compromisos que la empresa declara en el ERP.
+             *
+             * La app **no interpreta estos códigos**: los lee y los muestra. Si
+             * una empresa los llenó con porcentajes —como INNOVAGES, que no
+             * tenía dónde poner el avance— salen porcentajes. Cuáles se ofrecen
+             * al vendedor lo dice la configuración, no este maestro: los viejos
+             * no se pueden borrar porque `nwtsegui` tiene clave foránea, y el
+             * histórico tiene que seguir leyéndose.
+             */
+            'compromisos' => [
+                'titulo' => 'Compromisos de seguimiento',
+                'tabla' => 'softland.nwttcomp',
+                'clave' => ['codcomp'],
+                'campos' => ['codigo' => 'codcomp', 'nombre' => 'descomp'],
+                'etiqueta' => 'nombre',
+            ],
+            /*
+             * Las anotaciones de seguimiento.
+             *
+             * Bajan al teléfono desde que el panel cuenta compromisos: el panel
+             * se calcula sobre IndexedDB y tiene que funcionar sin señal, así
+             * que no puede preguntarle al servidor cuántos vencen hoy.
+             */
+            'seguimientos' => [
+                'titulo' => 'Seguimientos',
+                'tabla' => 'softland.nwtsegui',
+                'clave' => ['CotNum', 'NroSeg'],
+                'campos' => [
+                    'cotizacion' => 'CotNum:entero',
+                    'numero' => 'NroSeg:entero',
+                    'fecha' => 'FecSeg:fecha',
+                    'compromiso' => 'TipComp',
+                    'contacto' => 'Contacto',
+                    'proximo_contacto' => 'FecProComp:fecha',
+                    'descripcion' => 'Descripcion',
+                ],
+                'filtro' => fn (Builder $q, array $ctx, bool $ventana = true) => $q->whereIn(
+                    'CotNum', static::cabecerasVisibles('softland.nwcotiza', 'CotNum', 'CtFem', 'VenCod', $ctx, $ventana)
+                ),
+            ],
+            /*
+             * El avance de cada cotización, que es cosa nuestra.
+             *
+             * Baja la **historia entera** y no sólo el último: con ella el
+             * teléfono puede decir «lleva seis semanas en 70 %», que es la
+             * pregunta que de verdad importa.
+             */
+            'cotizacion_avance' => [
+                'titulo' => 'Avance de cotizaciones',
+                'tabla' => 'ventas.cotizacion_avance',
+                'clave' => ['id'],
+                'campos' => [
+                    'id' => 'id:entero',
+                    'cotizacion' => 'cot_num:entero',
+                    'cotizacion_creada' => 'cot_creado_en:fecha',
+                    'pct' => 'pct:entero',
+                    'fecha' => 'created_at:fecha',
+                ],
+                'filtro' => fn (Builder $q, array $ctx, bool $ventana = true) => $q->whereIn(
+                    'cot_num', static::cabecerasVisibles('softland.nwcotiza', 'CotNum', 'CtFem', 'VenCod', $ctx, $ventana)
+                ),
+            ],
             'linea_origen' => [
                 'titulo' => 'Origen de las líneas',
                 'tabla' => 'ventas.linea_origen',

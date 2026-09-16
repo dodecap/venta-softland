@@ -8,6 +8,7 @@ import { dia } from '../panel/periodo';
 import { situacion } from '../panel/metricas';
 import { TIPOS, estado } from '../documentos';
 import { parciales, porFacturar } from '../saldo';
+import { compromisosVivos, cuando as cuandoTexto, estado as estadoCompromiso, hora as horaDe } from '../seguimiento';
 import { useAccionCrear } from '../crear';
 import { contarPendientes, porEnviar } from '../pendientes';
 import { conectado } from '../red';
@@ -47,6 +48,10 @@ const aMedias = ref(new Set());
  */
 const soloPorFacturar = computed(() => route.query.facturar === '1' && tipo.value === 'nota_venta');
 
+/* Los compromisos son de la cotización: `nwtsegui` cuelga de `CotNum` y no
+   existe para la nota de venta. */
+const esCotizacion = computed(() => tipo.value === 'cotizacion');
+
 const busqueda = ref('');
 const filtroEstado = ref('');
 const vigencia = ref(30);
@@ -63,10 +68,27 @@ const vigencia = ref(30);
 const ATENCION = {
     por_vencer: 'Por vencer',
     vencida: 'Vencidas',
+    // Los compromisos con el cliente. Son otra pregunta que la vigencia del
+    // documento: aquélla mira los días que lleva la cotización, ésta la promesa
+    // que se le hizo a una persona.
+    compromiso_atrasado: 'Compromisos atrasados',
+    compromiso_hoy: 'Compromisos de hoy',
+    compromiso_proximo: 'Compromisos de esta semana',
+    sin_compromiso: 'Sin próximo paso',
+};
+
+/** Cuáles de esos filtros se resuelven con el seguimiento y no con la vigencia. */
+const DE_COMPROMISO = {
+    compromiso_atrasado: 'atrasado',
+    compromiso_hoy: 'hoy',
+    compromiso_proximo: 'proximo',
+    sin_compromiso: 'sin_compromiso',
 };
 
 const atencion = computed(() => (ATENCION[route.query.atencion] ? route.query.atencion : ''));
 const documentos = ref([]);
+/* El compromiso vivo de cada cotización de la lista, para pintarlo. */
+const compromisos = ref(new Map());
 const sinEnviar = ref([]);
 const nombres = ref({});
 const cargando = ref(true);
@@ -163,7 +185,20 @@ async function cargar() {
         const filtros = [];
 
         if (filtroEstado.value) filtros.push((d) => d.estado === filtroEstado.value);
-        if (atencion.value) filtros.push((d) => situacion(d, regla) === atencion.value);
+
+        if (atencion.value && ! DE_COMPROMISO[atencion.value]) {
+            filtros.push((d) => situacion(d, regla) === atencion.value);
+        }
+
+        // El compromiso vivo de cada cotización, leído de una vez: doscientas
+        // filas con una consulta por documento es lo que hace que una lista
+        // tarde en abrirse.
+        const vivos = esCotizacion.value ? await compromisosVivos() : new Map();
+
+        if (DE_COMPROMISO[atencion.value]) {
+            const buscado = DE_COMPROMISO[atencion.value];
+            filtros.push((d) => estadoCompromiso(d, vivos.get(Number(d.numero)), regla.hoy) === buscado);
+        }
 
         const filas = await idb.buscar(def.value.almacen, busqueda.value, {
             limite: 200,
@@ -171,6 +206,7 @@ async function cargar() {
         });
         // El más nuevo arriba: es el que se está mirando en la reunión.
         documentos.value = filas.sort((a, b) => b.numero - a.numero);
+        compromisos.value = vivos;
 
         // Los que todavía no salieron del teléfono no tienen número, así que no
         // están en el almacén. Van arriba y con la franja ámbar: el vendedor
@@ -245,6 +281,15 @@ const estadosPresentes = computed(() => {
 
 const vacio = computed(() =>
     ! cargando.value && ! documentos.value.length && ! sinEnviar.value.length);
+
+const hoyTexto = () => dia(new Date());
+
+/** Rojo si ya se pasó, ámbar si es hoy, y neutro lo que viene. */
+function etiquetaCompromiso(d) {
+    const e = estadoCompromiso(d, compromisos.value.get(Number(d.numero)), hoyTexto());
+
+    return e === 'atrasado' ? 'roja' : (e === 'hoy' ? 'amarillo' : 'cian');
+}
 
 function quitarAtencion() {
     router.replace({ path: route.path });
@@ -358,6 +403,14 @@ function quitarAtencion() {
                     <div class="item-meta">
                         <span class="etiqueta gris">{{ estado(tipo, d.estado).rotulo }}</span>
                         <span class="etiqueta cian" v-if="aMedias.has(d.numero)">A medias</span>
+                        <!-- El compromiso, en palabras y con el «cuándo»
+                             relativo: en una lista, «en 3 días» se lee sin
+                             hacer la resta, y con prisa la resta sale mal. -->
+                        <span class="etiqueta" v-if="compromisos.get(d.numero)"
+                              :class="etiquetaCompromiso(d)">
+                            {{ nombreDe('compromisos', compromisos.get(d.numero).compromiso) }}
+                            · {{ cuandoTexto(compromisos.get(d.numero).cuando, hoyTexto()) }}
+                        </span>
                         <span> · {{ fecha(d.fecha) }}</span>
                         <span v-if="d.contacto"> · {{ d.contacto }}</span>
                         <span v-if="d.vendedor"> · {{ nombreDe('vendedores', d.vendedor) }}</span>
