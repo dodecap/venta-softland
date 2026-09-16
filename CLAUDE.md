@@ -320,6 +320,30 @@ de Softland que cambian las fórmulas. Tres que se olvidan:
   abajo y una buena noticia. Esa lectura la pone la pantalla (`tono()`), no el
   icono.
 
+## El ciclo normal de venta
+
+Desde la fase 4.5 la app lleva la cuenta de lo que queda. El plan y la evidencia
+están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
+
+- **El saldo se calcula, no se guarda.** Es una resta sobre los documentos que
+  existen ahora: borrar, anular o corregir lo cambian solos. Las siete columnas
+  de avance de `nw_detnv` —`nvCantFact` y compañía— **están muertas** y se dejan
+  en cero, como las deja el ERP.
+- **Sólo cuentan los documentos vivos.** Anular devuelve el saldo igual que
+  borrar. Los estados `P`, `A` y `C` consumen; `N` no.
+- **Dos saltos, dos enlaces, y sólo uno es nuestro.** Cotización → nota de venta
+  va en `ventas.linea_origen`; nota de venta → factura ya lo tiene Softland en
+  `iw_gmovi.nvCorrela` → `nw_detnv.nvLinea`, y usar el suyo hace que el saldo
+  salga bien también cuando factura el Softland de escritorio.
+- **Sin enlace de línea, el saldo no se sabe, y se dice.** Una cotización
+  convertida antes de la app que apareciera con «le queda todo» se convertiría
+  dos veces.
+- **La nota de crédito dice qué acredita en `IW_GSaEn_RefDTE`**, no en
+  `AuxDocNum`, y su cantidad viene en negativo.
+- **La cotización no estrena letra.** «Convertida a medias» es una lectura de la
+  app, no un quinto `CtEstado`. Está en `V` mientras le quede una nota de venta
+  viva; si no queda ninguna, vuelve a `P`.
+
 ## La factura electrónica
 
 Desde la fase 4 la app emite el DTE. Lo que hay que saber antes de tocar nada de
@@ -393,7 +417,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.13.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.14.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

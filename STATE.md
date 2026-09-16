@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-15 — versión **0.13.0**
+2026-09-16 — versión **0.14.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -228,8 +228,9 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       los decimales de la NV en vez de redondear a peso.
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
-- [ ] **Fase 4.5 — el ciclo normal de venta**: plan escrito y acordado en
-      `docs/ciclo-normal.md`, seis pasos. Espera a que se cierre la fase 4.
+- [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
+      **Paso 1 hecho** (el saldo); quedan convertir parcial, facturar parcial,
+      devolver el saldo al anular, la llave del receptor y las pantallas.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
       probado menos el último paso, que no se deshace. De factura queda **un
       solo folio libre, el 235**.
@@ -1013,6 +1014,23 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] Boleta y factura exenta probadas contra NETDOMAIN, que sí las emitió.
 - [x] El generador **se niega** a emitir un documento con descuento de pie: ese
       bloque no está escrito y no hay caso real contra el que comprobarlo.
+
+### Fase 4.5, paso 1: el saldo
+- [x] `ventas.linea_origen`: de qué línea de cotización salió cada línea de nota
+      de venta. Es el **único** enlace del ciclo que hay que guardar por nuestra
+      cuenta — el de nota de venta a factura ya lo tiene Softland en
+      `iw_gmovi.nvCorrela`, y usar el suyo hace que el saldo salga bien también
+      cuando factura el ERP.
+- [x] `Saldo`: el saldo **se calcula, no se guarda**. Una resta sobre los
+      documentos vivos no puede desincronizarse.
+- [x] **La nota de crédito dice qué acredita en `IW_GSaEn_RefDTE`**, no en
+      `AuxDocNum` —5.317 facturas de NETDOMAIN también lo llevan relleno—, y hay
+      que comparar el tipo además del folio, que se repiten entre tipos.
+- [x] **La línea de la nota de crédito viene en negativo** y se devuelve en
+      positivo. Sumarla tal cual daba saldo -1 en una línea pedida 1, facturada 1.
+- [x] `ventas:verifica-saldo`: 905 notas de venta con factura y 1.470
+      cotizaciones convertidas de las dos empresas. Cero saldos inventados y
+      cero acreditado por encima de lo facturado.
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres

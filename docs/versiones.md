@@ -42,6 +42,25 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.14.0 — El saldo: cuánto queda de una cotización y de una nota de venta
+*2026-09-16*
+
+- **Paso 1 de la fase 4.5.** `ventas.linea_origen` —el único enlace del ciclo
+  que hay que guardar por nuestra cuenta— y el servicio `Saldo`, que responde
+  cuánto queda de una línea de cotización por convertir y de una línea de nota
+  de venta por facturar.
+- **El saldo se calcula, no se guarda**: es una resta sobre los documentos que
+  existen ahora. Borrar, anular o corregir lo cambian solos.
+- **La nota de crédito dice qué acredita en `IW_GSaEn_RefDTE`**, no en
+  `AuxDocNum`. Ahí coincidía en INNOVAGES por casualidad, pero 5.317 facturas de
+  NETDOMAIN también lo llevan relleno: cruzar por ahí emparejaba notas de
+  crédito con notas de venta que no tenían nada que ver.
+- **La línea de la nota de crédito viene en negativo** y hay que devolverla en
+  positivo. Sumarla tal cual daba saldo -1 en una línea pedida 1 y facturada 1.
+- **Sin enlace de línea el servicio dice que no lo sabe**, en vez de inventar
+  saldo. Las 1.459 cotizaciones convertidas de la historia lo dicen.
+- `ventas:verifica-saldo` contrasta el cálculo contra las dos empresas.
+
 ### 0.13.0 — Mandar el DTE al SII: sobre, token y seguimiento
 *2026-09-15*
 

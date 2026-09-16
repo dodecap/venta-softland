@@ -199,15 +199,49 @@ nvCant − Σ CantFacturada de las líneas de factura VIVAS con nvCorrela = nvLi
 
 ## El plan, por pasos
 
-### Paso 1 — El saldo
+### Paso 1 — El saldo ✅ hecho (0.14.0)
 
-`ventas.linea_origen` (documento destino, su línea, documento origen, su línea,
-cantidad) y un servicio `Saldo` que responda las dos preguntas de arriba. Nada
-de interfaz todavía.
+`ventas.linea_origen` y el servicio `Saldo`, con `ventas:verifica-saldo` para
+contrastarlo. Sin interfaz todavía.
 
-**Prueba de que está bien:** correr el cálculo sobre las 221 cotizaciones con
-más de una NV y las 1.017 líneas cruzadas de NETDOMAIN, y que ningún saldo salga
-negativo donde no debe ni positivo donde la cotización se convirtió entera.
+Lo que se aprendió haciéndolo, que no estaba en el plan:
+
+- **La nota de crédito dice qué acredita en `IW_GSaEn_RefDTE`** —`CodRefSII` con
+  el tipo del SII y `FolioRef` con el folio—, **no en `AuxDocNum`**. Ahí
+  coincidía en INNOVAGES por casualidad; 5.317 facturas de NETDOMAIN también lo
+  llevan relleno, o sea que es un número auxiliar cualquiera. Cruzar por ahí
+  emparejaba notas de crédito con notas de venta ajenas. Hay que comparar el
+  **tipo además del folio**: los folios se repiten entre tipos.
+- **La línea de la nota de crédito viene en negativo** (`esDevolucion = -1`,
+  `CantFacturada = -1.0`): es la misma línea de la factura con el signo
+  cambiado. Sumarla tal cual restaba dos veces, y una línea pedida 1 y facturada
+  1 daba saldo -1, que no es un número posible.
+- **Una nota de crédito de una factura que nunca consumió no devuelve nada.** Si
+  todas las líneas de la factura van sin `nvCorrela` —el caso de la comisión—,
+  su nota de crédito no tiene saldo que devolver. Sin ese filtro, las diez notas
+  de crédito de comisión de INNOVAGES salían como «no atribuibles».
+
+**Lo que dio la comprobación:**
+
+```
+INNOVAGES    136 notas de venta con factura, 572 líneas
+             134 sin ninguna línea enlazada (son las comisiones)
+             670 cotizaciones convertidas: 659 dicen «no se sabe», 11 ya no existen
+             0 inventan saldo, 0 acreditado por encima de lo facturado
+
+NETDOMAIN    769 notas de venta con factura, 1.018 líneas
+             397 facturadas del todo, 64 con saldo, 6 facturadas de más
+             308 notas de venta que la factura cita y ya no existen
+             800 cotizaciones convertidas: 800 dicen «no se sabe»
+             0 inventan saldo, 0 acreditado por encima de lo facturado
+```
+
+**El invariante que se exige no es que el saldo sea positivo.** Facturar de más
+está permitido —regla 4— y en NETDOMAIN pasa de verdad: seis líneas, entre ellas
+notas de venta de doce mensualidades que acabaron con catorce facturas. Lo
+imposible es **acreditar más de lo facturado**, que significaría estar
+emparejando notas de crédito que no son de esta nota de venta. Eso sale en cero
+en las dos empresas.
 
 ### Paso 2 — Convertir parte de la cotización
 
