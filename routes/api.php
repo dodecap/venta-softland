@@ -78,6 +78,7 @@ Route::middleware('auth.api')->group(function () {
     // Facturar. Es lo único de la app que gasta algo que no se recupera, así
     // que la propuesta dice cuántos folios quedan antes de que nadie teclee.
     Route::get('/notas-venta/{numero}/facturar', [FacturaController::class, 'propuesta'])->whereNumber('numero');
+    Route::get('/facturas/folios', [FacturaController::class, 'folios']);
     Route::post('/facturas', [FacturaController::class, 'store']);
     Route::get('/facturas/{tipo}/{numero}', [FacturaController::class, 'show'])
         ->where('tipo', '[FBN]')->whereNumber('numero');

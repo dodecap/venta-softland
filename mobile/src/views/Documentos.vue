@@ -146,7 +146,15 @@ watch(porEnviar, cargar);
 
 // El botón flotante es uno solo para toda la app; esta pantalla solo dice qué
 // hace el suyo. Así hereda la posición que el vendedor eligió y el resto.
-useAccionCrear(`Nueva ${def.value.singular.toLowerCase()}`, () => router.push(`${def.value.ruta}/nuevo`));
+// En la cola de facturación el botón hace otra cosa: ahí no se está mirando un
+// catálogo de notas de venta, se está facturando. Y la factura que no sale de
+// ninguna nota de venta —el 88 % de las de NETDOMAIN— no tiene otro sitio desde
+// donde nacer.
+if (soloPorFacturar.value) {
+    useAccionCrear('Factura sin nota de venta', () => router.push('/facturas/nueva'));
+} else {
+    useAccionCrear(`Nueva ${def.value.singular.toLowerCase()}`, () => router.push(`${def.value.ruta}/nuevo`));
+}
 
 async function cargar() {
     cargando.value = true;

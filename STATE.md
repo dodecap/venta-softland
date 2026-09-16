@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.22.1**
+2026-09-16 — versión **0.23.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1133,6 +1133,14 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       en `IW_GSaEn_RefDTE`, no en `AuxDocNum`.
 - [x] Comprobado contra la API: factura 235 → saldo 6, nota de crédito 16 →
       saldo 10, segunda nota de crédito rechazada. Sin gastar folio.
+
+### La factura sin nota de venta
+- [x] `FacturaNueva.vue`: elegir cliente, agregar productos con su precio y
+      emitir. Se llega desde la cola de facturación, con el botón flotante.
+- [x] **Resultó ser la forma normal, no la excepción**: en NETDOMAIN el 88 % de
+      las facturas y el 100 % de las boletas no tienen nota de venta detrás.
+- [x] `GET /facturas/folios`, para poder decir cuántos quedan sin documento de
+      por medio.
 
 ### El envío al SII desde la app
 - [x] Cada factura de la ficha lleva su estado ante el SII y su acción: enviar

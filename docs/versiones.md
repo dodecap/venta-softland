@@ -42,6 +42,23 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.23.0 — Factura sin nota de venta, desde el teléfono
+*2026-09-16*
+
+- **La factura libre**, que resultó ser la normal: en NETDOMAIN **el 88 % de las
+  facturas y el 100 % de las boletas** nacieron sin nota de venta detrás, y en
+  INNOVAGES hay cinco —dos de ellas a NETDOMAIN por el mismo concepto—.
+- No es una versión degradada de la otra: es el mismo documento sin un origen
+  que le dicte los datos. Aquí el precio **sí** lo escribe quien factura, porque
+  no hay documento anterior que lo mande, y las líneas se eligen a mano.
+- Se llega desde la cola de facturación, con el botón flotante: ahí no se está
+  mirando un catálogo de notas de venta, se está facturando.
+- Mismos guardianes que el resto: los folios se dicen al abrir —hay un endpoint
+  para preguntarlo sin documento de por medio—, la confirmación nombra el folio,
+  y necesita señal.
+- Se reusan los selectores del editor de documentos, incluido el turno que evita
+  que la carga inicial pise la búsqueda que el vendedor ya hizo.
+
 ### 0.22.1 — El botón Facturar lleva a lo que falta por facturar
 *2026-09-16*
 

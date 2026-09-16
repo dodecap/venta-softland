@@ -199,6 +199,9 @@ export const api = {
     // hay**, que es lo único de la app que se gasta sin vuelta atrás.
     propuestaFactura: (numero) => pedir(`/notas-venta/${numero}/facturar`),
     emitirFactura: (doc) => pedir('/facturas', { method: 'POST', body: doc }),
+    // Cuántos folios quedan, sin documento de por medio: lo necesita la factura
+    // libre al abrirse, que no tiene nota de venta de la que colgar la pregunta.
+    foliosFactura: () => pedir('/facturas/folios'),
     factura: (tipo, numeroInterno) => pedir(`/facturas/${tipo}/${numeroInterno}`),
 
     // Anular una factura es emitir la nota de crédito que la devuelve entera.

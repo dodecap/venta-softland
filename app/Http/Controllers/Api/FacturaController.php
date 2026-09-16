@@ -93,6 +93,18 @@ class FacturaController extends Controller
     }
 
     /**
+     * Cuántos folios quedan, antes de que exista ningún documento.
+     *
+     * La pantalla de factura libre lo necesita al abrirse: no hay nota de venta
+     * de la que colgar la pregunta, y enterarse de que no hay folios después de
+     * teclear el documento es la peor forma de enterarse.
+     */
+    public function folios()
+    {
+        return response()->json(['folios' => $this->foliosLibres(TipoDte::FACTURA)]);
+    }
+
+    /**
      * Emite el documento.
      *
      * **No es reversible.** Lo que sale mal se corrige con una nota de crédito,
