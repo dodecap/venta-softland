@@ -128,6 +128,31 @@ contable, kardex, comisiones y libro de ventas. Escribir la factura a mano no
 es «una fase más»: es asumir riesgo fiscal. El alcance real de la fase 4 está
 por decidir — ver `docs/flujo-ventas-softland.md`.
 
+## Fase 4.5 — El ciclo normal de venta 📋 planificada
+
+El plan completo, con la evidencia que lo sostiene, está en
+`docs/ciclo-normal.md`. En una frase: **cotización → varias notas de venta →
+varias facturas, con reparto parcial en los dos saltos**, que es lo que la app
+viene a resolver y lo que el ciclo de comisión de INNOVAGES tapaba.
+
+Lo que se averiguó antes de planificar nada:
+
+- Las **siete columnas de avance** de `nw_detnv` —`nvCantFact` y compañía—
+  están **muertas**: cero registros en 3.824 líneas de cada empresa, aun con
+  941 facturas de NETDOMAIN nacidas de una nota de venta. El ERP no las
+  mantiene, así que el saldo se calcula y no se guarda.
+- El **enlace línea a línea sí existe** y es `iw_gmovi.nvCorrela` →
+  `nw_detnv.nvLinea`, escrito por el propio Softland en 2.558 de 2.620 líneas.
+  Calcular el saldo desde ahí hace que salga bien **también cuando factura el
+  ERP**.
+- Para el salto cotización → nota de venta **no hay nada**: `CtEstado` pasa a
+  `V` y ahí se queda. Las 221 cotizaciones con más de una NV están todas en
+  `V`, las repartidas igual que las enteras. Ese enlace es el único que hay que
+  guardar en el esquema `ventas`.
+
+Seis pasos: el saldo, convertir parcial, facturar parcial, devolver el saldo al
+anular, la llave del receptor y las pantallas.
+
 ## Fase 5 — Terreno
 
 - Impresión por Bluetooth del comprobante.

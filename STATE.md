@@ -228,6 +228,8 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       los decimales de la NV en vez de redondear a peso.
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
+- [ ] **Fase 4.5 — el ciclo normal de venta**: plan escrito y acordado en
+      `docs/ciclo-normal.md`, seis pasos. Espera a que se cierre la fase 4.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
       probado menos el último paso, que no se deshace. De factura queda **un
       solo folio libre, el 235**.
