@@ -256,3 +256,47 @@ export async function facturadoDe(notaVenta) {
 
     return facturado;
 }
+
+/**
+ * Las facturas de una nota de venta, con lo que hay que saber de cada una.
+ *
+ * `acreditada` es el folio de la nota de crédito que la anuló, si la hay. Se
+ * busca por la referencia del DTE —tipo del SII y folio—, que es donde de
+ * verdad se dice qué se acredita; `AuxDocNum` parece servir y no sirve.
+ *
+ * Las notas de crédito no se listan aparte: son el desenlace de una factura, no
+ * un documento suelto, y enseñarlas sueltas haría contar dos veces la misma
+ * operación.
+ */
+export async function facturasDe(notaVenta) {
+    const [documentos, referencias] = await Promise.all([
+        idb.porIndice('facturas', 'nota_venta', Number(notaVenta)),
+        idb.todos('factura_referencias'),
+    ]);
+
+    // Tipo del SII de cada tipo de Softland, que es como se referencian.
+    const SII = { F: '33', B: '39', N: '61' };
+
+    const anula = new Map();
+
+    for (const r of referencias || []) {
+        if (r.tipo !== 'N') continue;
+
+        const nc = (documentos || []).find(
+            (d) => d.tipo === 'N' && d.numero_interno === r.numero_interno
+        );
+
+        if (! nc || (nc.estado || '').trim().toUpperCase() === 'N') continue;
+
+        anula.set(`${r.tipo_sii_referido}-${Number(r.folio_referido)}`, nc.folio);
+    }
+
+    return (documentos || [])
+        .filter((d) => d.tipo !== 'N')
+        .sort((a, b) => b.folio - a.folio)
+        .map((d) => ({
+            ...d,
+            anulada: (d.estado || '').trim().toUpperCase() === 'N',
+            acreditada: anula.get(`${SII[d.tipo]}-${d.folio}`) || null,
+        }));
+}

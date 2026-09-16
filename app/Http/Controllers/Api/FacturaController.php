@@ -145,6 +145,123 @@ class FacturaController extends Controller
         return response()->json($this->documento($doc['tipo'], $doc['nroint']), 201);
     }
 
+    /**
+     * Qué llevaría la nota de crédito que anula esta factura.
+     *
+     * **Anulación entera, no devolución parcial.** El SII distingue: `CodRef 1`
+     * anula el documento, `2` corrige su texto y `3` corrige sus montos. Devolver
+     * tres de diez unidades no es anular, es otro documento con otra referencia
+     * y otra razón. Aquí se hace lo primero, que es lo que se pide cuando una
+     * factura salió mal.
+     */
+    public function propuestaNotaCredito(Request $request, string $tipo, int $numeroInterno)
+    {
+        $letra = strtoupper($tipo);
+        $doc = $this->documento($letra, $numeroInterno);
+
+        if (! $doc || ! $this->alcanza($request, $doc['documento']['vendedor'])) {
+            return response()->json(['message' => 'Esa factura no existe o no es tuya.'], 404);
+        }
+
+        if ($letra === 'N') {
+            return response()->json(['message' => 'Una nota de crédito no se anula con otra.'], 409);
+        }
+
+        if ($doc['documento']['estado'] === 'N') {
+            return response()->json(['message' => 'Esa factura ya está anulada en el ERP.'], 409);
+        }
+
+        if ($ya = $this->acreditadaPor($letra, $doc['documento']['subtipo'], $doc['documento']['folio'])) {
+            return response()->json([
+                'message' => "Esta factura ya se anuló con la nota de crédito {$ya}.",
+                'nota_credito' => $ya,
+            ], 409);
+        }
+
+        return response()->json([
+            'factura' => $doc['documento'],
+            'folios' => $this->foliosLibres(TipoDte::NOTA_CREDITO),
+            'lineas' => $this->facturacion->propuestaNotaCredito($letra, $numeroInterno),
+        ]);
+    }
+
+    /**
+     * Emite la nota de crédito que anula la factura.
+     *
+     * Las líneas **no llegan del teléfono**: las arma el servidor desde la
+     * factura. Anular es devolver lo que se facturó, todo y tal cual; dejar que
+     * el cliente mande las líneas sería dejar abierta la puerta a una nota de
+     * crédito que no cuadra con lo que anula.
+     */
+    public function notaCredito(Request $request, string $tipo, int $numeroInterno)
+    {
+        $letra = strtoupper($tipo);
+        $previo = $this->propuestaNotaCredito($request, $letra, $numeroInterno);
+
+        if ($previo->getStatusCode() !== 200) {
+            return $previo;
+        }
+
+        $u = $this->usuario($request);
+        $factura = $this->documento($letra, $numeroInterno)['documento'];
+        $data = $request->validate(['razon' => 'nullable|string|max:90']);
+
+        try {
+            $doc = $this->facturacion->escribir([
+                'tipo' => TipoDte::NOTA_CREDITO,
+                'receptor' => $factura['cliente'],
+                'vendedor' => $u->ven_cod,
+                'usuario' => $u->usuario,
+                'centro_costo' => $factura['centro_costo'] ?: null,
+                'cond_pago' => $factura['condicion'] ?: null,
+                'glosa' => $data['razon'] ?? null,
+                'lineas' => $this->facturacion->propuestaNotaCredito($letra, $numeroInterno),
+                'referencia' => [
+                    'folio' => $factura['folio'],
+                    'fecha' => substr((string) $factura['fecha'], 0, 10),
+                    'tipo' => $letra,
+                    'subtipo' => $factura['subtipo'],
+                    // «1» es anular, y es lo único que emite esta pantalla.
+                    'codigo' => '1',
+                    'razon' => $data['razon'] ?? 'Anula Documento',
+                ],
+            ]);
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($this->documento($doc['tipo'], $doc['nroint']), 201);
+    }
+
+    /**
+     * El folio de la nota de crédito que ya anuló esta factura, si la hay.
+     *
+     * Se busca por la referencia del DTE —tipo del SII y folio—, que es donde
+     * de verdad se dice qué se acredita. **No por `AuxDocNum`**: ahí coincide
+     * por casualidad, pero 5.317 facturas de NETDOMAIN lo llevan relleno con
+     * otra cosa.
+     */
+    private function acreditadaPor(string $letra, string $subtipo, int $folio): ?int
+    {
+        $tipo = TipoDte::desdeSoftland($letra, $subtipo);
+
+        if (! $tipo) {
+            return null;
+        }
+
+        $folioNc = DB::connection('softland')->table('softland.iw_gsaen AS s')
+            ->join('softland.IW_GSaEn_RefDTE AS r', function ($j) {
+                $j->on('r.Tipo', '=', 's.Tipo')->on('r.NroInt', '=', 's.NroInt');
+            })
+            ->where('s.Tipo', 'N')
+            ->where('s.Estado', '<>', 'N')
+            ->where('r.CodRefSII', (string) $tipo->value)
+            ->where('r.FolioRef', (string) $folio)
+            ->value('s.Folio');
+
+        return $folioNc ? (int) $folioNc : null;
+    }
+
     /** Un documento emitido, con su detalle. */
     public function show(Request $request, string $tipo, int $numeroInterno)
     {

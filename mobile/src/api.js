@@ -201,6 +201,12 @@ export const api = {
     emitirFactura: (doc) => pedir('/facturas', { method: 'POST', body: doc }),
     factura: (tipo, numeroInterno) => pedir(`/facturas/${tipo}/${numeroInterno}`),
 
+    // Anular una factura es emitir la nota de crédito que la devuelve entera.
+    // Las líneas las arma el servidor desde la factura: no se mandan.
+    propuestaNotaCredito: (tipo, numeroInterno) => pedir(`/facturas/${tipo}/${numeroInterno}/nota-credito`),
+    emitirNotaCredito: (tipo, numeroInterno, razon) =>
+        pedir(`/facturas/${tipo}/${numeroInterno}/nota-credito`, { method: 'POST', body: { razon } }),
+
     // El papel. `compartido` es el acuse de que el documento salió por un
     // camino que el servidor no ve — WhatsApp, la impresora, el visor —, y
     // sirve para que la emisión guardada quede marcada como entregada.

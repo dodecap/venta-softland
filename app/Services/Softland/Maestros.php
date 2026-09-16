@@ -403,6 +403,48 @@ class Maestros
                 },
             ],
             /*
+             * Qué documento acredita o referencia cada factura y nota de crédito.
+             *
+             * Es la tabla donde **de verdad** se dice qué se acredita:
+             * `CodRefSII` con el tipo del SII y `FolioRef` con el folio. No es
+             * `AuxDocNum`, que parecía: 5.317 facturas de NETDOMAIN lo llevan
+             * relleno con otra cosa, y cruzar por ahí emparejaba notas de
+             * crédito con documentos que no tenían nada que ver.
+             *
+             * Baja al teléfono para que la ficha pueda decir «esta factura ya se
+             * anuló con la nota de crédito 16» sin señal, y no ofrecer anular
+             * dos veces lo mismo.
+             */
+            'factura_referencias' => [
+                'titulo' => 'Referencias de facturas',
+                'tabla' => 'softland.IW_GSaEn_RefDTE',
+                'clave' => ['Tipo', 'NroInt', 'LineaRef'],
+                'campos' => [
+                    'tipo' => 'Tipo',
+                    'numero_interno' => 'NroInt:entero',
+                    'linea' => 'LineaRef:entero',
+                    'tipo_sii_referido' => 'CodRefSII',
+                    'folio_referido' => 'FolioRef',
+                    'fecha_referida' => 'FechaRef:fecha',
+                    'codigo' => 'CodRef',
+                    'razon' => 'RazonRef',
+                ],
+                'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
+                    $q->whereIn('Tipo', ['F', 'B', 'N']);
+                    $q->whereExists(function ($s) use ($ctx, $ventana) {
+                        $s->selectRaw('1')->from('softland.iw_gsaen AS cab')
+                            ->whereColumn('cab.Tipo', 'IW_GSaEn_RefDTE.Tipo')
+                            ->whereColumn('cab.NroInt', 'IW_GSaEn_RefDTE.NroInt');
+
+                        if ($ventana) {
+                            $s->where('cab.Fecha', '>=', static::desdeHistoria());
+                        }
+
+                        static::soloSusVendedores($s, 'cab.CodVendedor', $ctx);
+                    });
+                },
+            ],
+            /*
              * De qué línea de cotización salió cada línea de nota de venta.
              *
              * Es lo único del ciclo que Softland no guarda: `nwdetcot` no tiene

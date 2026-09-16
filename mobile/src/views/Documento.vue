@@ -6,7 +6,7 @@ import { db } from '../db';
 import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
 import { TIPOS, estado, enriquecerLineas, lineasDe, avanceFacturacion } from '../documentos';
-import { facturadoDe, saldoCotizacion } from '../saldo';
+import { facturadoDe, facturasDe, saldoCotizacion } from '../saldo';
 import { conectado } from '../red';
 import { compartirPdf, olvidarPdf, pdfGuardado, verPdf } from '../pdf';
 import { useCapa } from '../nav';
@@ -41,6 +41,16 @@ const usuario = ref(null);
  * ficha lo diga también sin señal: es lo que se mira en terreno.
  */
 const saldo = ref(null);
+
+/*
+ * Las facturas de esta nota de venta. Se enseñan aquí y no en una lista aparte
+ * porque una factura es el desenlace de una venta, no un documento suelto: es
+ * en la nota de venta donde alguien se pregunta qué se facturó y qué falta.
+ */
+const facturas = ref([]);
+const anulando = ref(null);
+const razonNc = ref('Anula Documento');
+
 const error = ref('');
 const aviso = ref('');
 const trabajando = ref(false);
@@ -109,6 +119,7 @@ async function cargar() {
                 ...l,
                 facturado: facturado.get(Number(l.linea).toFixed(2)) || 0,
             }));
+            facturas.value = await facturasDe(numero.value);
         }
         cliente.value = doc.value ? await idb.obtener('clientes', doc.value.cliente) : null;
         papelGuardado.value = doc.value ? await pdfGuardado(tipo.value, numero.value) : null;
@@ -522,6 +533,30 @@ async function convertir() {
 }
 
 /**
+ * Anular una factura: emitir la nota de crédito que la devuelve entera.
+ *
+ * Las líneas no se mandan: las arma el servidor desde la factura. Anular es
+ * devolver lo que se facturó, todo y tal cual, y dejar que el teléfono proponga
+ * las líneas sería dejar abierta la puerta a una nota de crédito que no cuadra
+ * con lo que anula.
+ *
+ * Gasta un folio de nota de crédito, así que la hoja lo dice antes.
+ */
+async function anularFactura() {
+    const f = anulando.value;
+
+    await conServidor(async () => {
+        const r = await api.emitirNotaCredito(f.tipo, f.numero_interno, razonNc.value);
+
+        await idb.guardar('facturas', [r.documento]);
+        await idb.guardar('factura_lineas', r.lineas || []);
+        anulando.value = null;
+        aviso.value = `Nota de crédito N° ${r.documento.folio} emitida: la factura N° ${f.folio} queda anulada.`;
+        await cargar();
+    });
+}
+
+/**
  * Duplicar: abre el alta con este documento ya cargado.
  *
  * No se copia nada aquí ni se llama al servidor. La copia vive en el
@@ -669,6 +704,35 @@ function cantidad(n) {
                 <p class="ayuda" v-if="! conectado && ! papelGuardado">
                     El documento se dibuja en el servidor. Ábrelo una vez con señal y después queda en el teléfono.
                 </p>
+
+                <!-- Lo que ya se facturó de esta nota de venta. Va aquí porque
+                     es aquí donde alguien se pregunta qué salió y qué falta, no
+                     en una lista de facturas aparte. Las notas de crédito no se
+                     listan: son el desenlace de una factura, y enseñarlas
+                     sueltas haría contar dos veces la misma operación. -->
+                <template v-if="! esCotizacion && facturas.length">
+                    <div class="seccion"><h2>Facturado</h2></div>
+                    <div class="item" v-for="f in facturas" :key="`${f.tipo}-${f.numero_interno}`">
+                        <div class="item-estado" :class="f.anulada || f.acreditada ? 'gris' : 'verde'"></div>
+                        <div class="item-cuerpo">
+                            <div class="item-titulo">
+                                Factura Nº {{ f.folio }} · {{ monto(f.total, f.moneda) }}
+                            </div>
+                            <div class="item-meta">
+                                <span>{{ fecha(f.fecha) }}</span>
+                                <span v-if="f.acreditada">
+                                    · <span class="etiqueta gris">Anulada con la NC Nº {{ f.acreditada }}</span>
+                                </span>
+                                <span v-else-if="f.anulada"> · <span class="etiqueta gris">Anulada</span></span>
+                                <span v-else-if="! f.enviado_sii"> · <span class="etiqueta cian">Sin enviar al SII</span></span>
+                            </div>
+                            <button class="boton-texto peligro" v-if="! f.anulada && ! f.acreditada"
+                                    :disabled="! conectado" @click.stop="anulando = f; razonNc = 'Anula Documento'">
+                                Anular con nota de crédito
+                            </button>
+                        </div>
+                    </div>
+                </template>
 
                 <!-- Todo lo que se puede hacer con este documento, en una sola
                      fila que se desplaza: sólo se ofrece lo que de verdad se
@@ -877,6 +941,39 @@ function cantidad(n) {
 
                     <button class="boton-texto peligro" v-if="anulable" @click="borrando = false; anular()">
                         Anular en vez de eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Anular una factura con nota de crédito. Gasta un folio, así que se
+             dice antes y se nombra la factura que se está anulando. -->
+        <div class="velo" v-if="anulando" @click.self="anulando = null">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Anular la factura Nº {{ anulando.folio }}</h2>
+                    <button class="icono-barra" @click="anulando = null">
+                        <AppIcon name="cerrar" :size="21" />
+                    </button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <p class="ayuda">
+                        Se emite una nota de crédito que devuelve la factura entera, por
+                        {{ monto(anulando.total, anulando.moneda) }}. La factura conserva su número
+                        y su folio: lo entregado al cliente no se borra, se anula.
+                    </p>
+                    <p class="ayuda">
+                        Gasta un folio de nota de crédito, y un folio no se devuelve.
+                    </p>
+
+                    <label>Razón</label>
+                    <input v-model="razonNc" maxlength="90" placeholder="Anula Documento">
+
+                    <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
+
+                    <button class="boton peligro" :disabled="trabajando || ! conectado"
+                            @click="anularFactura">
+                        {{ trabajando ? 'Emitiendo…' : 'Emitir la nota de crédito' }}
                     </button>
                 </div>
             </div>

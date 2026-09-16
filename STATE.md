@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.20.0**
+2026-09-16 — versión **0.21.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1115,6 +1115,19 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       rellena huecos: la primera cuenta daba **38** donde la realidad es **uno**.
 - [x] **«Facturado 5 de 12» decía «0 de 12» desde siempre**, porque se leía de
       `nvCantFact`. Ahora se calcula desde las líneas de factura vigentes.
+
+### La nota de crédito desde el teléfono
+- [x] La ficha de la nota de venta enseña **lo facturado**, con el estado de cada
+      factura: vigente, anulada, o anulada con su nota de crédito.
+- [x] **Anular con nota de crédito** desde ahí. Las líneas las arma el servidor
+      desde la factura: anular es devolver lo facturado, todo y tal cual.
+- [x] **Anulación entera, no devolución parcial.** `CodRef 1` anula; devolver
+      parte es otro documento con otra referencia, y no lo emite esta pantalla.
+- [x] No se anula dos veces: 409 nombrando la nota de crédito que ya existe.
+- [x] Maestro `factura_referencias`, para saberlo sin señal. La referencia vive
+      en `IW_GSaEn_RefDTE`, no en `AuxDocNum`.
+- [x] Comprobado contra la API: factura 235 → saldo 6, nota de crédito 16 →
+      saldo 10, segunda nota de crédito rechazada. Sin gastar folio.
 
 ### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
 - [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres

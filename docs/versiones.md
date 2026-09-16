@@ -42,6 +42,26 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.21.0 — Anular una factura con nota de crédito, desde la nota de venta
+*2026-09-16*
+
+- **La ficha de la nota de venta enseña lo facturado.** Una factura es el
+  desenlace de una venta, no un documento suelto: se ve donde alguien se
+  pregunta qué salió y qué falta. Las notas de crédito no se listan aparte —son
+  el desenlace de una factura— y aparecen como «Anulada con la NC Nº 16».
+- **Anular con nota de crédito** desde ahí. **Las líneas no las manda el
+  teléfono**: las arma el servidor desde la factura. Anular es devolver lo que se
+  facturó, todo y tal cual; proponerlas desde el cliente dejaría abierta la
+  puerta a una nota de crédito que no cuadra con lo que anula.
+- **Anulación entera, no devolución parcial.** El SII distingue: `CodRef 1`
+  anula, `2` corrige el texto y `3` corrige los montos. Devolver tres de diez
+  unidades no es anular — es otro documento, con otra referencia.
+- **No se anula dos veces.** Si ya hay una nota de crédito vigente que la
+  referencia, responde 409 nombrándola.
+- Maestro `factura_referencias`: la ficha sabe sin señal qué factura ya está
+  acreditada. La referencia vive en `IW_GSaEn_RefDTE`, no en `AuxDocNum`.
+- Los folios de nota de crédito se dicen antes, como los de factura.
+
 ### 0.20.0 — Facturar desde el teléfono, diciendo antes cuántos folios quedan
 *2026-09-16*
 

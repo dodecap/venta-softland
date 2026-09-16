@@ -81,6 +81,13 @@ Route::middleware('auth.api')->group(function () {
     Route::post('/facturas', [FacturaController::class, 'store']);
     Route::get('/facturas/{tipo}/{numero}', [FacturaController::class, 'show'])
         ->where('tipo', '[FBN]')->whereNumber('numero');
+    // Anular una factura es emitir la nota de crédito que la devuelve entera.
+    // Las líneas las arma el servidor desde la factura: anular es devolver lo
+    // que se facturó, todo y tal cual.
+    Route::get('/facturas/{tipo}/{numero}/nota-credito', [FacturaController::class, 'propuestaNotaCredito'])
+        ->where('tipo', '[FB]')->whereNumber('numero');
+    Route::post('/facturas/{tipo}/{numero}/nota-credito', [FacturaController::class, 'notaCredito'])
+        ->where('tipo', '[FB]')->whereNumber('numero');
 
     Route::get('/notas-venta/aprobaciones', [NotaVentaController::class, 'pendientes']);
     Route::get('/notas-venta/{numero}', [NotaVentaController::class, 'show'])->whereNumber('numero');
