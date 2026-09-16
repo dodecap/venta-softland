@@ -7,7 +7,7 @@ import { monto, fecha, nombre as nombreDe } from '../catalogos';
 import { dia } from '../panel/periodo';
 import { situacion } from '../panel/metricas';
 import { TIPOS, estado } from '../documentos';
-import { parciales } from '../saldo';
+import { parciales, porFacturar } from '../saldo';
 import { useAccionCrear } from '../crear';
 import { contarPendientes, porEnviar } from '../pendientes';
 import { conectado } from '../red';
@@ -39,6 +39,13 @@ const def = computed(() => TIPOS[tipo.value]);
  * que entrar una por una para saber cuál dejó algo fuera.
  */
 const aMedias = ref(new Set());
+
+/*
+ * «Facturar» del panel llega aquí con el filtro puesto: las notas de venta que
+ * todavía tienen algo por facturar. Es la cola de trabajo de quien factura, no
+ * un catálogo de documentos.
+ */
+const soloPorFacturar = computed(() => route.query.facturar === '1' && tipo.value === 'nota_venta');
 
 const busqueda = ref('');
 const filtroEstado = ref('');
@@ -132,7 +139,7 @@ watch(() => route.query.estado, (v) => {
 
     if (def.value.estados[pedido]) filtroEstado.value = pedido;
 }, { immediate: true });
-watch([busqueda, filtroEstado, tipo, atencion], cargar);
+watch([busqueda, filtroEstado, tipo, atencion, soloPorFacturar], cargar);
 // La bandeja se vacía sola al volver la red, estando en otra pantalla: sin esto
 // el documento seguiría apareciendo como «sin enviar» después de haber salido.
 watch(porEnviar, cargar);
@@ -166,6 +173,11 @@ async function cargar() {
         aMedias.value = tipo.value === 'cotizacion'
             ? await parciales(documentos.value.map((d) => d.numero))
             : new Set();
+
+        if (soloPorFacturar.value) {
+            const conSaldo = await porFacturar(documentos.value.map((d) => d.numero));
+            documentos.value = documentos.value.filter((d) => conSaldo.has(d.numero));
+        }
 
         await cargarNombres();
     } finally {
@@ -264,6 +276,11 @@ function quitarAtencion() {
                 {{ ATENCION[atencion] }}
                 <AppIcon name="cerrar" :size="16" color="currentColor" />
             </button>
+            <button class="filtro-traido" v-if="soloPorFacturar" @click="quitarAtencion">
+                <AppIcon name="factura" :size="16" color="currentColor" />
+                Con algo por facturar
+                <AppIcon name="cerrar" :size="16" color="currentColor" />
+            </button>
 
             <div class="pestanas en-linea">
                 <button :class="{ activa: filtroEstado === '' }" @click="filtroEstado = ''">Todo</button>
@@ -272,7 +289,11 @@ function quitarAtencion() {
                         @click="filtroEstado = e.codigo">{{ e.rotulo }}</button>
             </div>
 
-            <Vacio v-if="vacio && ! busqueda && ! filtroEstado && ! atencion" :icono="def.icono"
+            <Vacio v-if="vacio && soloPorFacturar" icono="factura" titulo="No queda nada por facturar">
+                Todas las notas de venta aprobadas están facturadas del todo.
+            </Vacio>
+
+            <Vacio v-else-if="vacio && ! busqueda && ! filtroEstado && ! atencion" :icono="def.icono"
                    :titulo="`Sin ${def.titulo.toLowerCase()}`">
                 Aquí aparecen las de los últimos 12 meses, una vez que sincronices.
             </Vacio>

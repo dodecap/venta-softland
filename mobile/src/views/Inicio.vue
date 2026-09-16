@@ -70,7 +70,9 @@ const FLUJO = [
     { icono: 'notaVenta', rotulo: 'Notas de venta', ruta: '/notas-venta' },
     { icono: 'cliente', rotulo: 'Clientes', ruta: '/clientes' },
     { icono: 'producto', rotulo: 'Productos', ruta: '/productos' },
-    { icono: 'factura', rotulo: 'Facturar', fase: 'Fase 4' },
+    // Facturar cuelga de una nota de venta, así que lleva a las que todavía
+    // tienen algo por facturar: es la cola de trabajo, no un catálogo.
+    { icono: 'factura', rotulo: 'Facturar', ruta: '/notas-venta?facturar=1' },
     { icono: 'cobranza', rotulo: 'Cobranza', fase: 'Fase 5' },
 ];
 
@@ -153,9 +155,14 @@ const variacionVenta = computed(() => variacion(m.value?.actual.vendido.monto, m
 const iconoTendencia = (v) => (v.direccion === 'sube' ? 'sube' : v.direccion === 'baja' ? 'baja' : 'sinCambio');
 
 /**
- * Las tres etapas del embudo. La tercera está declarada y apagada a propósito:
- * las facturas todavía no se sincronizan al teléfono, y un embudo que termina
- * en «vendido» sin decir nada haría creer que ahí se acaba el negocio.
+ * Las tres etapas del embudo.
+ *
+ * La tercera sigue apagada, y ya no por falta de datos —las facturas se
+ * sincronizan desde la 0.20.0—: **aquí se factura por suscripción**. Una nota de
+ * venta genera varias facturas a lo largo de meses, así que «facturado» dentro
+ * de un período no es la continuación de «vendido» en ese mismo período, y
+ * ponerlos uno al lado del otro invitaría a restarlos. Cuando se mida, se mide
+ * de otra forma.
  */
 const embudo = computed(() => {
     if (! m.value) return [];
@@ -163,7 +170,7 @@ const embudo = computed(() => {
     return [
         { id: 'cotizado', rotulo: 'Cotizado', ...m.value.actual.cotizado },
         { id: 'vendido', rotulo: 'Vendido', ...m.value.actual.vendido },
-        { id: 'facturado', rotulo: 'Facturado', sinFuente: 'No sincronizado' },
+        { id: 'facturado', rotulo: 'Facturado', sinFuente: 'Se factura por suscripción' },
     ];
 });
 

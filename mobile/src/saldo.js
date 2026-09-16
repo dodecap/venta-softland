@@ -317,3 +317,77 @@ export async function facturasDe(notaVenta) {
             };
         });
 }
+
+/**
+ * Cuáles de estas notas de venta tienen algo por facturar.
+ *
+ * Para la lista, donde hay doscientas. Se carga todo de una en vez de preguntar
+ * tres cosas por documento, igual que en `parciales()`.
+ *
+ * Una nota de venta anulada o pendiente de aprobación no cuenta: la primera no
+ * existe y la segunda espera el visto bueno del jefe, y facturarla se lo
+ * saltaría.
+ *
+ * @returns {Promise<Set<number>>} los números que todavía tienen saldo
+ */
+export async function porFacturar(numeros) {
+    const buscados = new Set(numeros);
+
+    if (buscados.size === 0) return new Set();
+
+    const [cabeceras, lineas, documentos, lineasDoc] = await Promise.all([
+        idb.todos('notas_venta'),
+        idb.todos('nota_venta_lineas'),
+        idb.todos('facturas'),
+        idb.todos('factura_lineas'),
+    ]);
+
+    const facturables = new Set(
+        cabeceras
+            .filter((n) => buscados.has(n.numero) && ['A', 'C'].includes((n.estado || '').trim().toUpperCase()))
+            .map((n) => n.numero)
+    );
+
+    const pedido = new Map();
+
+    for (const l of lineas) {
+        if (! facturables.has(l.nota_venta)) continue;
+        pedido.set(l.nota_venta, (pedido.get(l.nota_venta) || 0) + Number(l.cantidad || 0));
+    }
+
+    // Sólo los documentos vigentes consumen, y los de la nota de crédito vienen
+    // en negativo, así que sumarlos ya devuelve lo suyo.
+    const deDocumento = new Map();
+
+    for (const d of documentos) {
+        if (! facturables.has(d.nota_venta)) continue;
+        if ((d.estado || '').trim().toUpperCase() === 'N') continue;
+        deDocumento.set(`${d.tipo}-${d.numero_interno}`, d.nota_venta);
+    }
+
+    const facturado = new Map();
+
+    for (const l of lineasDoc) {
+        if (! (l.nota_venta_linea > 0)) continue;
+
+        const nv = deDocumento.get(`${l.tipo}-${l.numero_interno}`);
+
+        if (nv === undefined) continue;
+
+        const suma = l.tipo === 'N'
+            ? -Math.abs(Number(l.cantidad || 0))
+            : Number(l.cantidad || 0);
+
+        facturado.set(nv, (facturado.get(nv) || 0) + suma);
+    }
+
+    const conSaldo = new Set();
+
+    for (const numero of facturables) {
+        if ((pedido.get(numero) || 0) - (facturado.get(numero) || 0) > 0.0001) {
+            conSaldo.add(numero);
+        }
+    }
+
+    return conSaldo;
+}

@@ -42,6 +42,21 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.22.1 — El botón Facturar lleva a lo que falta por facturar
+*2026-09-16*
+
+- **El acceso «Facturar» del panel seguía apagado y con «Fase 4» encima.** La
+  fase estaba hecha hace tres versiones y el botón no se había enterado. Ahora
+  lleva a las notas de venta **que todavía tienen algo por facturar**, que es la
+  cola de trabajo de quien factura y no un catálogo de documentos.
+- El filtro se ve y se quita, como el que llega desde el panel: un filtro que no
+  se ve es una lista incompleta sin explicación.
+- **El embudo ya no dice «no sincronizado»** en su tercera etapa — las facturas
+  se sincronizan desde la 0.20.0—. Sigue apagada, pero por la razón de verdad:
+  aquí se factura por suscripción, una nota de venta genera varias facturas a lo
+  largo de meses, y poner «vendido» y «facturado» del mismo período uno al lado
+  del otro invita a restarlos.
+
 ### 0.22.0 — Mandar el documento al SII desde la app, y preguntar en qué quedó
 *2026-09-16*
 
