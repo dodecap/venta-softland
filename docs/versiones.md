@@ -42,6 +42,39 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.24.0 — Facturar no exige ser vendedor, y lo emitido tiene su lista
+*2026-09-16*
+
+- **El vendedor de una factura es el de la venta, no el de quien la emite.** El
+  servidor estampaba el `ven_cod` del usuario conectado, y eso hacía dos cosas
+  mal: facturación y administración no podían emitir nada —no son vendedores,
+  no tienen código, y son justamente quienes facturan—, y un vendedor que
+  emitiera la factura de otro le quedaba con la venta sin que se notara en
+  ninguna pantalla. Ahora la factura hereda el vendedor de su nota de venta y la
+  nota de crédito el de la factura que anula. Lo respaldan los datos: 181 de las
+  204 facturas de INNOVAGES nacidas de una nota de venta llevan el vendedor de
+  su nota de venta, y las 12 notas de crédito llevan el de la factura que
+  anulan; en NETDOMAIN, 625 de 649.
+- **La factura sin nota de venta pregunta de quién es la venta**, porque ahí no
+  hay de dónde heredarla. Mismo selector y misma regla que la cotización: el
+  tuyo, o el de tu gente si eres supervisor.
+- **Lista de facturas emitidas**, con su ficha. Hasta ahora una factura sólo se
+  veía desde la nota de venta de la que salió, y la que nace sin nota de venta
+  —el 88 % de las de NETDOMAIN— no aparecía en ninguna parte, así que tampoco
+  había desde dónde mandarla al SII. Se llega desde la cola de facturación.
+- La franja derecha de esa lista dice el estado **ante el SII**, no la
+  sincronización: escrito y sin enviar es lo único que no se arregla solo.
+- **En `iw_gsaen.Usuario` se escribía vacío.** La propiedad se llama
+  `softland_user`, no `usuario`, y nadie se dio cuenta porque el documento sale
+  igual de correcto. El ERP pone ahí el usuario de Softland, y es por quién se
+  pregunta cuando alguien cuadra el mes.
+- **Un error al emitir ya no se lleva por delante el documento tecleado.** En
+  Facturar el aviso reemplazaba la pantalla entera: había que escribirlo todo
+  otra vez y encima sin ver qué se iba a emitir.
+- La regla de «a nombre de quién queda el documento» se escribe una vez
+  (`AlcancePorVendedor`). Estaba copiada en dos controladores y sólo una de las
+  copias sabía qué hacer cuando quien opera no es vendedor.
+
 ### 0.23.1 — La versión del servidor se pregunta, no se recuerda del login
 *2026-09-16*
 

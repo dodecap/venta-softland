@@ -290,6 +290,16 @@ function quitarAtencion() {
                 <AppIcon name="cerrar" :size="16" color="currentColor" />
             </button>
 
+            <!-- Esta lista es la cola de trabajo —lo que falta por facturar—,
+                 así que la salida hacia lo ya emitido va aquí: es la pregunta
+                 siguiente de quien acaba de facturar, y la factura que nace sin
+                 nota de venta no aparece en ninguna de estas filas. -->
+            <div class="acciones-doc" v-if="soloPorFacturar">
+                <button class="chip-accion" @click="router.push('/facturas')">
+                    <AppIcon name="factura" :size="17" color="currentColor" /> Facturas emitidas
+                </button>
+            </div>
+
             <div class="pestanas en-linea">
                 <button :class="{ activa: filtroEstado === '' }" @click="filtroEstado = ''">Todo</button>
                 <button v-for="e in estadosPresentes" :key="e.codigo"

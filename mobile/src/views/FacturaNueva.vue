@@ -10,6 +10,7 @@ import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import Buscador from '../components/Buscador.vue';
+import Selector from '../components/Selector.vue';
 import Vacio from '../components/Vacio.vue';
 
 /*
@@ -28,7 +29,9 @@ import Vacio from '../components/Vacio.vue';
 
 const router = useRouter();
 
-const form = ref({ cliente: '', moneda: '01', centro_costo: null, condicion: null, glosa: '', lineas: [] });
+const form = ref({
+    cliente: '', vendedor: '', moneda: '01', centro_costo: null, condicion: null, glosa: '', lineas: [],
+});
 const cliente = ref(null);
 const folios = ref(null);
 const usuario = ref(null);
@@ -52,6 +55,10 @@ onMounted(async () => {
     try {
         usuario.value = await db.getUsuario();
         form.value.centro_costo = usuario.value?.cod_cc || null;
+        // Sin nota de venta detrás no hay de quién heredar el vendedor, así
+        // que se elige. Se propone el propio, que es lo normal; un
+        // administrador no tiene y tiene que decirlo.
+        form.value.vendedor = usuario.value?.ven_cod || '';
         uf.value = Number((await db.getServidorInfo())?.uf) || null;
         folios.value = (await api.foliosFactura()).folios;
     } catch (e) {
@@ -138,7 +145,7 @@ function aPesos(valor, monedaProducto) {
 const totales = computed(() => calcularTotales(form.value.lineas));
 const sinFolios = computed(() => (folios.value?.libres ?? 0) <= 0);
 const puedeEmitir = computed(
-    () => !! form.value.cliente && form.value.lineas.length > 0
+    () => !! form.value.cliente && !! form.value.vendedor && form.value.lineas.length > 0
         && form.value.lineas.every((l) => l.cantidad > 0)
         && ! sinFolios.value
 );
@@ -150,6 +157,7 @@ async function emitir() {
     try {
         const r = await api.emitirFactura({
             receptor: form.value.cliente,
+            vendedor: form.value.vendedor,
             centro_costo: form.value.centro_costo,
             condicion: form.value.condicion,
             glosa: form.value.glosa || null,
@@ -226,6 +234,15 @@ function cantidad(n) {
                     <span v-else class="hueco">Elegir cliente</span>
                 </button>
 
+                <label>Vendedor</label>
+                <Selector v-model="form.vendedor" maestro="vendedores"
+                          vacio="— elegir vendedor —" filtrar="Filtrar vendedores" />
+                <p class="ayuda">
+                    De quién es la venta. Al facturar una nota de venta esto no se pregunta —lo
+                    hereda de ella—, pero aquí no hay documento anterior de dónde sacarlo, y una
+                    factura sin vendedor no aparece en las búsquedas del ERP.
+                </p>
+
                 <label>Glosa</label>
                 <input v-model="form.glosa" maxlength="200" placeholder="Lo que explica la factura">
 
@@ -295,6 +312,7 @@ function cantidad(n) {
                 </button>
                 <p class="ayuda centrado" v-if="! puedeEmitir && ! sinFolios">
                     <template v-if="! form.cliente">Falta elegir el cliente.</template>
+                    <template v-else-if="! form.vendedor">Falta elegir el vendedor.</template>
                     <template v-else-if="! form.lineas.length">Falta agregar al menos un producto.</template>
                     <template v-else>Alguna línea va con cantidad cero.</template>
                 </p>

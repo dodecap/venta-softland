@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Usuario;
 use App\Services\Dte\Caf;
 use App\Services\Dte\Certificado;
 use App\Services\Dte\Emision;
@@ -39,6 +38,8 @@ use Throwable;
  */
 class FacturaController extends Controller
 {
+    use AlcancePorVendedor;
+
     public function __construct(
         private Facturacion $facturacion,
         private Saldo $saldo,
@@ -117,6 +118,7 @@ class FacturaController extends Controller
         $data = $request->validate([
             'nota_venta' => 'nullable|integer|min:1',
             'receptor' => 'required|string|max:12',
+            'vendedor' => 'nullable|string|max:4',
             'fecha' => 'nullable|date',
             'centro_costo' => 'nullable|string|max:8',
             'condicion' => 'nullable|string|max:3',
@@ -137,12 +139,25 @@ class FacturaController extends Controller
             }
         }
 
+        // De quién es la venta. Con nota de venta detrás no se pregunta: lo
+        // hereda de ella `Facturacion`, y quien factura no tiene por qué ser
+        // vendedor —facturación y administración no lo son—. Sin nota de venta
+        // no hay de dónde heredarlo y hay que decirlo, con la misma regla que
+        // la cotización: el tuyo, o el de tu gente si eres supervisor.
+        $vendedor = ($data['nota_venta'] ?? null)
+            ? trim((string) $u->ven_cod)
+            : $this->vendedorDe($data, $request);
+
         try {
             $doc = $this->facturacion->escribir([
                 'tipo' => TipoDte::FACTURA,
                 'receptor' => $data['receptor'],
-                'vendedor' => $u->ven_cod,
-                'usuario' => $u->usuario,
+                'vendedor' => $vendedor,
+                // `softland_user`, no `usuario`: esa propiedad no existe y se
+                // escribía en blanco. En `iw_gsaen` el ERP pone aquí el usuario
+                // de Softland —«jpalomin» en las facturas de escritorio—, y es
+                // por quién se pregunta cuando alguien cuadra el mes.
+                'usuario' => substr((string) ($u->softland_user ?: $u->email), 0, 8),
                 'fecha' => $data['fecha'] ?? null,
                 'centro_costo' => $data['centro_costo'] ?? null,
                 'cond_pago' => $data['condicion'] ?? null,
@@ -243,8 +258,13 @@ class FacturaController extends Controller
             $doc = $this->facturacion->escribir([
                 'tipo' => TipoDte::NOTA_CREDITO,
                 'receptor' => $factura['cliente'],
-                'vendedor' => $u->ven_cod,
-                'usuario' => $u->usuario,
+                // Lo pisa el de la factura que anula; va por si esa no tuviera.
+                'vendedor' => trim((string) $u->ven_cod),
+                // `softland_user`, no `usuario`: esa propiedad no existe y se
+                // escribía en blanco. En `iw_gsaen` el ERP pone aquí el usuario
+                // de Softland —«jpalomin» en las facturas de escritorio—, y es
+                // por quién se pregunta cuando alguien cuadra el mes.
+                'usuario' => substr((string) ($u->softland_user ?: $u->email), 0, 8),
                 'centro_costo' => $factura['centro_costo'] ?: null,
                 'cond_pago' => $factura['condicion'] ?: null,
                 'glosa' => $data['razon'] ?? null,
@@ -570,16 +590,4 @@ class FacturaController extends Controller
             ->where('NVNumero', $numero)->first();
     }
 
-    private function usuario(Request $request): Usuario
-    {
-        return $request->attributes->get('usuario');
-    }
-
-    /** El alcance por vendedor, el mismo que el resto de documentos. */
-    private function alcanza(Request $request, ?string $vendedor): bool
-    {
-        $visibles = $this->usuario($request)->vendedoresVisibles();
-
-        return $visibles === null || in_array(trim((string) $vendedor), $visibles, true);
-    }
 }

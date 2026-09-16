@@ -19,6 +19,8 @@ import Documento from './views/Documento.vue';
 import Editor from './views/Editor.vue';
 import Facturar from './views/Facturar.vue';
 import FacturaNueva from './views/FacturaNueva.vue';
+import Facturas from './views/Facturas.vue';
+import Factura from './views/Factura.vue';
 import Aprobaciones from './views/Aprobaciones.vue';
 import Usuarios from './views/Usuarios.vue';
 import Configuracion from './views/Configuracion.vue';
@@ -66,7 +68,11 @@ const router = createRouter({
         { path: '/notas-venta/:numero', component: Documento, meta: { tipo: 'nota_venta' } },
         { path: '/notas-venta/:numero/editar', component: Editor, meta: { tipo: 'nota_venta' } },
         { path: '/notas-venta/:numero/facturar', component: Facturar },
+        { path: '/facturas', component: Facturas },
         { path: '/facturas/nueva', component: FacturaNueva },
+        // Va después de «nueva» a propósito: el tipo es una letra y «nueva» no
+        // lo es, pero el orden deja claro cuál gana sin tener que pensarlo.
+        { path: '/facturas/:tipo/:numeroInterno', component: Factura },
         // Lo que el jefe tiene que resolver. No es una pestaña: se entra desde
         // el panel y desde el aviso que llega por correo.
         { path: '/aprobaciones', component: Aprobaciones },

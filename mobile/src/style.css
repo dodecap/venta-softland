@@ -266,6 +266,11 @@ html.con-barra .contenido {
 .item-sync { flex: 0 0 8px; background: var(--verde); }
 .item-sync.pendiente { background: var(--amarillo); }
 .item-sync.error { background: var(--rojo); }
+/* En la lista de facturas la franja derecha dice el estado ante el SII, no la
+   sincronización: escrito y sin enviar es lo que hay que hacer, no un fallo. */
+.item-sync.sin-enviar { background: var(--cian); }
+
+.item-estado.gris { background: var(--texto-suave); }
 
 .item-titulo {
     font-weight: 700;

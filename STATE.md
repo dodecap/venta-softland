@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.23.1**
+2026-09-16 — versión **0.24.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -211,7 +211,9 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 ## Pendiente / próximos pasos
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
       admin: el alcance por vendedor está probado contra la base, pero no con
-      alguien usando el teléfono.
+      alguien usando el teléfono. El usuario `softland` no tiene `ven_cod`
+      —es administración— y desde 0.24.0 eso ya no le impide facturar: el
+      vendedor lo hereda el documento de su nota de venta.
 - [ ] Configurar el SMTP desde la app y mandar un correo de prueba.
 - [ ] **Configurar el SMTP y probar el envío de la cotización al cliente.** El
       correo con PDF está escrito y el PDF se comprobó generado; lo que no se
@@ -231,8 +233,13 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
       **Terminada**: los seis pasos, con la pantalla de facturación incluida.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
-      probado menos el último paso, que no se deshace. De factura queda **un
-      solo folio libre, el 235**.
+      probado menos el último paso, que no se deshace. La **factura folio 235 ya
+      está escrita** —NroInt 203, a NETDOMAIN EIRL, 1.000 con IVA, de la nota de
+      venta 2065— y **no ha viajado al SII**: no tiene fila en `dte_doccab`.
+      Mandarla es lo que queda.
+- [ ] **No quedan folios de factura.** El 235 era el último del CAF cargado; de
+      nota de crédito queda uno, el 16. Hasta que se cargue un CAF nuevo en
+      Softland no se puede emitir otra factura, ni desde la app ni desde el ERP.
 - [ ] **Fase 4, paso 3c**: el espejo del documento en `dte_doccab` y
       `dte_docdet` —las setenta columnas que replican el XML—. El SII no lo
       necesita y la app no lo lee; hace falta para las ventanas de DTE del
@@ -535,6 +542,34 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       lo lleva. Lo dice escrito en dos sitios del panel, y dos filas de las
       pruebas traen un `total` disparatado para que la suite se caiga si
       alguien vuelve a sumar esa columna.
+
+### El vendedor de una factura es el de la venta
+
+El servidor estampaba en el documento el `ven_cod` del usuario conectado. Dos
+consecuencias, y las dos estaban ocurriendo:
+
+- **facturación y administración no podían emitir nada.** No son vendedores, no
+  tienen código, y el documento se rechazaba con «un documento de venta sin
+  vendedor no existe para Softland». Es el fallo que apareció en terreno al
+  facturar con el usuario `softland`;
+- un vendedor que emitiera la factura de otro **se quedaba con la venta**, y con
+  la comisión, sin que se notara en ninguna pantalla.
+
+La factura hereda ahora el vendedor de su nota de venta y la nota de crédito el
+de la factura que anula. Los datos respaldan la regla: de las 204 facturas de
+INNOVAGES nacidas de una nota de venta, 181 llevan el vendedor de su nota de
+venta —6 de las 23 restantes van sin vendedor—, y las 12 notas de crédito
+llevan, las 12, el vendedor de la factura que anulan. En NETDOMAIN, 625 de 649.
+
+Se **sobrescribe**, no se rellena: heredar es la regla, no el valor por
+omisión. Sólo la factura sin nota de venta detrás pregunta de quién es la venta,
+con la misma regla que la cotización —el tuyo, o el de tu gente si eres
+supervisor—, y esa regla vive ahora en un solo sitio (`AlcancePorVendedor`).
+
+De paso: en `iw_gsaen.Usuario` se escribía vacío, porque la propiedad se llama
+`softland_user` y no `usuario`. El documento salía igual de correcto, así que no
+se notaba; el ERP pone ahí el usuario de Softland y es por quién se pregunta
+cuando alguien cuadra el mes.
 
 ### Venta es la nota de venta aprobada
 - [x] **Sólo `A` y `C` cuentan como venta.** La pendiente (`P`) está escrita y

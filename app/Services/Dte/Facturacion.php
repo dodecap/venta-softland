@@ -97,12 +97,6 @@ class Facturacion
         $tipo = $spec['tipo'];
         [$letra, $subTipo] = $tipo->claveSoftland();
 
-        if (trim((string) ($spec['vendedor'] ?? '')) === '') {
-            // Misma regla que la cotización y la nota de venta: un documento sin
-            // vendedor no sale en las ventanas de búsqueda del ERP.
-            throw new RuntimeException('Un documento de venta sin vendedor no existe para Softland.');
-        }
-
         if (($spec['lineas'] ?? []) === []) {
             throw new RuntimeException('Un documento sin líneas no se escribe.');
         }
@@ -116,6 +110,19 @@ class Facturacion
 
         $spec = $this->heredarDeNotaVenta($spec);
         $spec = $this->heredarDelCorregido($spec);
+        $spec = $this->heredarVendedor($spec);
+
+        if (trim((string) ($spec['vendedor'] ?? '')) === '') {
+            // Misma regla que la cotización y la nota de venta: un documento sin
+            // vendedor no sale en las ventanas de búsqueda del ERP. Se comprueba
+            // **después** de heredar: la factura de una nota de venta lleva el
+            // vendedor de la nota de venta, así que quien factura no necesita
+            // ser vendedor para emitirla.
+            throw new RuntimeException(
+                'Un documento de venta sin vendedor no existe para Softland: no sale en las '
+                .'búsquedas del ERP. Hay que decir de quién es la venta.'
+            );
+        }
 
         // ## El signo se aplica fuera de la aritmética
         //
@@ -467,6 +474,60 @@ class Facturacion
         if (($spec['nota_venta'] ?? null) === null && (int) $corregido->nvnumero > 0) {
             $spec['nota_venta'] = (int) $corregido->nvnumero;
         }
+
+        return $spec;
+    }
+
+    /**
+     * De quién es la venta.
+     *
+     * **No es de quien emite el documento.** El vendedor de una factura es el
+     * de la nota de venta que factura, y el de una nota de crédito es el de la
+     * factura que anula: la venta ya tiene dueño, y emitir el papel no la
+     * cambia de manos. Quien lo escribe queda registrado en
+     * `UsuarioGeneraDocto`, que es otro campo y otra pregunta.
+     *
+     * Escribir aquí el `ven_cod` de quien opera tenía dos consecuencias, y las
+     * dos estaban pasando:
+     *
+     *  - facturación y administración **no pueden emitir nada**, porque no son
+     *    vendedores y no tienen código. Y son justamente quienes facturan;
+     *  - un vendedor que emitiera la factura de otro le robaría la venta —y la
+     *    comisión— sin que se notara en ninguna pantalla.
+     *
+     * Los datos lo respaldan: de las 204 facturas de INNOVAGES nacidas de una
+     * nota de venta, 181 llevan el vendedor de su nota de venta (de las 23
+     * restantes, 6 van sin vendedor); y las 12 notas de crédito llevan, las 12,
+     * el vendedor de la factura que anulan. En NETDOMAIN, 625 de 649.
+     *
+     * Se **sobrescribe**, no se rellena: heredar es la regla, no el valor por
+     * omisión. Sólo si el documento de origen no tiene vendedor —los 6 de
+     * arriba— se queda el que venía en la petición.
+     */
+    private function heredarVendedor(array $spec): array
+    {
+        $propio = trim((string) ($spec['vendedor'] ?? ''));
+        $ref = $spec['referencia'] ?? null;
+        $heredado = '';
+
+        if ($ref) {
+            // La nota de crédito sigue a la factura que anula, no a la nota de
+            // venta de más atrás: es el documento que corrige.
+            $tipoRef = TipoDte::desdeSoftland($ref['tipo'] ?? 'F', $ref['subtipo'] ?? 'T');
+            [$letraRef] = $tipoRef ? $tipoRef->claveSoftland() : ['F'];
+
+            $heredado = trim((string) DB::connection(self::CONN)->table($this->califica('iw_gsaen'))
+                ->where('Tipo', $letraRef)->where('Folio', (int) $ref['folio'])
+                ->value('CodVendedor'));
+        }
+
+        if ($heredado === '' && (int) ($spec['nota_venta'] ?? 0) > 0) {
+            $heredado = trim((string) DB::connection(self::CONN)->table($this->califica('nw_nventa'))
+                ->where('NVNumero', (int) $spec['nota_venta'])
+                ->value('VenCod'));
+        }
+
+        $spec['vendedor'] = $heredado !== '' ? $heredado : $propio;
 
         return $spec;
     }

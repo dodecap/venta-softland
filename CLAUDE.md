@@ -340,6 +340,13 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
   dos veces.
 - **La nota de crédito dice qué acredita en `IW_GSaEn_RefDTE`**, no en
   `AuxDocNum`, y su cantidad viene en negativo.
+- **El vendedor de una factura es el de la venta, no el de quien la emite.** La
+  factura lo hereda de su nota de venta y la nota de crédito de la factura que
+  anula —181 de 204 y 12 de 12 en INNOVAGES lo confirman—, y se sobrescribe, no
+  se rellena. Escribir ahí el código de quien opera dejaba a facturación y a
+  administración sin poder emitir nada, que son justamente quienes facturan, y
+  permitía que un vendedor se quedara con la venta de otro. Sólo la factura sin
+  nota de venta detrás lo pregunta: ahí no hay de dónde heredarlo.
 - **A quién se le factura una nota de venta es configuración, no código.** Por
   omisión el receptor se hereda de la nota de venta; cambiarlo exige encender la
   llave `receptor_editable` en `ventas.config`, y eso es lo que habilita el ciclo

@@ -135,8 +135,6 @@ function cantidad(n) {
 
             <div class="cargando" v-else-if="cargando">Cargando…</div>
 
-            <Aviso tipo="error" v-else-if="error">{{ error }}</Aviso>
-
             <!-- Emitida. Se queda aquí, con el folio a la vista: es el dato que
                  el vendedor le dice al cliente y el que sirve para buscarla. -->
             <template v-else-if="emitida">
@@ -152,7 +150,15 @@ function cantidad(n) {
                 </button>
             </template>
 
-            <template v-else-if="propuesta">
+            <template v-else>
+                <!-- El error va **dentro** del documento, no en lugar de él. Lo
+                     que falla aquí falla al emitir, con el documento ya
+                     tecleado; sacarlo de la pantalla para poner el aviso obliga
+                     a escribirlo entero otra vez, y encima deja sin ver qué se
+                     iba a emitir. -->
+                <Aviso tipo="error" v-if="error">{{ error }}</Aviso>
+
+                <template v-if="propuesta">
                 <!-- Los folios, antes que nada: enterarse de que no hay después
                      de teclear el documento es la peor forma de enterarse. -->
                 <Aviso tipo="error" v-if="sinFolios">
@@ -172,6 +178,12 @@ function cantidad(n) {
                     <div class="tarjeta-cabecera">Nota de venta Nº {{ propuesta.nota_venta }}</div>
                     <div class="tarjeta-cuerpo datos">
                         <div><span>Se le factura a</span><b>{{ cliente?.nombre || propuesta.cliente }}</b></div>
+                        <!-- La venta es de quien la hizo, no de quien la
+                             factura. Se enseña porque el documento queda a su
+                             nombre en el ERP y de ahí salen las comisiones. -->
+                        <div v-if="propuesta.vendedor">
+                            <span>Vendedor</span><b>{{ nombreDe('vendedores', propuesta.vendedor) }}</b>
+                        </div>
                         <div v-if="propuesta.centro_costo">
                             <span>Centro de costo</span><b>{{ propuesta.centro_costo }}</b>
                         </div>
@@ -238,6 +250,7 @@ function cantidad(n) {
                     <p class="ayuda centrado" v-if="sinFolios">
                         Sin folios no hay documento que emitir.
                     </p>
+                </template>
                 </template>
             </template>
         </div>

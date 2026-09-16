@@ -269,8 +269,33 @@ export async function facturadoDe(notaVenta) {
  * operación.
  */
 export async function facturasDe(notaVenta) {
-    const [documentos, referencias, dte] = await Promise.all([
-        idb.porIndice('facturas', 'nota_venta', Number(notaVenta)),
+    const documentos = await idb.porIndice('facturas', 'nota_venta', Number(notaVenta));
+
+    return (await marcar(documentos)).filter((d) => d.tipo !== 'N');
+}
+
+/**
+ * Todo lo emitido: facturas **y** notas de crédito.
+ *
+ * Aquí sí van las notas de crédito, y no es una contradicción con lo de arriba.
+ * Colgando de una nota de venta la nota de crédito es el desenlace de una
+ * factura y listarla suelta contaría dos veces la misma operación; en la lista
+ * de documentos emitidos es un documento con su folio, y quien lo busca lo
+ * busca por ese folio.
+ */
+export async function facturasEmitidas() {
+    return marcar(await idb.todos('facturas'));
+}
+
+/**
+ * Lo que hay que saber de cada documento emitido, que no está en su fila.
+ *
+ * Dos cosas viven en otras tablas porque son otra cosa: si alguien lo anuló con
+ * una nota de crédito —eso está en las referencias del DTE— y en qué quedó con
+ * el SII, que es una pregunta aparte de estar escrito en inventario.
+ */
+async function marcar(documentos) {
+    const [referencias, dte] = await Promise.all([
         idb.todos('factura_referencias'),
         idb.todos('dte_estado'),
     ]);
@@ -286,10 +311,23 @@ export async function facturasDe(notaVenta) {
 
     const anula = new Map();
 
+    // Y al revés: a qué folio devuelve cada nota de crédito. Es lo primero que
+    // se pregunta de una nota de crédito suelta en una lista.
+    const devuelveA = new Map(
+        (referencias || [])
+            .filter((r) => r.tipo === 'N' && Number(r.folio_referido) > 0)
+            .map((r) => [`N-${r.numero_interno}`, Number(r.folio_referido)])
+    );
+
+    // Las notas de crédito que anulan algo pueden no estar en la lista que se
+    // está marcando —la de una nota de venta trae sólo las suyas—, así que se
+    // buscan en el almacén entero.
+    const todas = await idb.todos('facturas');
+
     for (const r of referencias || []) {
         if (r.tipo !== 'N') continue;
 
-        const nc = (documentos || []).find(
+        const nc = (todas || []).find(
             (d) => d.tipo === 'N' && d.numero_interno === r.numero_interno
         );
 
@@ -299,7 +337,6 @@ export async function facturasDe(notaVenta) {
     }
 
     return (documentos || [])
-        .filter((d) => d.tipo !== 'N')
         .sort((a, b) => b.folio - a.folio)
         .map((d) => {
             const sii = ante.get(`${d.tipo}-${d.numero_interno}`);
@@ -313,6 +350,7 @@ export async function facturasDe(notaVenta) {
                 // veredicto tarda y es una pregunta aparte.
                 track_id: track && track !== '0' ? track : null,
                 aceptada: Number(sii?.aceptado || 0) === 1,
+                anula_a: devuelveA.get(`${d.tipo}-${d.numero_interno}`) || null,
                 motivo_sii: sii?.motivo || null,
             };
         });

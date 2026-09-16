@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\DB;
  */
 abstract class DocumentoController extends Controller
 {
+    use AlcancePorVendedor;
+
     public function __construct(protected Ventas $ventas, protected Maestros $maestros) {}
 
     /**
@@ -64,11 +66,6 @@ abstract class DocumentoController extends Controller
     protected function tipoDoc(): TipoDocumento
     {
         return TipoDocumento::desdeRecurso($this->recurso());
-    }
-
-    protected function usuario(Request $request): Usuario
-    {
-        return $request->attributes->get('usuario');
     }
 
     // ------------------------------------------------------------ validación
@@ -141,57 +138,6 @@ abstract class DocumentoController extends Controller
         }
     }
 
-    protected function rechazar(array $errores): never
-    {
-        abort(response()->json([
-            'message' => reset($errores),
-            'errors' => array_map(fn ($m) => [$m], $errores),
-        ], 422));
-    }
-
-    /**
-     * A nombre de qué vendedor queda el documento.
-     *
-     * Por omisión, el de quien lo está escribiendo. Un supervisor puede grabar
-     * a nombre de alguien de su gente — pasa en la práctica, cuando entra un
-     * pedido por teléfono y lo carga el jefe — pero un vendedor no puede
-     * atribuirle una venta a otro: eso descuadraría las comisiones de los dos.
-     *
-     * **Nunca devuelve null.** Un documento sin vendedor no aparece en las
-     * búsquedas del Softland de escritorio: de las 2.351 cotizaciones de
-     * INNOVAGES, la única con `VenCod` nulo era una escrita por esta app,
-     * grabada por un administrador que no tiene vendedor asociado. Antes que
-     * escribir un documento invisible, se rechaza y se dice qué falta.
-     */
-    protected function vendedorDe(array $data, Request $request): string
-    {
-        $u = $this->usuario($request);
-        $pedido = trim((string) ($data['vendedor'] ?? ''));
-
-        if ($pedido === '') {
-            $propio = trim((string) $u->ven_cod);
-
-            if ($propio === '') {
-                $this->rechazar(['vendedor' => 'Elige el vendedor: tu usuario no tiene uno asociado.']);
-            }
-
-            return $propio;
-        }
-
-        if (! $this->alcanza($request, $pedido)) {
-            $this->rechazar(['vendedor' => 'No puedes grabar documentos a nombre de otro vendedor.']);
-        }
-
-        return $pedido;
-    }
-
-    /**
-     * ¿Este usuario puede ver/tocar un documento de este vendedor?
-     *
-     * Misma regla que la descarga de maestros: el vendedor ve lo suyo, el
-     * supervisor lo de su gente, administración y facturación todo. Y sin
-     * contexto no se abre nada.
-     */
     /**
      * Si este documento es más viejo que lo que el teléfono se lleva.
      *
@@ -204,13 +150,6 @@ abstract class DocumentoController extends Controller
         $fecha = substr((string) ($doc['fecha'] ?? ''), 0, 10);
 
         return $fecha !== '' && $fecha < substr(Maestros::desdeHistoria(), 0, 10);
-    }
-
-    protected function alcanza(Request $request, ?string $venCod): bool
-    {
-        $visibles = $this->usuario($request)->vendedoresVisibles();
-
-        return $visibles === null || in_array(trim((string) $venCod), $visibles, true);
     }
 
     // ----------------------------------------------------- anular y eliminar
