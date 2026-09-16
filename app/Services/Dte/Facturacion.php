@@ -472,6 +472,44 @@ class Facturacion
     }
 
     /**
+     * Si estas líneas devuelven un documento **entero**.
+     *
+     * Existe porque «anular» y «devolver una parte» son documentos distintos
+     * para el SII —`CodRef 1` anula, `2` corrige el texto y `3` corrige los
+     * montos— y la app sólo emite el primero. Que las líneas salgan de
+     * `propuestaNotaCredito()` lo hace cierto hoy; esto lo deja comprobado, que
+     * es lo que sigue siendo cierto mañana.
+     *
+     * Se compara **línea a línea**, no por el total: dos líneas pueden sumar lo
+     * mismo intercambiadas entre sí, y eso no es la misma devolución.
+     *
+     * @param  list<array{cantidad: float, linea_referencia: float}>  $nc
+     * @param  list<array{linea: float, cantidad: float}>  $documento
+     */
+    public static function devuelveTodo(array $nc, array $documento): bool
+    {
+        if (count($nc) !== count($documento)) {
+            return false;
+        }
+
+        $devuelto = [];
+
+        foreach ($nc as $l) {
+            $devuelto[Saldo::clave($l['linea_referencia'] ?? 0)] = abs((float) $l['cantidad']);
+        }
+
+        foreach ($documento as $l) {
+            $hay = $devuelto[Saldo::clave($l['linea'] ?? 0)] ?? null;
+
+            if ($hay === null || abs($hay - abs((float) $l['cantidad'])) > 0.0001) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Las líneas de la nota de crédito que anula un documento entero.
      *
      * Devuelve todo lo que el documento facturó, con la cantidad en negativo y

@@ -203,8 +203,26 @@ class FacturaController extends Controller
         }
 
         $u = $this->usuario($request);
-        $factura = $this->documento($letra, $numeroInterno)['documento'];
+        $doc = $this->documento($letra, $numeroInterno);
+        $factura = $doc['documento'];
         $data = $request->validate(['razon' => 'nullable|string|max:90']);
+
+        // Las líneas las arma el servidor y no se aceptan del teléfono: la
+        // petición ni siquiera tiene dónde traerlas.
+        $lineas = $this->facturacion->propuestaNotaCredito($letra, $numeroInterno);
+
+        // Y se comprueba que de verdad devuelvan **todo**. Aquí sólo se emiten
+        // notas de crédito de anulación: el SII distingue `CodRef 1` —anula— de
+        // `2` y `3`, que corrigen texto y montos, y una que devuelve parte no es
+        // ninguna de las tres cosas que decimos estar haciendo. Si algún día
+        // `propuestaNotaCredito()` dejara fuera una línea, esto lo para antes de
+        // gastar el folio en un documento que dice una cosa y hace otra.
+        if (! Facturacion::devuelveTodo($lineas, $doc['lineas'])) {
+            return response()->json([
+                'message' => 'Esta nota de crédito no devolvería la factura entera, y aquí sólo '
+                    .'se emiten anulaciones. Una devolución parcial es otro documento.',
+            ], 422);
+        }
 
         try {
             $doc = $this->facturacion->escribir([
@@ -215,7 +233,7 @@ class FacturaController extends Controller
                 'centro_costo' => $factura['centro_costo'] ?: null,
                 'cond_pago' => $factura['condicion'] ?: null,
                 'glosa' => $data['razon'] ?? null,
-                'lineas' => $this->facturacion->propuestaNotaCredito($letra, $numeroInterno),
+                'lineas' => $lineas,
                 'referencia' => [
                     'folio' => $factura['folio'],
                     'fecha' => substr((string) $factura['fecha'], 0, 10),
@@ -223,7 +241,12 @@ class FacturaController extends Controller
                     'subtipo' => $factura['subtipo'],
                     // «1» es anular, y es lo único que emite esta pantalla.
                     'codigo' => '1',
-                    'razon' => $data['razon'] ?? 'Anula Documento',
+                    // **En `Glosa`, no en `RazonRef`.** El `RazonRef` del DTE
+                    // sale de la columna `Glosa` de Softland; la columna que se
+                    // llama `RazonRef` está vacía en los 209 documentos reales.
+                    // Escribir en la que se llama igual habría funcionado por
+                    // casualidad y dejado el ERP diciendo otra cosa.
+                    'glosa' => $data['razon'] ?? 'Anula Documento',
                 ],
             ]);
         } catch (Throwable $e) {

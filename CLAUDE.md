@@ -346,10 +346,14 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
   de distribuidor de INNOVAGES. La regla se comprueba en `Facturacion`, no en el
   controlador: una pantalla nueva que no supiera de ella escribiría facturas al
   cliente equivocado, y eso se corrige con nota de crédito, no con un `UPDATE`.
-- **Anular una factura es emitir la nota de crédito que la devuelve entera**, y
-  las líneas las arma el servidor desde la factura, no el teléfono. Es
-  anulación, no devolución parcial: el SII distingue `CodRef 1` —anula— de `2`
-  y `3`, que corrigen texto y montos.
+- **La app sólo emite notas de crédito de anulación completa.** Las líneas las
+  arma el servidor desde la factura, no el teléfono, y `devuelveTodo()`
+  comprueba línea a línea que la devuelvan entera antes de pedir folio. El SII
+  distingue `CodRef 1` —anula— de `2` y `3`, que corrigen texto y montos;
+  devolver una parte es otro documento y no se emite desde aquí.
+- **La glosa de la referencia va en la columna `Glosa`**, no en la que se llama
+  `RazonRef`: el `RazonRef` del DTE sale de la primera, y la segunda está vacía
+  en los 209 documentos reales.
 - **Contar folios no es contar los que no están usados.** El repartidor de
   Softland va hacia adelante y no rellena huecos: hay 33 folios de rangos viejos
   que no va a entregar jamás. Se cuenta avanzando desde el último usado dentro
@@ -431,7 +435,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.21.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.21.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

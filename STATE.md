@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.21.0**
+2026-09-16 — versión **0.21.1**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1121,8 +1121,13 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       factura: vigente, anulada, o anulada con su nota de crédito.
 - [x] **Anular con nota de crédito** desde ahí. Las líneas las arma el servidor
       desde la factura: anular es devolver lo facturado, todo y tal cual.
-- [x] **Anulación entera, no devolución parcial.** `CodRef 1` anula; devolver
-      parte es otro documento con otra referencia, y no lo emite esta pantalla.
+- [x] **Anulación entera, no devolución parcial** — decisión del cliente.
+      `CodRef 1` anula; devolver parte es otro documento con otra referencia.
+      `Facturacion::devuelveTodo()` lo comprueba línea a línea **antes de pedir
+      folio**, y cuatro pruebas lo fijan.
+- [x] **La razón va en la columna `Glosa`**, no en `RazonRef`: el `RazonRef` del
+      DTE sale de la primera, y la que se llama igual está vacía en los 209
+      documentos reales.
 - [x] No se anula dos veces: 409 nombrando la nota de crédito que ya existe.
 - [x] Maestro `factura_referencias`, para saberlo sin señal. La referencia vive
       en `IW_GSaEn_RefDTE`, no en `AuxDocNum`.

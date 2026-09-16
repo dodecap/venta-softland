@@ -91,4 +91,50 @@ class FacturacionTest extends TestCase
         $this->assertSame(171000.0, $m['iva']);
         $this->assertSame(1071000.0, $m['total']);
     }
+
+    /**
+     * La app sólo emite notas de crédito de **anulación**. Para el SII eso es
+     * `CodRef 1`, distinto de corregir el texto (`2`) o los montos (`3`), y una
+     * que devuelve parte no es ninguna de las tres cosas que dice ser.
+     */
+    public function test_anular_es_devolver_todas_las_lineas_enteras(): void
+    {
+        $factura = [
+            ['linea' => 1, 'cantidad' => 4],
+            ['linea' => 2, 'cantidad' => 2],
+        ];
+
+        $this->assertTrue(Facturacion::devuelveTodo([
+            ['linea_referencia' => 1, 'cantidad' => -4],
+            ['linea_referencia' => 2, 'cantidad' => -2],
+        ], $factura));
+    }
+
+    public function test_devolver_menos_de_una_linea_no_es_anular(): void
+    {
+        $this->assertFalse(Facturacion::devuelveTodo(
+            [['linea_referencia' => 1, 'cantidad' => -3]],
+            [['linea' => 1, 'cantidad' => 4]]
+        ));
+    }
+
+    public function test_dejarse_una_linea_fuera_no_es_anular(): void
+    {
+        $this->assertFalse(Facturacion::devuelveTodo(
+            [['linea_referencia' => 1, 'cantidad' => -4]],
+            [['linea' => 1, 'cantidad' => 4], ['linea' => 2, 'cantidad' => 2]]
+        ));
+    }
+
+    /**
+     * Y no basta con que sumen lo mismo: dos líneas intercambiadas dan el mismo
+     * total y no son la misma devolución.
+     */
+    public function test_no_basta_con_que_el_total_cuadre(): void
+    {
+        $this->assertFalse(Facturacion::devuelveTodo(
+            [['linea_referencia' => 1, 'cantidad' => -2], ['linea_referencia' => 2, 'cantidad' => -4]],
+            [['linea' => 1, 'cantidad' => 4], ['linea' => 2, 'cantidad' => 2]]
+        ));
+    }
 }

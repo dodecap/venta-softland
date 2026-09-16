@@ -42,6 +42,21 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.21.1 — La nota de crédito sólo anula, y se comprueba que anule entera
+*2026-09-16*
+
+- **Decisión del cliente, ahora escrita como regla**: la app sólo emite notas de
+  crédito de **anulación completa**. `Facturacion::devuelveTodo()` lo comprueba
+  línea a línea antes de pedir folio, y cuatro pruebas lo fijan. Que las líneas
+  salgan de `propuestaNotaCredito()` lo hacía cierto hoy; esto lo deja cierto
+  mañana.
+- **Se compara línea a línea, no por el total**: dos líneas intercambiadas suman
+  lo mismo y no son la misma devolución.
+- **La razón iba a la columna equivocada.** El `RazonRef` del DTE sale de la
+  columna **`Glosa`** de Softland; la que se llama `RazonRef` está vacía en los
+  209 documentos reales. Escribir en la que se llama igual habría funcionado por
+  casualidad y dejado el ERP diciendo otra cosa.
+
 ### 0.21.0 — Anular una factura con nota de crédito, desde la nota de venta
 *2026-09-16*
 
