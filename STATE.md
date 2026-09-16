@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-15 — versión **0.12.0**
+2026-09-15 — versión **0.13.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -228,8 +228,13 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       los decimales de la NV en vez de redondear a peso.
 - [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
       facturar (el caso de la comisión). Va en `ventas.config`.
-- [ ] **Fase 4, paso 3b**: enviar al SII — semilla, token, `DTEUpload`, y
-      seguimiento por `TrackID`. El XML ya se genera y se firma.
+- [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está
+      probado menos el último paso, que no se deshace. De factura queda **un
+      solo folio libre, el 235**.
+- [ ] **Fase 4, paso 3c**: el espejo del documento en `dte_doccab` y
+      `dte_docdet` —las setenta columnas que replican el XML—. El SII no lo
+      necesita y la app no lo lee; hace falta para las ventanas de DTE del
+      Softland de escritorio.
 - [ ] **Escribir el bloque `<DscRcgGlobal>`** si alguna vez hace falta descuento
       de pie. Hoy el generador falla antes de emitir un documento así.
 - [ ] **Solicitar al SII los folios CAF de boleta electrónica (DTE 39 y 41)** a
@@ -238,8 +243,6 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       Los CAF de NETDOMAIN son de otro RUT y no se prestan.
 - [ ] **Renovar el certificado digital antes del 26 de diciembre de 2026.** Es
       el mismo que usa Softland; cuando venza, deja de emitir la app y el ERP.
-- [ ] **Sacar la clave del `.pfx` del nombre del archivo** y llevarla al `.env`
-      del servidor. Hoy cualquiera que liste la carpeta la lee.
 
 ## Decisiones importantes tomadas
 - **Solo móvil, sin panel web.** El servidor es API pura; la administración se
@@ -1008,3 +1011,27 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] Boleta y factura exenta probadas contra NETDOMAIN, que sí las emitió.
 - [x] El generador **se niega** a emitir un documento con descuento de pie: ese
       bloque no está escrito y no hay caso real contra el que comprobarlo.
+
+### Fase 4, paso 3b: el sobre, la autenticación y el seguimiento
+- [x] `Sobre`: el `<EnvioDTE>` con su carátula y su **segunda firma**. Los tres
+      RUT que el SII distingue —la empresa, la persona que firma y el propio
+      SII— y ninguno es el cliente.
+- [x] **Hallazgo que habría hecho rechazar todos los envíos**: la forma canónica
+      arrastra los espacios de nombres heredados. El **documento** se firma
+      suelto; el **sobre**, con los de `<EnvioDTE>`. Salió de probar las cuatro
+      combinaciones contra los sobres guardados hasta que una dio el resumen que
+      el SII aceptó.
+- [x] El `<RutEnvia>` sale del `subjectAltName` del certificado, bajo un OID que
+      PHP no sabe leer. Antes salía el de la entidad certificadora, que ahí es
+      rechazo inmediato.
+- [x] `Sii`: semilla, token, subida multiparte y las dos consultas de estado.
+      SOAP escrito a mano —la extensión no está en el servidor— y el envío por
+      formulario, que es lo que es: un CGI, no una API.
+- [x] `Emision`: arma, manda y **recién entonces** deja constancia. Si el envío
+      ocurre y la constancia falla, el error lleva el `TrackID` delante y dice
+      que no se reenvíe.
+- [x] `dte:verifica-sobre`: **210 sobres reproducidos**, mismo resumen y misma
+      firma en todos (198 facturas y 12 notas de crédito).
+- [x] **Probado contra palena, en producción, sin emitir nada**: `dte:token`
+      devuelve token; `dte:estado --track=` devuelve «EPR, 1 aceptado»;
+      `dte:estado --folio=` devuelve «DOK».

@@ -84,33 +84,52 @@ class Certificado
             llavePrivada: $bolsa['pkey'],
             certificadoPem: $bolsa['cert'],
             sujeto: $datos['subject']['CN'] ?? '(sin nombre)',
-            rut: self::rutDe($datos),
+            rut: self::rutDe($datos, $bolsa['cert']),
             vence: date('Y-m-d', $datos['validTo_time_t']),
             rsa: ['n' => $detalle['rsa']['n'], 'e' => $detalle['rsa']['e']],
         );
     }
 
     /**
-     * El RUT de quien firma, que el SII comprueba contra sus usuarios
-     * autorizados del contribuyente.
+     * El RUT de quien firma, que va en el `<RutEnvia>` del sobre y que el SII
+     * comprueba contra los usuarios autorizados del contribuyente.
      *
-     * E-Certchile lo pone en una extensión propia (`1.3.6.1.4.1.8321.1`), no en
-     * un campo estándar, así que se busca ahí y se acepta no encontrarlo: el
-     * documento igual se firma, y quien valida es el SII.
+     * No es el RUT de la empresa. Aquí el certificado es de Jorge Palominos
+     * (17421371-2) y la empresa es INNOVAGES (77828631-9); mandar el segundo
+     * como `RutEnvia` es un rechazo inmediato.
+     *
+     * ## Por qué hay que bajar hasta el DER
+     *
+     * E-Certchile no lo pone en un campo estándar sino en un `otherName` del
+     * `subjectAltName`, bajo el OID **1.3.6.1.4.1.8321.1**. PHP no sabe leer
+     * ese tipo de nombre: `openssl_x509_parse()` devuelve literalmente
+     * «othername:<unsupported>». Así que se busca el OID en los bytes del
+     * certificado y se lee lo que viene detrás.
+     *
+     * Cuidado con el OID: 8321 se codifica **`c1 01`** —0x80|65, luego 1—, no
+     * `c1 41`. Con el orden cambiado no aparece y parece que la extensión no
+     * está.
+     *
+     * Hay un segundo RUT en el certificado, bajo `8321.2`: es el de la entidad
+     * certificadora (96928180-5). Ese no sirve, y es el que salía antes.
      */
-    private static function rutDe(array $datos): string
+    private static function rutDe(array $datos, string $pem): string
     {
-        $todo = implode(' ', array_map('strval', (array) ($datos['extensions'] ?? [])));
+        $der = base64_decode((string) preg_replace('/\s+|-----[^-]+-----/', '', $pem), true);
+        $oid = "\x06\x08\x2b\x06\x01\x04\x01\xc1\x01\x01";
+        $donde = $der === false ? false : strpos($der, $oid);
 
-        // E-Certchile pone dos RUT: en `8321.1` el de la **persona** que firma y
-        // en `8321.2` el de la entidad. El que el SII comprueba contra sus
-        // usuarios autorizados es el primero; quedarse con el que aparezca antes
-        // devolvía el otro.
-        if (preg_match('/8321\.1[^0-9]{0,4}(\d{7,8}-[\dkK])/', $todo, $m)) {
-            return strtoupper($m[1]);
+        // El valor va justo detrás, envuelto en un par de etiquetas ASN.1 de
+        // longitud corta. Buscar el patrón de RUT en los bytes siguientes evita
+        // tener que escribir un lector de ASN.1 para leer un dato de 10 letras.
+        if ($donde !== false && preg_match('/\d{7,8}-[\dkK]/', substr((string) $der, $donde, 48), $m)) {
+            return strtoupper($m[0]);
         }
 
-        return preg_match('/\b(\d{7,8}-[\dkK])\b/', $todo, $m) ? strtoupper($m[1]) : '';
+        // Respaldo: algunos emisores sí lo dejan a la vista en una extensión.
+        $todo = implode(' ', array_map('strval', (array) ($datos['extensions'] ?? [])));
+
+        return preg_match('/8321\.1[^0-9]{0,4}(\d{7,8}-[\dkK])/', $todo, $m) ? strtoupper($m[1]) : '';
     }
 
     /** Días que le quedan. Negativo si ya venció. */

@@ -377,6 +377,126 @@ tiene. El SII valida el contenido, no ese espacio.
   en las dos bases, así que no hay contra qué comprobarlo. `IndExe` se decide
   hoy por el tipo de documento.
 
+## Mandar el documento al SII
+
+Generar el XML no emite nada. Lo que emite es subirlo, y eso ocurre en un solo
+sitio: `Emision::emitir()`.
+
+### El sobre no es el documento
+
+Al SII no se le manda un DTE, se le manda un **envío** que lo contiene:
+
+```
+<EnvioDTE>
+  <SetDTE ID="SS77828631-9SS033F0000000234">
+    <Caratula>  quién manda, a quién, bajo qué resolución, cuántos van
+    <DTE>       el documento, ya firmado
+  </SetDTE>
+  <Signature>   la segunda firma, sobre el <SetDTE> entero
+</EnvioDTE>
+```
+
+**Tres RUT y ninguno es el cliente:**
+
+| Campo | Quién | Aquí |
+|---|---|---|
+| `RutEmisor` | la empresa que factura | 77828631-9 |
+| `RutEnvia` | la **persona** cuyo certificado firma | 17421371-2 |
+| `RutReceptor` | el SII, siempre | 60803000-K |
+
+El cliente va dentro del documento. Confundir los dos primeros es el rechazo más
+típico y el mensaje del SII no ayuda a entenderlo.
+
+El `RutEnvia` sale del certificado, y sacarlo cuesta: E-Certchile no lo pone en
+un campo estándar sino en un `otherName` del `subjectAltName`, bajo el OID
+`1.3.6.1.4.1.8321.1`, que PHP no sabe leer —devuelve literalmente
+`othername:<unsupported>`—. Hay que buscar el OID en los bytes del certificado.
+Ojo con la codificación: 8321 se escribe **`c1 01`**, no `c1 41`. Con el orden
+cambiado no aparece y parece que la extensión no está. Hay un segundo RUT bajo
+`8321.2`: es el de la entidad certificadora y no sirve.
+
+### La regla que habría hecho rechazar todos los envíos
+
+La firma cubre la **forma canónica**, y la canonicalización inclusiva arrastra
+al elemento firmado **todos los espacios de nombres que tiene en ámbito**,
+aunque los declare su abuelo:
+
+| Qué se firma | Cómo se canonicaliza |
+|---|---|
+| `<Documento>` | **suelto**, sin espacios de nombres |
+| `<SetDTE>` | **con** los de `<EnvioDTE>`: el predeterminado del SII y `xsi` |
+| `<SignedInfo>` del sobre | con `xsi`, más el de XMLDSig que declara `<Signature>` |
+
+Que el documento se firme suelto suena al revés: dentro del sobre sí hereda. La
+explicación es que **el SII saca cada `<DTE>` del sobre y lo valida como
+documento aparte**. Es lo que hace Softland y es lo que el SII aceptó 209 veces.
+
+Esto no salió de un manual. Salió de probar las cuatro combinaciones contra los
+sobres guardados hasta que una dio el resumen que el SII aceptó.
+
+### El apretón de manos
+
+1. se pide una **semilla**, que caduca en dos minutos;
+2. se firma con el certificado —firma **envolvente**, `URI=""` y transformación
+   `enveloped-signature`, que no es la del documento— y se canjea por un
+   **token**;
+3. el token viaja como cookie en cada llamada y dura unos minutos.
+
+Pedir un token es la comprobación más barata que hay: **prueba la conexión, que
+el certificado abre, que la firma vale y que quien firma está autorizado ante el
+SII para este contribuyente, sin emitir nada ni gastar un folio.**
+
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:token"
+```
+
+### Dos protocolos en la misma casa
+
+La autenticación y las consultas van por **SOAP** a unos `.jws` que son
+servicios Java de hace veinte años. El envío del sobre **no es una API**: es un
+formulario multiparte a un CGI, la misma subida que hace el navegador en la
+página del SII. Y la boleta no pasa por ninguno de los dos: va por la API REST.
+
+El SII contesta 200 casi siempre, incluso cuando rechaza. Lo que cambia es el
+cuerpo, así que aquí nada se decide mirando el código HTTP.
+
+### El orden al emitir, y por qué es ese
+
+1. se arma y se firma el sobre **antes** de hablar con el SII: si falta un dato,
+   se sabe aquí y no a medio envío;
+2. se manda;
+3. **recién entonces** se escribe en la base.
+
+Si se guardara antes y el envío fallara, quedaría un documento marcado como
+enviado que no lo está. Al revés el riesgo es el contrario y es el menos malo:
+un envío hecho cuya constancia no se pudo guardar. Para eso el error lleva el
+`TrackID` delante — con él se recupera a mano— y dice **no reenviar**.
+
+`dte_doccab` se queda con el `TrackID`, el `IDSetDTESII`, las marcas de enviado
+y el `FirmaDTE`, que es el timbre que el ERP imprime como código de barras.
+`dte_archivos` se queda con los dos XML: el documento (`D`) y el sobre (`SS`).
+
+### Comprobar sin mandar
+
+`dte:verifica-sobre` hace con el sobre lo que `dte:verifica-xml` hace con el
+documento: lo regenera y lo compara con el que el SII ya aceptó. Dentro de
+nuestro sobre va **el `<DTE>` original**, no uno regenerado, para medir una cosa
+sola: la carátula y el envoltorio.
+
+```
+--tipo=33 --todos    dicen lo mismo 198 de 198    firma 198 de 198
+--tipo=61 --todos    dicen lo mismo  12 de 12     firma  12 de 12
+```
+
+Tres sobres quedan fuera: son versiones muertas del archivo, filas cuyo folio ya
+no es el que lleva el documento. Y 74 de los guardados están **recodificados a
+UTF-8 después de firmarse**, así que hay que deshacerlo antes de comparar; el
+ancla para decidirlo es el resumen del documento, que viene en el propio archivo
+y es independiente de lo que se está midiendo.
+
+`dte:envia` sin `--confirmar` arma el sobre, lo enseña y para. Es un ensayo
+completo: se recorre todo el camino menos el último paso.
+
 ## Lo que falta
 
 | Paso | Estado |
@@ -385,8 +505,9 @@ tiene. El SII valida el contenido, no ese espacio.
 | 2. Escribir `iw_gsaen` / `iw_gmovi` en la base de pruebas | **hecho** — 199 documentos |
 | 2b. El camino de conversión NV → factura línea por línea | pendiente (2 casos reales) |
 | 3. Generar y firmar el XML | **hecho** — 209 documentos, firma idéntica |
-| 3b. Enviar al SII (semilla, token, upload, TrackID) | pendiente |
-| 4. Producción, un documento acompañado | pendiente |
+| 3b. Sobre, autenticación y consultas de estado | **hecho** — 210 sobres, firma idéntica |
+| 3c. El espejo del documento en `dte_doccab` / `dte_docdet` | pendiente |
+| 4. Subir un documento de verdad | pendiente — falta el primer envío |
 | 5. Boleta por la API REST | bloqueado: faltan folios |
 
 **El bloqueo de la boleta es trámite, no código.** INNOVAGES no tiene CAF para

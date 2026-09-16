@@ -342,6 +342,14 @@ esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
   `dte_siicaf` está guardado con espacios y en el DTE va sin ellos— y el `MNT`
   va **sin signo**, aunque el total de una nota de crédito sea negativo en
   `iw_gsaen`.
+- **La firma del documento y la del sobre no se canonicalizan igual.** La forma
+  canónica arrastra los espacios de nombres heredados: el **documento** se firma
+  suelto y el **sobre**, con los de `<EnvioDTE>`. Suena contradictorio y no lo
+  es: el SII saca cada `<DTE>` del sobre y lo valida por separado. Firmar el
+  sobre sin su ámbito lo rechaza entero, con los documentos dentro.
+- **En el sobre hay tres RUT y ninguno es el del cliente**: la empresa que
+  factura, la persona cuyo certificado firma —que sale de un OID del
+  `subjectAltName` que PHP no sabe leer— y el SII, que es siempre `60803000-K`.
 - **El folio lo reparte Softland**, con `DTE_pdblEntregaFolioDTE`. No se calcula
   por nuestra cuenta: así no se le disputa el número al ERP. Y un folio gastado
   no se devuelve.
@@ -365,6 +373,13 @@ Para comprobar sin emitir ni gastar un folio:
 ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:verifica-timbre --todos"
 ```
 
+Y para comprobar el camino al SII entero —conexión, certificado, firma y
+autorización— sin emitir ni gastar un folio:
+
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:token"
+```
+
 ## La versión
 
 Vive en **un solo archivo**, `VERSION`, en la raíz. De ahí la leen la SPA
@@ -378,11 +393,14 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.12.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
-panel comercial hasta el paso 4 y la fase 4 hasta el paso 3: el timbre
+Versión **0.13.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
-contrastada columna por columna contra 199, y el XML del DTE regenerado y
-firmado idéntico al de los 209 que el SII ya aceptó. Ver `STATE.md`. El mapa de
+contrastada columna por columna contra 199, el XML del DTE regenerado y firmado
+idéntico al de los 209 que el SII ya aceptó, y el sobre reproducido igual en los
+210 envíos guardados. Contra palena, en producción, el SII ya devuelve token y
+contesta las consultas de estado. **Falta el primer envío de verdad**, que es lo
+único que no se deshace. Ver `STATE.md`. El mapa de
 tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
 documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
 `docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el historial de

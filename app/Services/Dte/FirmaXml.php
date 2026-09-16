@@ -33,6 +33,30 @@ use RuntimeException;
  *   - el `<SignatureValue>` firma el `<SignedInfo>`, que contiene ese resumen.
  *
  * Los dos usan SHA1. No se elige: lo fija el estándar del SII.
+ *
+ * ## El ámbito: lo que hereda el elemento firmado
+ *
+ * La canonicalización inclusiva arrastra al elemento firmado **todos los
+ * espacios de nombres que tiene en ámbito**, aunque los declare su abuelo. Un
+ * `<SetDTE>` suelto se canonicaliza `<SetDTE ID="…">`; el mismo dentro de
+ * `<EnvioDTE xmlns="http://www.sii.cl/SiiDte" xmlns:xsi="…">` se canonicaliza
+ * `<SetDTE xmlns="http://www.sii.cl/SiiDte" xmlns:xsi="…" ID="…">`. Son dos
+ * textos distintos y por tanto dos resúmenes distintos.
+ *
+ * De ahí `$ambito`. No es una opción de estilo: firmar el sobre sin él produce
+ * una firma que no valida, y el SII lo rechaza entero.
+ *
+ * Y no es lo mismo para las dos cosas que se firman aquí:
+ *
+ *   - **el documento** se firma suelto, sin ámbito. Suena raro porque dentro
+ *     del sobre sí hereda, pero es lo que hace Softland y es lo que el SII
+ *     aceptó 209 veces: el SII saca cada `<DTE>` del sobre y lo valida como
+ *     documento aparte.
+ *   - **el sobre** se firma con el ámbito de `<EnvioDTE>`.
+ *
+ * Esto no se dedujo de un manual: se sacó comparando contra los sobres que el
+ * SII ya aceptó, probando las cuatro combinaciones hasta que una dio el mismo
+ * resumen guardado.
  */
 class FirmaXml
 {
@@ -42,6 +66,8 @@ class FirmaXml
 
     private const RSA_SHA1 = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
 
+    private const ENVOLVENTE = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
+
     /**
      * El certificado es opcional a propósito.
      *
@@ -50,7 +76,15 @@ class FirmaXml
      * la necesita. Exigirla para las dos cosas obligaría a tener el certificado
      * a mano para comprobar algo que no lo requiere.
      */
-    public function __construct(private readonly ?Certificado $cert = null) {}
+    /**
+     * @param  array<string, string>  $ambito  espacios de nombres que el elemento
+     *         hereda de quien lo contiene, con el prefijo como clave y `''` para
+     *         el predeterminado
+     */
+    public function __construct(
+        private readonly ?Certificado $cert = null,
+        private readonly array $ambito = [],
+    ) {}
 
     /**
      * El bloque `<Signature>` para un elemento identificado por su `ID`.
@@ -74,11 +108,16 @@ class FirmaXml
     public function firmarResumen(string $resumen, string $id): string
     {
         $cert = $this->cert ?? throw new RuntimeException('Para firmar hace falta el certificado digital.');
-        $signedInfo = $this->signedInfo($id, $resumen);
 
+        return $this->bloque($this->signedInfo($id, $resumen), $cert);
+    }
+
+    /** El `<Signature>` armado alrededor de un `<SignedInfo>` ya escrito. */
+    private function bloque(string $signedInfo, Certificado $cert): string
+    {
         return '<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">'
             .$signedInfo
-            .'<SignatureValue>'.$cert->firmar($this->canonico($signedInfo)).'</SignatureValue>'
+            .'<SignatureValue>'.$cert->firmar($this->canonico($signedInfo, $this->ambitoDeLaFirma())).'</SignatureValue>'
             .'<KeyInfo><KeyValue><RSAKeyValue>'
             .'<Modulus>'.$cert->moduloBase64().'</Modulus>'
             .'<Exponent>'.$cert->exponenteBase64().'</Exponent>'
@@ -87,10 +126,35 @@ class FirmaXml
             .'</KeyInfo></Signature>';
     }
 
+    /**
+     * La firma **envolvente**: la que va dentro del elemento que firma, no al
+     * lado.
+     *
+     * Es la que pide la petición de token del SII, y se diferencia en dos cosas
+     * de la del documento:
+     *
+     *   - la referencia es `URI=""`, o sea «el documento entero», no un `ID`;
+     *   - lleva la transformación `enveloped-signature`, que significa «quita la
+     *     firma antes de resumir». Por eso el resumen se calcula **antes** de
+     *     insertarla, que es lo que hace este método: lo que se le pasa todavía
+     *     no la contiene.
+     */
+    public function firmarEnvolvente(string $xml): string
+    {
+        $cert = $this->cert ?? throw new RuntimeException('Para firmar hace falta el certificado digital.');
+        $referencia = '<Reference URI="">'
+            .'<Transforms><Transform Algorithm="'.self::ENVOLVENTE.'"/></Transforms>'
+            .'<DigestMethod Algorithm="'.self::SHA1.'"/>'
+            .'<DigestValue>'.$this->resumen($xml).'</DigestValue>'
+            .'</Reference>';
+
+        return $this->bloque($this->signedInfoCon($referencia), $cert);
+    }
+
     /** El resumen SHA1 del elemento, sobre su forma canónica, en base64. */
     public function resumen(string $xml): string
     {
-        return base64_encode(sha1($this->canonico($xml), true));
+        return base64_encode(sha1($this->canonico($xml, $this->ambito), true));
     }
 
     /**
@@ -100,14 +164,25 @@ class FirmaXml
      * adivinar, un acento se interpreta como UTF-8 y la forma canónica sale
      * distinta. Ese error no se ve en pantalla; se ve cuando el SII rechaza.
      */
-    public function canonico(string $xml): string
+    public function canonico(string $xml, array $ambito = []): string
     {
+        // Para canonicalizar en ámbito se envuelve el elemento en uno que
+        // declare lo heredado y se canonicaliza el hijo: así el resultado lleva
+        // escritos los espacios de nombres, que es justo lo que cambia.
+        $envoltura = '';
+
+        foreach ($ambito as $prefijo => $uri) {
+            $envoltura .= ' '.($prefijo === '' ? 'xmlns' : "xmlns:{$prefijo}").'="'.$uri.'"';
+        }
+
+        $texto = $envoltura === '' ? $xml : "<ambito{$envoltura}>{$xml}</ambito>";
+
         $doc = new DOMDocument;
         $doc->preserveWhiteSpace = true;
         $doc->formatOutput = false;
 
         $previo = libxml_use_internal_errors(true);
-        $ok = $doc->loadXML('<?xml version="1.0" encoding="ISO-8859-1"?>'.$xml);
+        $ok = $doc->loadXML('<?xml version="1.0" encoding="ISO-8859-1"?>'.$texto);
         $errores = libxml_get_errors();
         libxml_clear_errors();
         libxml_use_internal_errors($previo);
@@ -119,18 +194,38 @@ class FirmaXml
             );
         }
 
-        return $doc->documentElement->C14N();
+        $nodo = $envoltura === '' ? $doc->documentElement : $doc->documentElement->firstChild;
+
+        return $nodo?->C14N() ?? '';
+    }
+
+    /**
+     * El ámbito del `<SignedInfo>`, que no es el mismo del elemento firmado: el
+     * `<Signature>` vuelve a declarar el espacio de nombres predeterminado como
+     * el de XMLDSig, así que de lo heredado solo siguen en pie los prefijados.
+     */
+    private function ambitoDeLaFirma(): array
+    {
+        return array_filter($this->ambito, fn ($prefijo) => $prefijo !== '', ARRAY_FILTER_USE_KEY);
     }
 
     private function signedInfo(string $id, string $resumen): string
     {
-        return '<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#">'
-            .'<CanonicalizationMethod Algorithm="'.self::C14N.'"/>'
-            .'<SignatureMethod Algorithm="'.self::RSA_SHA1.'"/>'
-            .'<Reference URI="#'.$id.'">'
+        return $this->signedInfoCon(
+            '<Reference URI="#'.$id.'">'
             .'<Transforms><Transform Algorithm="'.self::C14N.'"/></Transforms>'
             .'<DigestMethod Algorithm="'.self::SHA1.'"/>'
             .'<DigestValue>'.$resumen.'</DigestValue>'
-            .'</Reference></SignedInfo>';
+            .'</Reference>'
+        );
+    }
+
+    private function signedInfoCon(string $referencia): string
+    {
+        return '<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#">'
+            .'<CanonicalizationMethod Algorithm="'.self::C14N.'"/>'
+            .'<SignatureMethod Algorithm="'.self::RSA_SHA1.'"/>'
+            .$referencia
+            .'</SignedInfo>';
     }
 }

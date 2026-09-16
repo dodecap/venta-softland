@@ -42,6 +42,31 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.13.0 — Mandar el DTE al SII: sobre, token y seguimiento
+*2026-09-15*
+
+- **El sobre `<EnvioDTE>`** (`Sobre`): carátula con los tres RUT que el SII
+  distingue —la empresa que factura, la persona que firma y el propio SII— y
+  segunda firma sobre el `<SetDTE>`.
+- **El transporte** (`Sii`): semilla, token, subida del sobre y las dos
+  consultas de estado, la del envío y la del documento. SOAP a mano, porque la
+  extensión no está en el servidor y estos servicios son de sobre plano.
+- **La emisión** (`Emision`): arma, manda y recién entonces deja constancia. Si
+  el envío ocurre y la constancia falla, el error lleva el `TrackID` delante.
+- **Hallazgo que habría hecho rechazar todos los envíos**: la forma canónica de
+  un elemento arrastra los espacios de nombres que hereda. El **documento** se
+  firma suelto; el **sobre**, con los de `<EnvioDTE>`. Son distintos y los dos
+  hacen falta.
+- **El RUT de quien firma** sale del `subjectAltName` del certificado, bajo un
+  OID que PHP no sabe leer. Antes salía el de la entidad certificadora, que en
+  el `<RutEnvia>` es rechazo inmediato.
+- `dte:verifica-sobre` reproduce los **210 envíos que el SII ya aceptó**: mismo
+  resumen y misma firma en todos.
+- `dte:token` comprueba el camino entero sin emitir nada. Probado contra palena.
+- `dte:estado` consulta un envío o un documento. Probado contra palena.
+- `dte:envia` es el único comando que hace algo que no se deshace, y sin
+  `--confirmar` solo ensaya.
+
 ### 0.12.0 — Generar y firmar el XML del DTE
 *2026-09-15*
 
