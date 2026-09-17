@@ -6,6 +6,7 @@ use App\Models\Usuario;
 use App\Services\Dte\Facturacion;
 use App\Services\Dte\ReglasFactura;
 use App\Services\Dte\TipoDte;
+use App\Services\Softland\Permisos;
 use App\Services\Softland\Saldo;
 use App\Services\Softland\Ventas;
 use Illuminate\Console\Command;
@@ -113,24 +114,42 @@ class VentasVerificaFacturacion extends Command
                 ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 99],
             ])));
 
-        // ---- la llave del receptor. Ninguna de estas gasta folio: la regla se
-        //      comprueba antes de pedirlo.
+        // ---- facturarle a otro cliente. Son **dos permisos que se cumplen los
+        //      dos**: el de Softland, por usuario, y la llave de la empresa.
+        //      Ninguna de estas gasta folio: la regla se comprueba antes de
+        //      pedirlo.
         $reglas = new ReglasFactura;
         $otro = $this->otroCliente($cliente);
+        $conPermiso = $this->usuarioSoftlandCon(Permisos::FACTURA_OTRO_CLIENTE, true);
+        $sinPermiso = $this->usuarioSoftlandCon(Permisos::FACTURA_OTRO_CLIENTE, false);
 
         $reglas->fijarReceptorEditable(false);
-        $this->rechaza('con la llave apagada se rechaza facturarle a otro cliente',
+        $this->rechaza('con la llave de la empresa apagada se rechaza, aunque el usuario tenga el permiso',
             fn () => $facturacion->escribir($this->factura($otro, $cc, $u, $nv, [
                 ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 1],
-            ])), 'configuración de facturación');
+            ], $conPermiso ?? 'verifica')), 'configuración de facturación');
 
         $reglas->fijarReceptorEditable(true);
-        $this->rechaza('con la llave encendida el receptor ya no estorba',
-            fn () => $facturacion->escribir($this->factura($otro, $cc, $u, $nv, [
-                // La línea es inválida a propósito: si el error que llega es el
-                // de la línea y no el del receptor, la regla dejó pasar.
-                ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 99],
-            ])), 'no tiene la línea');
+
+        if ($sinPermiso === null) {
+            $this->warn('  (no hay ningún usuario de Softland SIN «NVOtroAuxiliar»: no se pudo probar ese caso)');
+        } else {
+            $this->rechaza('con la llave encendida, un usuario sin el permiso de Softland sigue sin poder',
+                fn () => $facturacion->escribir($this->factura($otro, $cc, $u, $nv, [
+                    ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 1],
+                ], $sinPermiso)), 'NVOtroAuxiliar');
+        }
+
+        if ($conPermiso === null) {
+            $this->warn('  (no hay ningún usuario de Softland CON «NVOtroAuxiliar»: no se pudo probar ese caso)');
+        } else {
+            $this->rechaza('con la llave encendida y el permiso concedido, el receptor ya no estorba',
+                fn () => $facturacion->escribir($this->factura($otro, $cc, $u, $nv, [
+                    // La línea es inválida a propósito: si el error que llega es
+                    // el de la línea y no el del receptor, la regla dejó pasar.
+                    ['producto' => $productos[0], 'cantidad' => 1, 'precio' => 1, 'nv_linea' => 99],
+                ], $conPermiso)), 'no tiene la línea');
+        }
 
         $reglas->fijarReceptorEditable(false);
 
@@ -247,13 +266,38 @@ class VentasVerificaFacturacion extends Command
         }
     }
 
-    private function factura(string $cliente, ?string $cc, Usuario $u, ?int $nv, array $lineas): array
+    /**
+     * Un usuario de Softland que tenga —o que no tenga— este permiso.
+     *
+     * Se busca en la base en vez de escribir un nombre aquí: los usuarios y sus
+     * perfiles son de cada empresa, y un `jpalomin` escrito en el código deja
+     * este ensayo sin sentido en la instalación siguiente. Devuelve `null` si
+     * no hay ninguno, y entonces ese caso se dice que no se pudo probar en vez
+     * de darlo por bueno.
+     */
+    private function usuarioSoftlandCon(array $permiso, bool $loTiene): ?string
+    {
+        $permisos = new Permisos;
+
+        foreach (DB::connection('softland')->table('softland.wisusuarios')->pluck('Usuario') as $usuario) {
+            $usuario = trim((string) $usuario);
+
+            if ($usuario !== '' && $permisos->puede($usuario, $permiso) === $loTiene) {
+                return $usuario;
+            }
+        }
+
+        return null;
+    }
+
+    private function factura(string $cliente, ?string $cc, Usuario $u, ?int $nv, array $lineas,
+                             string $usuario = 'verifica'): array
     {
         return [
             'tipo' => TipoDte::FACTURA,
             'receptor' => $cliente,
             'vendedor' => $u->ven_cod,
-            'usuario' => 'verifica',
+            'usuario' => $usuario,
             'centro_costo' => $cc,
             'nota_venta' => $nv,
             'lineas' => $lineas,

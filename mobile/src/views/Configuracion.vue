@@ -203,6 +203,13 @@ async function probarCorreo() {
                             venta registra la venta al cliente final y la factura le cobra la
                             comisión a otra empresa.
                         </p>
+                        <p class="ayuda">
+                            <b>Encenderlo no se lo da a todos.</b> Softland decide además usuario por
+                            usuario, con el permiso <b>IW · Factura en Línea · NVOtroAuxiliar</b>, y
+                            se respeta: esta llave puede quitarlo para toda la empresa, nunca darlo a
+                            quien el ERP se lo negó. Se marca en los perfiles del Softland de
+                            escritorio.
+                        </p>
                     </div>
                 </div>
 

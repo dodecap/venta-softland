@@ -53,7 +53,9 @@ class ConfiguracionController extends Controller
                 // Apagada, el receptor de la factura se hereda de la nota de
                 // venta y el campo ni se enseña. Encendida, habilita el ciclo de
                 // distribuidor: facturarle la comisión a otro RUT.
-                'receptor_editable' => (new ReglasFactura)->receptorEditable(),
+                // La llave de la empresa, no lo que pueda quien mira: esta
+                // pantalla configura, no factura.
+                'receptor_editable' => (new ReglasFactura)->receptorEditableEnLaEmpresa(),
                 // Encendido, emitir manda el documento al SII en el mismo acto.
                 'envio_automatico' => (new ReglasFactura)->envioAutomatico(),
                 // Lo que dice Softland de su propio envío. No decide nada: se
@@ -100,7 +102,7 @@ class ConfiguracionController extends Controller
         }
 
         return response()->json([
-            'receptor_editable' => $reglas->receptorEditable(),
+            'receptor_editable' => $reglas->receptorEditableEnLaEmpresa(),
             'envio_automatico' => $reglas->envioAutomatico(),
         ]);
     }

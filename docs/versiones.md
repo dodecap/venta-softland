@@ -42,6 +42,35 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.34.0 — El permiso de Softland decide quién factura a otro cliente
+*2026-09-17*
+
+- **Softland ya contestaba, por usuario, quién puede facturar contra la nota de
+  venta de otro cliente**: el control `IW · Iw_FacLin · NVOtroAuxiliar`. En
+  INNOVAGES lo trae el perfil `IW/001` y no el `IW/vend`, o sea que la base ya
+  decía «los vendedores hacen el ciclo normal» sin que nadie lo escribiera.
+- **Ahora se cumplen las dos condiciones**: que el ERP se lo conceda a ese
+  usuario y que la empresa no lo haya apagado con `receptor_editable`. Nuestra
+  llave sólo puede apagar, nunca encender lo que Softland negó — la misma línea
+  que con `nwparam.CheckApruebaNv`.
+- **El cambio de fondo es el alcance.** La llave es de empresa y el permiso es de
+  persona: dos vendedores de la misma empresa pueden tener respuestas distintas.
+  La pantalla de configuración sigue preguntando por la empresa, que es lo suyo.
+- `Permisos.php`: los permisos de Softland son **concesiones** —la fila existe =
+  puede— y se conceden en dos sitios que **se suman**, por perfil y por usuario.
+  Un usuario puede tener varios perfiles del mismo sistema (`jpalomin` tiene
+  `IW/001` y `IW/vend`), así que preguntar por uno solo daba que no a quien sí
+  puede.
+- **El error dice cuál de los dos permisos falta**, con el nombre que el
+  administrador ve en Softland: si no, quien va a marcarlo no sabe si el sitio es
+  el ERP o la configuración de la app.
+- El ensayo prueba los tres casos y **busca los usuarios en la base** en vez de
+  escribir un nombre, porque los perfiles son de cada empresa.
+- Queda medido y escrito que **la Liquidación-Factura (DTE 43) no se implementa
+  en esta app**: Softland trae el ciclo del mandante como documento propio, pero
+  INNOVAGES no lo tiene configurado —`iw_gsaen_comislf` con 0 filas, ni un DTE
+  43 entre 286— y lo suyo es una factura 33 con una línea de comisión.
+
 ### 0.33.0 — Deslizar la lista para cambiar de pestaña
 *2026-09-17*
 

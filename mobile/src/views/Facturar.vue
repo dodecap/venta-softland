@@ -259,8 +259,11 @@ function cantidad(n) {
                         </div>
                     </div>
                 </div>
+                <!-- Por usuario, no por empresa: lo dice el permiso que Softland
+                     le tenga concedido a éste, cruzado con la llave de la
+                     configuración. Quien no lo tenga no ve esta línea. -->
                 <p class="ayuda" v-if="propuesta.receptor_editable">
-                    La configuración permite facturarle a otro cliente. Eso se hace desde Softland;
+                    Tu usuario puede facturarle a otro cliente. Eso se hace desde Softland;
                     aquí se factura al de la nota de venta.
                 </p>
 

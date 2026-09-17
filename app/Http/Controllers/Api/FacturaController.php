@@ -84,7 +84,11 @@ class FacturaController extends Controller
             'centro_costo' => trim((string) $nv->CodiCC) ?: null,
             'condicion' => trim((string) $nv->CveCod) ?: null,
             'vendedor' => trim((string) $nv->VenCod),
-            'receptor_editable' => $this->reglas->receptorEditable(),
+            // Por usuario, no por empresa: el permiso lo concede Softland a
+            // cada uno, y la pantalla tiene que enseñar lo que éste puede.
+            'receptor_editable' => $this->reglas->receptorEditable(
+                $this->usuario($request)->softland_user
+            ),
             'conocible' => $saldo['conocible'],
             'motivo' => $saldo['motivo'],
             'folios' => $this->foliosLibres(TipoDte::FACTURA),

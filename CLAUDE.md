@@ -425,12 +425,24 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
   administración sin poder emitir nada, que son justamente quienes facturan, y
   permitía que un vendedor se quedara con la venta de otro. Sólo la factura sin
   nota de venta detrás lo pregunta: ahí no hay de dónde heredarlo.
-- **A quién se le factura una nota de venta es configuración, no código.** Por
-  omisión el receptor se hereda de la nota de venta; cambiarlo exige encender la
-  llave `receptor_editable` en `ventas.config`, y eso es lo que habilita el ciclo
-  de distribuidor de INNOVAGES. La regla se comprueba en `Facturacion`, no en el
-  controlador: una pantalla nueva que no supiera de ella escribiría facturas al
-  cliente equivocado, y eso se corrige con nota de crédito, no con un `UPDATE`.
+- **A quién se le factura una nota de venta lo deciden dos permisos, y se
+  cumplen los dos.** Softland lo concede por usuario —`IW · Iw_FacLin ·
+  NVOtroAuxiliar`, que en INNOVAGES trae `IW/001` y no `IW/vend`— y la empresa
+  puede apagarlo para todos con `receptor_editable` en `ventas.config`. **Nuestra
+  llave sólo apaga**, nunca enciende lo que el ERP negó. La regla se comprueba en
+  `Facturacion`, no en el controlador: una pantalla nueva que no supiera de ella
+  escribiría facturas al cliente equivocado, y eso se corrige con nota de
+  crédito, no con un `UPDATE`.
+- **Los permisos de Softland se preguntan en `Permisos.php`, y son concesiones.**
+  La fila existe = puede. Se conceden en dos sitios que **se suman** —por perfil
+  (`wisrestperfil` vía `wisperfilusuario`) y por usuario (`wisrestusuario`)—, y un
+  usuario puede tener varios perfiles del mismo sistema, así que preguntar por uno
+  solo da que no a quien sí puede.
+- **La Liquidación-Factura (DTE 43) no se implementa aquí.** Softland trae el
+  ciclo del mandante como documento propio, con sus formularios, sus cuentas en
+  `iwparam` y su tabla `iw_gsaen_comislf`; INNOVAGES no lo tiene configurado y no
+  ha emitido ninguno. Lo suyo es una factura 33 a Softland Ingeniería con una
+  línea de comisión. Está todo medido en `docs/ciclo-normal.md`.
 - **La app sólo emite notas de crédito de anulación completa.** Las líneas las
   arma el servidor desde la factura, no el teléfono, y `devuelveTodo()`
   comprueba línea a línea que la devuelvan entera antes de pedir folio. El SII

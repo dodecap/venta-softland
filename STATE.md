@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-17 — versión **0.33.0**
+2026-09-17 — versión **0.34.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1273,3 +1273,30 @@ cuando alguien cuadra el mes.
 - [x] El orden de las tres listas vive en `LISTAS_DOCUMENTO` (`nav.js`), y lo
       leen las pestañas y el gesto. Escrito dos veces sería un gesto que lleva
       a otra pestaña que la encendida.
+
+### El permiso de Softland para facturar a otro cliente (0.34.0)
+- [x] **Encontrado en la base, no inventado**: `IW · Iw_FacLin · NVOtroAuxiliar`,
+      «Permite que la Factura quede asociada a una Nota de Venta de otro
+      Cliente». Definido también para `IW_FACMONEXT` y `x_FaLiEx`.
+- [x] En INNOVAGES lo tiene **sólo el perfil `IW/001`**; `IW/vend` no, y ningún
+      usuario a título individual. La base ya decía «los vendedores hacen el
+      ciclo normal».
+- [x] `app/Services/Softland/Permisos.php`: los `wisrest*` son **concesiones**
+      (fila = puede) y se **suman** por perfil (`wisrestperfil` vía
+      `wisperfilusuario`) y por usuario (`wisrestusuario`). Un usuario puede
+      tener varios perfiles del mismo sistema — `jpalomin` tiene `IW/001` y
+      `IW/vend` —, así que preguntar por uno solo da que no a quien sí puede.
+- [x] `receptorEditable($usuario)` pasa a ser el **Y** del permiso y la llave de
+      empresa; `receptorEditableEnLaEmpresa()` para la pantalla de configuración.
+      La llave sólo apaga, nunca enciende lo que el ERP negó.
+- [x] Ensayado en la base de pruebas, los tres casos en verde, **buscando los
+      usuarios en la base** en vez de escribir un nombre. `dte:verifica-documento`
+      sigue igual: usa `ReglasFactura(true)` y corta antes de mirar permisos.
+- [x] **La Liquidación-Factura (DTE 43) queda fuera del alcance, y medido por
+      qué.** Softland la trae entera —`frmLiqFac`, `IW_Liquidacion`, las cuentas
+      `Cta*LFDTE` de `iwparam`, `iw_gsaen_comislf`— e INNOVAGES no la usa: esas
+      columnas en `NULL`, `PorcMandatorio = 0`, `iw_gsaen_comislf` con 0 filas y
+      **ni un DTE 43** entre 270 del 33, 2 del 34 y 14 del 61.
+- [x] La forma del negocio, medida: de **193 facturas atadas a una nota de venta,
+      191 van a otro cliente** (189 a Softland Ingeniería) y **2 al cliente de su
+      propia nota de venta**.

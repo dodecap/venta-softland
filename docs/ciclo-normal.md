@@ -441,6 +441,81 @@ La segunda se comprueba mandando además una línea inválida: si el error que
 llega es el de la línea y no el del receptor, la regla dejó pasar. Ninguna de
 las dos gasta folio, porque las dos fallan antes de pedirlo.
 
+### Paso 5b — Y Softland ya lo decidía, por usuario ✅ hecho (0.34.0)
+
+La llave de arriba es de empresa. Softland contesta **la misma pregunta por
+persona**, y lo hace desde antes que nosotros:
+
+```
+IW · Iw_FacLin · NVOtroAuxiliar
+"Permite que la Factura quede asociada a una Nota de Venta de otro Cliente"
+```
+
+Está definido también para `IW_FACMONEXT` y `x_FaLiEx` —moneda extranjera y
+exenta—, y es un control de los `wisrest*`, o sea que se concede por perfil y por
+usuario. En INNOVAGES lo tiene **sólo el perfil `IW/001`**; el `IW/vend` no, y
+ningún usuario lo tiene a título individual. Eso ya dice, en la base y sin que
+nadie lo escribiera, «los vendedores hacen el ciclo normal».
+
+**Se cumplen las dos condiciones.** El ERP se lo concede a ese usuario **y** la
+empresa no lo ha apagado aquí. La llave nuestra sólo puede apagar, nunca encender
+lo que Softland negó — la misma línea que con `nwparam.CheckApruebaNv`: se obedece
+al ERP donde manda sobre el documento, y se decide aquí lo que es comportamiento
+de esta app.
+
+**El cambio de fondo es el alcance**: la llave es de empresa y el permiso es de
+persona. Dos vendedores de la misma empresa pueden tener respuestas distintas, y
+eso está bien. Por eso `receptorEditable()` recibe el usuario, y la pantalla de
+configuración —que pregunta «¿está permitido aquí?», no «¿puedo yo?»— usa
+`receptorEditableEnLaEmpresa()`.
+
+**Los grants se suman.** Un usuario puede tener varios perfiles del mismo
+sistema: en INNOVAGES `jpalomin` tiene `IW/001` **y** `IW/vend` a la vez. Basta
+con que uno se lo conceda, así que se pregunta por la unión de
+`wisrestperfil` (atado por `wisperfilusuario`) y `wisrestusuario`. Preguntar por
+un solo perfil daría que no a alguien que sí puede.
+
+**El error dice cuál de los dos falta**, y con el nombre que el administrador ve
+en Softland. Si no, quien tiene que ir a marcarlo no sabe si el sitio es el ERP o
+la configuración de la app.
+
+El ensayo ahora prueba los tres casos, y **busca los usuarios en la base** en vez
+de escribir un nombre: los perfiles son de cada empresa.
+
+```
+   ok con la llave de la empresa apagada se rechaza, aunque el usuario tenga el permiso
+   ok con la llave encendida, un usuario sin el permiso de Softland sigue sin poder
+   ok con la llave encendida y el permiso concedido, el receptor ya no estorba
+```
+
+### La Liquidación-Factura, que es el flujo con nombre propio y no se implementa
+
+Buscando ese permiso apareció que Softland **ya tiene el ciclo del mandante como
+documento propio**: la Liquidación-Factura, DTE 43, que es la que emite el
+mandatario liquidando a su mandante y reteniendo comisión. Está entero:
+
+- dos formularios, `frmLiqFac` («Liquidación Factura Electrónica») e
+  `IW_Liquidacion` («Facturas de Liquidación»), con sus propios controles;
+- sus cuentas y códigos en `iwparam`: `CtaMandLFDTE`, `CtaComLFDTE`,
+  `CtaVtaLFDTE`, `CtaRecTerLFDTE`, `CodLFDTE`, `PorcMandatorio`;
+- la tabla de líneas de comisión `iw_gsaen_comislf`.
+
+**INNOVAGES no usa nada de eso**, y se comprobó: esas columnas están todas en
+`NULL`, `PorcMandatorio = 0`, `iw_gsaen_comislf` tiene **0 filas**, `iw_gsaen`
+sólo tiene `Tipo` F (200) y N (12) y en `dte_doccab` hay 270 del tipo 33, 2 del 34
+y 14 del 61 — **ni un solo 43**. Lo que hacen es una factura 33 normal a Softland
+Ingeniería con una línea de comisión.
+
+**No se implementa en esta app.** Es otra integración completa —otro tipo de DTE,
+folios CAF propios, las cuentas de mandante y comisión, el informe de comisiones—
+para un flujo que el cliente no tiene configurado y nunca ha emitido. Queda
+escrito aquí para que nadie vuelva a descubrirlo desde cero.
+
+De paso, la forma del negocio queda medida: de **193 facturas atadas a una nota de
+venta, 191 van a otro cliente** —189 a Softland Ingeniería, 2 a Softland Training
+Center— y **2 van al cliente de su propia nota de venta**. El ciclo normal existe
+en esta base; es la excepción, no el ausente.
+
 ### Paso 6 — Las pantallas ✅ hecho (0.19.0 y 0.20.0)
 
 **Hecho: la cotización.** La ficha dice «convertida a medias: quedan 2 de 3

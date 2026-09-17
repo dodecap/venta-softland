@@ -2,6 +2,7 @@
 
 namespace App\Services\Dte;
 
+use App\Services\Softland\Permisos;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -33,6 +34,24 @@ use Illuminate\Support\Facades\DB;
  * De ahí la llave: encendida, quien factura puede cambiar el receptor y la nota
  * de venta entra como **referencia y sugerencia**, no como fuente obligatoria.
  *
+ * ## Y por qué no basta con la llave
+ *
+ * Porque Softland ya contesta esta misma pregunta, **por usuario**, y mejor:
+ * `IW · Iw_FacLin · NVOtroAuxiliar`, «Permite que la Factura quede asociada a
+ * una Nota de Venta de otro Cliente». En INNOVAGES lo trae el perfil `IW/001` y
+ * no el `IW/vend`, que es justo lo que se quiere decir: los vendedores hacen el
+ * ciclo normal y el de distribuidor lo hace quien administra.
+ *
+ * Así que son **dos condiciones y se cumplen las dos**: que el ERP se lo
+ * conceda a ese usuario, y que la empresa no lo haya apagado aquí. La llave
+ * nuestra sólo puede **apagar**, nunca encender lo que Softland negó — es la
+ * misma línea que con `nwparam.CheckApruebaNv`: se obedece al ERP donde manda
+ * sobre el documento, y se decide aquí lo que es comportamiento de esta app.
+ *
+ * Ojo con la diferencia de alcance, que es el cambio de fondo: la llave es de
+ * empresa y el permiso es de persona. Dos vendedores de la misma empresa pueden
+ * tener respuestas distintas, y eso está bien.
+ *
  * ## Dónde se guarda
  *
  * En `ventas.config`, que es donde vive lo que configura el administrador desde
@@ -52,13 +71,36 @@ class ReglasFactura
      *                              INNOVAGES son comisiones, y con la llave
      *                              apagada —como nace— no se podrían reescribir.
      */
-    public function __construct(private readonly ?bool $forzado = null) {}
+    public function __construct(
+        private readonly ?bool $forzado = null,
+        private readonly Permisos $permisos = new Permisos,
+    ) {}
 
     /**
      * Si quien factura puede cambiarle el receptor a una factura que nace de
      * una nota de venta.
+     *
+     * @param  string|null  $usuario  el de Softland (`wisusuarios.Usuario`). Sin
+     *                                él se contesta sólo por la empresa: es lo
+     *                                que quiere saber la pantalla de
+     *                                configuración, que pregunta «¿está
+     *                                permitido aquí?», no «¿puedo yo?».
      */
-    public function receptorEditable(): bool
+    public function receptorEditable(?string $usuario = null): bool
+    {
+        if ($this->forzado !== null) {
+            return $this->forzado;
+        }
+
+        if (! (bool) ($this->valores()['receptor_editable'] ?? false)) {
+            return false;
+        }
+
+        return $usuario === null || $this->permisos->puede($usuario, Permisos::FACTURA_OTRO_CLIENTE);
+    }
+
+    /** Si la empresa lo permite, sin mirar a nadie en particular. */
+    public function receptorEditableEnLaEmpresa(): bool
     {
         return $this->forzado ?? (bool) ($this->valores()['receptor_editable'] ?? false);
     }

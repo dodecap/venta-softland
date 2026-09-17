@@ -527,8 +527,15 @@ class Facturacion
      *
      * Por omisión, al mismo cliente: la cotización, la nota de venta y la
      * factura llevan el mismo RUT, que es el ciclo normal. Facturarle a otro
-     * exige encender la llave en `ventas.config`, y entonces la nota de venta
-     * pasa a ser referencia y sugerencia, no fuente obligatoria.
+     * exige **dos permisos a la vez**: que Softland se lo conceda a ese usuario
+     * (`IW · Iw_FacLin · NVOtroAuxiliar`) y que la empresa no lo haya apagado
+     * en `ventas.config`. Con los dos, la nota de venta pasa a ser referencia y
+     * sugerencia, no fuente obligatoria.
+     *
+     * Sin nota de venta detrás no hay nada que comprobar, y no es un atajo: el
+     * permiso de Softland habla de «una Nota de Venta de otro Cliente», así que
+     * una factura suelta no lo toca. A quién se le factura ahí lo dice quien la
+     * escribe, que para eso la está escribiendo desde cero.
      *
      * La comprobación vive **aquí y no en el controlador** a propósito: es una
      * regla del documento, no de una pantalla. Un camino nuevo que no supiera de
@@ -540,7 +547,10 @@ class Facturacion
     {
         $nv = (int) ($spec['nota_venta'] ?? 0);
 
-        if ($nv <= 0 || $this->reglas->receptorEditable()) {
+        // El usuario va tal cual, sin `base`: los permisos de Softland viven en
+        // la base de verdad aunque el documento se esté ensayando en la de
+        // pruebas. Quién puede qué no es parte del ensayo.
+        if ($nv <= 0 || $this->reglas->receptorEditable($spec['usuario'] ?? null)) {
             return;
         }
 
@@ -555,10 +565,17 @@ class Facturacion
         $receptor = trim((string) ($spec['receptor'] ?? ''));
 
         if ($cliente !== '' && $receptor !== $cliente) {
+            // Se dice cuál de los dos permisos falta, y con el nombre que ve el
+            // administrador en Softland: si no, quien tiene que ir a marcarlo
+            // no sabe si el sitio es el ERP o la configuración de la app.
+            $motivo = $this->reglas->receptorEditableEnLaEmpresa()
+                ? 'Tu usuario de Softland no tiene el permiso «IW · Factura en Línea · NVOtroAuxiliar», '
+                    .'que es el que autoriza facturar contra la nota de venta de otro cliente.'
+                : 'Facturar a un cliente distinto del de la nota de venta exige encender esa opción '
+                    .'en la configuración de facturación.';
+
             throw new RuntimeException(
-                "La nota de venta {$nv} es del cliente {$cliente} y la factura va a {$receptor}. "
-                .'Facturar a un cliente distinto del de la nota de venta exige encender esa opción '
-                .'en la configuración de facturación.'
+                "La nota de venta {$nv} es del cliente {$cliente} y la factura va a {$receptor}. ".$motivo
             );
         }
     }
