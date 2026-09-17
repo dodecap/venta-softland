@@ -1,15 +1,18 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
 import { idb } from '../idb';
 import { monto, nombre as nombreDe } from '../catalogos';
+import { db } from '../db';
 import { calcularTotales } from '../documentos';
 import { propuestaLocal } from '../saldo';
 import { encolar, nuevoUuid } from '../pendientes';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
+import Buscador from '../components/Buscador.vue';
+import Cantidad from '../components/Cantidad.vue';
 import Vacio from '../components/Vacio.vue';
 
 /*
@@ -27,6 +30,20 @@ import Vacio from '../components/Vacio.vue';
  * Y no funciona sin señal, a propósito. Un documento tributario no se guarda en
  * una bandeja de salida: el folio lo reparte Softland y el número tiene que ser
  * el mismo para siempre desde el instante en que se emite.
+ *
+ * ## Facturarle a otro: el ciclo del distribuidor
+ *
+ * Con el permiso de Softland —`IW · Iw_FacLin · NVOtroAuxiliar`, cruzado con la
+ * llave de la empresa— se le puede cambiar el receptor. Eso no es «la misma
+ * factura a otro nombre»: es **otro documento**, el que le cobra la comisión al
+ * mandante, y por eso al cambiar el receptor las líneas de la nota de venta
+ * dejan de servir y se escriben a mano. Facturarle al mandante los productos
+ * que compró el cliente final sería un documento mal emitido.
+ *
+ * **Y queda atada a la nota de venta igual.** Va en `iw_gsaen.nvnumero`, así que
+ * se ve desde su ficha y desde la cotización. Lo que no hace es **consumir
+ * saldo**: sus líneas no llevan `nv_linea`, y una comisión no factura nada de lo
+ * que se vendió. Las dos cosas a la vez son justamente lo que se quería.
  */
 
 const route = useRoute();
@@ -45,6 +62,38 @@ const emitida = ref(null);
 const encolada = ref(false);
 const sii = ref(null);
 
+/*
+ * El receptor. Arranca en el de la nota de venta siempre: aunque se pueda
+ * cambiar, lo normal es no cambiarlo, y un campo que nace distinto de lo
+ * esperado es un documento mal emitido esperando a que alguien no mire.
+ */
+const receptor = ref('');
+
+/** El cliente de la nota de venta, para poder nombrarlo al ofrecer volver. */
+const clienteNv = ref(null);
+const eligiendoCliente = ref(false);
+const busquedaCliente = ref('');
+const clientesHallados = ref([]);
+
+const eligiendoProducto = ref(false);
+const busquedaProducto = ref('');
+const productosHallados = ref([]);
+
+/** Las líneas escritas a mano, que son las que valen cuando el receptor cambió. */
+const propias = ref([]);
+
+/**
+ * Si esta factura ya no es la de la nota de venta, sino la del mandante.
+ *
+ * No es un interruptor aparte: lo dice el receptor. Ponerle un modo que hubiera
+ * que encender además de cambiar el cliente sería pedir dos veces lo mismo, y
+ * dejaría posible el estado incoherente —otro receptor con las líneas de la
+ * nota de venta— que es el documento que no se quiere emitir.
+ */
+const aOtro = computed(
+    () => !! propuesta.value && receptor.value !== '' && receptor.value !== propuesta.value.cliente
+);
+
 onMounted(cargar);
 
 async function cargar() {
@@ -55,9 +104,17 @@ async function cargar() {
         // minuto. Sin señal se calcula aquí, que es lo mismo mientras el
         // almacén esté al día — y es lo que permite dejar la factura escrita
         // en terreno en vez de confiar en que alguien se acuerde después.
+        // Sin señal, el permiso sale de lo que dijo el servidor al arrancar: es
+        // de este usuario y no cambia de un día para otro. Presumirlo apagado
+        // dejaría al distribuidor sin poder trabajar en terreno, que es justo
+        // para lo que está la app, y presumirlo no abre nada — el servidor lo
+        // vuelve a comprobar al emitir.
         const r = conectado.value
             ? await api.propuestaFactura(numero.value)
-            : await propuestaLocal(numero.value);
+            : await propuestaLocal(
+                numero.value,
+                !! (await db.getServidorInfo())?.receptor_editable
+            );
 
         if (! r) {
             error.value = 'Esa nota de venta no está en el teléfono y no hay señal para traerla.';
@@ -74,7 +131,9 @@ async function cargar() {
             .map((l) => ({ ...l, cantidad: l.saldo, nombre: '' }));
 
         await ponerNombres();
-        cliente.value = await idb.obtener('clientes', r.cliente);
+        receptor.value = r.cliente;
+        clienteNv.value = await idb.obtener('clientes', r.cliente);
+        cliente.value = clienteNv.value;
     } catch (e) {
         error.value = e.message;
     } finally {
@@ -99,16 +158,93 @@ async function ponerNombres() {
     }
 }
 
-const totales = computed(() => calcularTotales(lineas.value.filter((l) => l.cantidad > 0)));
+/** Lo que se va a facturar: las de la nota de venta, o las escritas a mano. */
+const enJuego = computed(() => (aOtro.value ? propias.value : lineas.value));
+
+const totales = computed(() => calcularTotales(enJuego.value.filter((l) => l.cantidad > 0)));
+
+/*
+ * Mismo guardián de turno que en el editor y en la factura suelta: la carga
+ * inicial y lo que se teclea compiten por la misma respuesta, y sin turno gana
+ * la que termina última, no la que se pidió última.
+ */
+let turnoCliente = 0;
+
+watch(busquedaCliente, async (q) => {
+    const turno = ++turnoCliente;
+    const filas = await idb.buscar('clientes', q, { limite: 30 });
+    if (turno === turnoCliente) clientesHallados.value = filas;
+});
+
+async function abrirClientes() {
+    eligiendoCliente.value = true;
+    busquedaCliente.value = '';
+    const turno = ++turnoCliente;
+    const filas = await idb.buscar('clientes', '', { limite: 30 });
+    if (turno === turnoCliente) clientesHallados.value = filas;
+}
+
+async function elegirCliente(codigo) {
+    receptor.value = codigo;
+    cliente.value = await idb.obtener('clientes', codigo);
+    eligiendoCliente.value = false;
+}
+
+/** Volver al de la nota de venta, que es deshacer el cambio, no otra cosa. */
+function volverAlDeLaNotaVenta() {
+    receptor.value = propuesta.value.cliente;
+    cliente.value = clienteNv.value;
+}
+
+let turnoProducto = 0;
+
+watch(busquedaProducto, async (q) => {
+    const turno = ++turnoProducto;
+    const filas = await idb.buscar('productos', q, { limite: 30 });
+    if (turno === turnoProducto) productosHallados.value = filas;
+});
+
+async function abrirProductos() {
+    eligiendoProducto.value = true;
+    busquedaProducto.value = '';
+    const turno = ++turnoProducto;
+    const filas = await idb.buscar('productos', '', { limite: 30 });
+    if (turno === turnoProducto) productosHallados.value = filas;
+}
+
+/*
+ * El precio nace en cero, no en el del catálogo.
+ *
+ * La comisión no se calcula: la escribe quien factura. Proponer el precio de
+ * lista del producto sería sugerir un número que no tiene nada que ver, y el
+ * riesgo de que se emita sin mirarlo es real.
+ */
+function agregarProducto(p) {
+    propias.value.push({
+        producto: p.codigo,
+        nombre: p.nombre,
+        glosa: p.nombre || '',
+        unidad: p.unidad || '',
+        afecto: !! p.afecto,
+        cantidad: 1,
+        precio: 0,
+        descuento_pct: 0,
+    });
+    eligiendoProducto.value = false;
+}
 
 // Sin folios no se emite. Ojo con el caso sin señal: ahí `folios` es `null`,
 // que quiere decir «no se sabe» y no «no quedan» — bloquear ahí sería impedir
 // justo lo que la bandeja vino a permitir.
 const sinFolios = computed(() => !! propuesta.value?.folios && propuesta.value.folios.libres <= 0);
-const hayQueFacturar = computed(() => lineas.value.some((l) => l.cantidad > 0));
+const hayQueFacturar = computed(
+    () => enJuego.value.some((l) => l.cantidad > 0) && (! aOtro.value || totales.value.total > 0)
+);
 
 /** Facturar de más está permitido, pero tiene que verse. */
-const deMas = computed(() => lineas.value.filter((l) => l.cantidad > l.saldo + 0.0001));
+const deMas = computed(
+    () => (aOtro.value ? [] : lineas.value.filter((l) => l.cantidad > l.saldo + 0.0001))
+);
 
 /**
  * Emitir, que es escribir el documento **y mandarlo al SII**, en un solo acto.
@@ -128,14 +264,34 @@ async function emitir() {
         // El mismo `client_uuid` viaje lo que viaje: emitir dos veces la misma
         // factura son dos folios, y un folio no se devuelve.
         client_uuid: nuevoUuid(),
+
+        // Siempre, cambie o no el receptor: la factura de comisión también sale
+        // de esta nota de venta y tiene que poder verse desde su ficha.
         nota_venta: numero.value,
-        receptor: propuesta.value.cliente,
+        receptor: receptor.value,
         centro_costo: propuesta.value.centro_costo,
         condicion: propuesta.value.condicion,
-        lineas: lineas.value
-            .filter((l) => l.cantidad > 0)
-            .map((l) => ({ producto: l.producto, cantidad: l.cantidad, nv_linea: l.linea })),
+
+        // Al mandante van las líneas escritas a mano, y **sin `nv_linea`**: una
+        // comisión no factura nada de lo vendido, así que no puede consumir
+        // saldo. Al cliente de la nota de venta van las suyas, enlazadas.
+        lineas: aOtro.value
+            ? propias.value
+                .filter((l) => l.cantidad > 0)
+                .map((l) => ({
+                    producto: l.producto,
+                    cantidad: l.cantidad,
+                    precio: l.precio,
+                    glosa: l.glosa || null,
+                }))
+            : lineas.value
+                .filter((l) => l.cantidad > 0)
+                .map((l) => ({ producto: l.producto, cantidad: l.cantidad, nv_linea: l.linea })),
     };
+
+    // Ojo con lo que **no** va: el vendedor. La factura lo hereda de su nota de
+    // venta, también la de comisión, y escribir aquí el de quien opera le
+    // quitaría la venta a quien la hizo.
 
     try {
         if (! conectado.value) {
@@ -247,7 +403,19 @@ function cantidad(n) {
                 <div class="tarjeta">
                     <div class="tarjeta-cabecera">Nota de venta Nº {{ propuesta.nota_venta }}</div>
                     <div class="tarjeta-cuerpo datos">
-                        <div><span>Se le factura a</span><b>{{ cliente?.nombre || propuesta.cliente }}</b></div>
+                        <!-- Se puede tocar sólo con el permiso. Sin él es texto,
+                             no un botón desactivado: un control que no responde
+                             invita a pelearse con él. -->
+                        <div v-if="! propuesta.receptor_editable">
+                            <span>Se le factura a</span><b>{{ cliente?.nombre || propuesta.cliente }}</b>
+                        </div>
+                        <button v-else class="fila-elegible" @click="abrirClientes">
+                            <span>Se le factura a</span>
+                            <b>
+                                {{ cliente?.nombre || receptor }}
+                                <AppIcon name="avanzar" :size="15" color="currentColor" />
+                            </b>
+                        </button>
                         <!-- La venta es de quien la hizo, no de quien la
                              factura. Se enseña porque el documento queda a su
                              nombre en el ERP y de ahí salen las comisiones. -->
@@ -261,14 +429,74 @@ function cantidad(n) {
                 </div>
                 <!-- Por usuario, no por empresa: lo dice el permiso que Softland
                      le tenga concedido a éste, cruzado con la llave de la
-                     configuración. Quien no lo tenga no ve esta línea. -->
-                <p class="ayuda" v-if="propuesta.receptor_editable">
-                    Tu usuario puede facturarle a otro cliente. Eso se hace desde Softland;
-                    aquí se factura al de la nota de venta.
+                     configuración. Quien no lo tenga ni ve el campo. -->
+                <p class="ayuda" v-if="propuesta.receptor_editable && ! aOtro">
+                    Puedes facturarle a otro cliente. Al hacerlo, las líneas se escriben a mano:
+                    es la factura que le cobra al mandante, no la de los productos que compró
+                    el cliente final.
                 </p>
 
-                <Vacio v-if="! lineas.length" icono="factura" titulo="No queda nada por facturar">
+                <template v-if="aOtro">
+                    <Aviso tipo="info">
+                        <b>Esta factura va a {{ cliente?.nombre || receptor }}</b>, no al cliente de
+                        la nota de venta. Queda enlazada a la Nº {{ propuesta.nota_venta }} —se ve
+                        desde su ficha—, pero <b>no le descuenta saldo</b>: lo que queda por
+                        facturar de la venta sigue igual.
+                    </Aviso>
+                    <button class="chip-accion" @click="volverAlDeLaNotaVenta">
+                        <AppIcon name="atras" :size="16" color="currentColor" />
+                        Volver a facturarle a {{ clienteNv?.nombre || propuesta.cliente }}
+                    </button>
+
+                    <div class="seccion">
+                        <h2>Qué se le cobra</h2>
+                        <button class="ver-todo" @click="abrirProductos">
+                            Agregar línea <AppIcon name="crear" :size="15" color="currentColor" />
+                        </button>
+                    </div>
+
+                    <Vacio v-if="! propias.length" icono="producto" titulo="Todavía no hay ninguna línea">
+                        Agrega el concepto que se le cobra y escribe el monto. No se calcula solo:
+                        la comisión la pone quien factura.
+                    </Vacio>
+
+                    <div class="linea-doc" v-for="(l, i) in propias" :key="i">
+                        <div class="linea-cabecera">
+                            <div>
+                                <div class="item-titulo">{{ l.nombre }}</div>
+                                <div class="item-meta">
+                                    <span class="etiqueta gris">{{ l.producto }}</span>
+                                    <span v-if="! l.afecto"> · exento</span>
+                                </div>
+                            </div>
+                            <button class="icono-barra" title="Quitar" @click="propias.splice(i, 1)">
+                                <AppIcon name="borrar" :size="18" variant="peligro" />
+                            </button>
+                        </div>
+                        <label class="linea-detalle">
+                            <span>Detalle que ve el cliente</span>
+                            <textarea v-model="l.glosa" rows="2" :placeholder="l.nombre"></textarea>
+                        </label>
+                        <div class="linea-campos">
+                            <Cantidad v-model.number="l.cantidad" />
+                            <label>
+                                <span>Precio</span>
+                                <input v-model.number="l.precio" type="number" inputmode="decimal"
+                                       min="0" step="any">
+                            </label>
+                        </div>
+                        <div class="linea-total">
+                            {{ cantidad(l.cantidad) }} {{ nombreDe('unidades', l.unidad) }}
+                            · {{ monto(totales.lineas[i]?.total ?? 0, propuesta.moneda) }}
+                        </div>
+                    </div>
+                </template>
+
+                <Vacio v-else-if="! lineas.length" icono="factura" titulo="No queda nada por facturar">
                     Todas las líneas de esta nota de venta ya se facturaron.
+                    <template v-if="propuesta.receptor_editable">
+                        Si lo que vas a emitir es la comisión, cámbiale el receptor arriba.
+                    </template>
                 </Vacio>
 
                 <template v-else>
@@ -285,11 +513,9 @@ function cantidad(n) {
                             </div>
                         </div>
                         <div class="linea-campos">
-                            <label>
-                                <span>Cantidad</span>
-                                <input v-model.number="l.cantidad" type="number" inputmode="decimal"
-                                       min="0" step="any">
-                            </label>
+                            <!-- Sin techo: facturar de más está permitido, y el
+                                 aviso de abajo lo dice cuando pasa. -->
+                            <Cantidad v-model.number="l.cantidad" />
                         </div>
                         <!-- El precio se enseña, no se edita: lo pone la nota de
                              venta. Un campo desactivado invita a pelearse con
@@ -306,11 +532,20 @@ function cantidad(n) {
                         {{ deMas.length === 1 ? 'una línea' : `${deMas.length} líneas` }}.
                         Se puede; sólo conviene que sea a propósito.
                     </Aviso>
+                </template>
 
+                <!-- Los totales y el botón van fuera de las dos ramas: el
+                     documento es uno solo, se facture al cliente de la nota de
+                     venta o al mandante, y duplicarlos era el día en que uno de
+                     los dos se quedaba sin un arreglo. -->
+                <template v-if="enJuego.length">
                     <div class="tarjeta">
                         <div class="tarjeta-cabecera">Totales</div>
                         <div class="tarjeta-cuerpo datos">
                             <div><span>Neto</span><b>{{ monto(totales.afecto, propuesta.moneda) }}</b></div>
+                            <div v-if="totales.exento">
+                                <span>Exento</span><b>{{ monto(totales.exento, propuesta.moneda) }}</b>
+                            </div>
                             <div><span>IVA</span><b>{{ monto(totales.iva, propuesta.moneda) }}</b></div>
                             <div class="fuerte"><span>Total</span><b>{{ monto(totales.total, propuesta.moneda) }}</b></div>
                         </div>
@@ -325,9 +560,68 @@ function cantidad(n) {
                     <p class="ayuda centrado" v-if="sinFolios">
                         Sin folios no hay documento que emitir.
                     </p>
+                    <p class="ayuda centrado" v-else-if="aOtro && ! hayQueFacturar">
+                        Falta el monto: una línea en cero no cobra nada.
+                    </p>
                 </template>
                 </template>
             </template>
+        </div>
+
+        <!-- Elegir a quién se le factura. Sólo llega aquí quien tiene el
+             permiso: el botón que la abre no existe sin él. -->
+        <div class="velo" v-if="eligiendoCliente" @click.self="eligiendoCliente = false">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Se le factura a</h2>
+                    <button class="icono-barra" @click="eligiendoCliente = false">
+                        <AppIcon name="cerrar" :size="21" />
+                    </button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <Buscador v-model="busquedaCliente" placeholder="Nombre o RUT" />
+                    <div class="item" v-for="c in clientesHallados" :key="c.codigo"
+                         @click="elegirCliente(c.codigo)">
+                        <div class="item-estado" :class="c.codigo === propuesta?.cliente ? 'verde' : 'cian'"></div>
+                        <div class="item-cuerpo">
+                            <div class="item-titulo">{{ c.nombre }}</div>
+                            <div class="item-meta">
+                                <span class="etiqueta gris">{{ c.rut || c.codigo }}</span>
+                                <span v-if="c.codigo === propuesta?.cliente"> · el de la nota de venta</span>
+                            </div>
+                        </div>
+                    </div>
+                    <Vacio v-if="! clientesHallados.length" icono="sinResultados" titulo="Ningún cliente con eso">
+                        Prueba con una palabra del nombre o con el RUT.
+                    </Vacio>
+                </div>
+            </div>
+        </div>
+
+        <!-- Elegir el concepto que se le cobra al mandante. -->
+        <div class="velo" v-if="eligiendoProducto" @click.self="eligiendoProducto = false">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Qué se le cobra</h2>
+                    <button class="icono-barra" @click="eligiendoProducto = false">
+                        <AppIcon name="cerrar" :size="21" />
+                    </button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <Buscador v-model="busquedaProducto" placeholder="Nombre, código o código de barras" />
+                    <div class="item" v-for="p in productosHallados" :key="p.codigo"
+                         @click="agregarProducto(p)">
+                        <div class="item-estado" :class="p.afecto ? 'cian' : 'amarillo'"></div>
+                        <div class="item-cuerpo">
+                            <div class="item-titulo item-titulo-producto">{{ p.nombre }}</div>
+                            <div class="item-meta"><span class="etiqueta gris">{{ p.codigo }}</span></div>
+                        </div>
+                    </div>
+                    <Vacio v-if="! productosHallados.length" icono="sinResultados" titulo="Ningún producto con eso">
+                        Prueba con una palabra del nombre o con el código.
+                    </Vacio>
+                </div>
+            </div>
         </div>
 
         <!-- La confirmación nombra el folio que va a gastar. Es lo último que
@@ -347,6 +641,10 @@ function cantidad(n) {
                             <b>{{ monto(totales.total, propuesta?.moneda) }}</b>
                             a {{ cliente?.nombre || propuesta?.cliente }},
                             <b>y se manda al SII</b>.
+                        </p>
+                        <p class="ayuda" v-if="aOtro">
+                            <b>No es el cliente de la nota de venta.</b> Queda enlazada a la
+                            Nº {{ propuesta?.nota_venta }} y no le descuenta saldo.
                         </p>
                         <p class="ayuda">
                             Un folio emitido no se devuelve. Lo que salga mal se corrige con una

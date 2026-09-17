@@ -428,6 +428,72 @@ html[data-entra="derecha"] .contenido > * { animation-name: entra-lista-derecha;
 /* Documentos relacionados: la fila dice de qué familia es lo que abre y se ve
    que es un enlace. La flecha no es adorno — un documento nombrado y sin
    flecha parece un dato, no un sitio al que se puede ir. */
+/* Una fila de una tarjeta de datos que además abre algo. Se ve igual que sus
+   hermanas —si no, la tarjeta se rompe en dos estilos— y la flecha es lo que
+   dice que se puede tocar. */
+.fila-elegible {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    min-height: 44px;
+}
+
+.fila-elegible b { display: inline-flex; align-items: center; gap: 5px; color: var(--indigo); }
+.fila-elegible:active b { opacity: .6; }
+
+/* ---------- El número que se sube y se baja con el pulgar ----------
+   Menos a la izquierda y más a la derecha, en una fila: arriba y abajo
+   partiría el área pulsable en dos de 22 px, y los 44 no se negocian. El campo
+   sigue siendo tecleable y con sus 16 px, que es el piso bajo el cual Android
+   hace zoom al enfocar. */
+.cantidad-fila {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    overflow: hidden;
+    background: var(--blanco);
+}
+
+.cantidad-fila input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    /* Las flechitas nativas no se ven en Android y en el navegador de escritorio
+       estorban a las nuestras. */
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.cantidad-fila input::-webkit-outer-spin-button,
+.cantidad-fila input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.cantidad-boton {
+    flex: 0 0 44px;
+    min-height: 44px;
+    border: 0;
+    background: var(--fondo);
+    color: var(--indigo);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cantidad-boton:active { background: var(--indigo); color: var(--blanco); }
+.cantidad-boton:disabled { opacity: .35; color: var(--texto-suave); background: var(--fondo); }
+
 .rel-titulo { display: flex; align-items: center; gap: 7px; }
 .rel-titulo span { overflow: hidden; text-overflow: ellipsis; }
 .rel-flecha {
@@ -1491,6 +1557,12 @@ select.filtro-grupo { margin-bottom: 12px; }
 /* 12 px arriba y abajo, no 9: con 16 px de letra son los 44 px de área
    pulsable, que no se achican en ninguna escala. */
 .linea-campos input { padding: 12px 8px; text-align: right; }
+
+/* La cantidad se lleva la fila entera. Compartiéndola con precio y descuento le
+   tocaban 106 px, y con los dos botones de 44 el campo quedaba en 16: un número
+   que no se puede ni leer ni teclear. Los 44 px no se achican, así que lo que
+   cede es la rejilla. */
+.linea-campos .cantidad { grid-column: 1 / -1; }
 
 .linea-total {
     margin-top: 9px;

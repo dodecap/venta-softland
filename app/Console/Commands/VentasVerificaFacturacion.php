@@ -151,6 +151,40 @@ class VentasVerificaFacturacion extends Command
                 ], $conPermiso)), 'no tiene la línea');
         }
 
+        // ---- la factura del mandante: otro receptor, líneas escritas a mano y
+        //      colgada de la misma nota de venta. Ésta **sí** gasta folio, y se
+        //      deshace al final como todo lo demás.
+        if ($conPermiso !== null) {
+            $comision = $facturacion->escribir($this->factura($otro, $cc, $u, $nv, [
+                ['producto' => $productos[1], 'cantidad' => 1, 'precio' => 123456],
+            ], $conPermiso));
+
+            $this->line("Factura de comisión folio {$comision['folio']}: a otro cliente, colgada de la NV {$nv}");
+
+            $cab = DB::connection('softland')->table('softland.iw_gsaen')
+                ->where('Tipo', $comision['tipo'])->where('NroInt', $comision['nroint'])->first();
+
+            $this->comprobar('la factura de comisión va al otro cliente',
+                trim((string) $cab->CodAux) === $otro,
+                'CodAux = '.trim((string) $cab->CodAux).', se esperaba '.$otro);
+            $this->comprobar('y queda enlazada a la nota de venta igual',
+                (int) $cab->nvnumero === $nv,
+                'nvnumero = '.$cab->nvnumero);
+
+            $sus = DB::connection('softland')->table('softland.iw_gmovi')
+                ->where('Tipo', $comision['tipo'])->where('NroInt', $comision['nroint'])->get();
+            $this->comprobar('sus líneas no apuntan a ninguna de la nota de venta',
+                $sus->every(fn ($l) => (float) $l->nvCorrela === 0.0));
+
+            // Lo que de verdad importa: cobrar una comisión no factura nada de
+            // lo vendido, así que la nota de venta tiene que quedar intacta.
+            $this->saldoEs('y no le descuenta saldo a la nota de venta',
+                $saldo->deNotaVenta($nv), [12.0]);
+
+            $facturacion->eliminar($comision['tipo'], $comision['nroint']);
+            $this->line('Borrada la factura de comisión: el folio vuelve');
+        }
+
         $reglas->fijarReceptorEditable(false);
 
         // ---- la factura de verdad: 5 de la línea 1, más una línea suya

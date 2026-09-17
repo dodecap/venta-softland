@@ -42,6 +42,42 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.35.0 — La factura de comisión desde la app, y la cantidad con más y menos
+*2026-09-17*
+
+- **Ya se puede emitir la factura del mandante desde la app.** Estaba el permiso
+  y estaba la regla del servidor, pero la pantalla nunca ofrecía cambiar el
+  receptor: mandaba siempre el cliente de la nota de venta. Ahora, con el
+  permiso, «Se le factura a» se toca.
+- **Lo que decide el documento es el receptor, no un interruptor aparte.** Al
+  cambiarlo, las líneas de la nota de venta dejan de servir y se escriben a
+  mano: facturarle al mandante los productos que compró el cliente final sería
+  un documento mal emitido. Un modo que hubiera que encender *además* de cambiar
+  el cliente dejaba posible justo ese estado incoherente.
+- **Queda enlazada a la nota de venta y no le consume saldo.** Las dos cosas a
+  la vez, que es lo que se quería: se ve desde su ficha (`iw_gsaen.nvnumero`) y
+  lo que queda por facturar de la venta sigue igual, porque sus líneas no llevan
+  `nv_linea`. Ensayado contra la base de pruebas, con folio gastado y devuelto.
+- **El precio nace en cero, no en el del catálogo.** La comisión no se calcula:
+  la escribe quien factura. Proponer el precio de lista sería sugerir un número
+  que no tiene nada que ver.
+- **Funciona sin señal.** El permiso viaja en el arranque y se guarda, así que la
+  pantalla sabe si ofrecer el campo aunque no haya red. El servidor lo vuelve a
+  comprobar al emitir, siempre.
+- **La cantidad se sube y se baja con el pulgar** (`Cantidad.vue`), en la
+  cotización, en la nota de venta y al facturar. Las flechitas nativas del
+  navegador no salen en Android, así que pasar de 2 a 3 obligaba a abrir el
+  teclado, borrar y teclear. Menos a la izquierda y más a la derecha: arriba y
+  abajo partiría el área pulsable en dos de 22 px, y los 44 no se negocian. El
+  campo sigue siendo tecleable, que para llegar a 40 nadie va a dar 39 toques.
+- La cantidad **se lleva la fila entera**: compartiéndola con precio y descuento
+  le tocaban 106 px, y con los dos botones el campo quedaba en 16 — un número
+  que no se puede ni leer ni teclear.
+- **Corregido: el descuento por línea de la factura suelta se perdía.**
+  `FacturaController` no lo validaba y `validate()` devuelve sólo lo validado, así
+  que la pantalla enseñaba un total y se emitía otro, en un documento tributario.
+  El escritor siempre supo leerlo.
+
 ### 0.34.0 — El permiso de Softland decide quién factura a otro cliente
 *2026-09-17*
 

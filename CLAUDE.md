@@ -110,7 +110,9 @@ amplia). Los tamaños base están calibrados para `--d: 1` sobre 360 px de ancho
 
 Tres cosas **no se escalan nunca**: los 44 px de área pulsable, los 16 px de
 los campos de formulario (bajo eso Android hace zoom al enfocar) y el texto de
-12 px o menos, que ya está en el piso de lectura. Quien quiera un panel más
+12 px o menos, que ya está en el piso de lectura. Cuando algo no cabe, **lo que
+cede es la rejilla, no esos números**: la cantidad con sus dos botones de 44 px
+se lleva la fila entera en vez de compartirla con el precio. Quien quiera un panel más
 apretado gana espacio con la separación y los iconos, no con la letra chica.
 
 La prueba objetiva antes de tocar un tamaño: en 360×640 las seis acciones
@@ -171,6 +173,10 @@ tocar nada de esto:
   Ninguna pantalla lee un maestro chico por su cuenta.
 - Para elegir un código de un maestro largo se usa `Selector.vue`, no un
   `<select>` pelado: 2.009 giros en un desplegable de Android no se navegan.
+- Toda cantidad se escribe con `Cantidad.vue`, nunca con un `<input number>`
+  pelado: las flechitas nativas no salen en Android, así que pasar de 2 a 3
+  obligaba a abrir el teclado y teclear. Menos a la izquierda y más a la
+  derecha, no arriba y abajo — así los dos botones caben a 44 px.
 - **Cada lista se refresca sola, tirando hacia abajo.** El gesto vive en
   `mobile/src/refresco.js` y el mapa pantalla → maestros en `sync.js`
   (`GRUPOS`); el servidor acota el inventario con `?solo=`. Se baja el maestro
@@ -433,6 +439,13 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
   `Facturacion`, no en el controlador: una pantalla nueva que no supiera de ella
   escribiría facturas al cliente equivocado, y eso se corrige con nota de
   crédito, no con un `UPDATE`.
+- **La factura de comisión se emite desde la misma pantalla que la normal**, y
+  lo que decide cuál es **el receptor**: al cambiarlo, las líneas de la nota de
+  venta dejan de servir y se escriben a mano. Facturarle al mandante los
+  productos que compró el cliente final es un documento mal emitido. Queda
+  **enlazada a la nota de venta** (`iw_gsaen.nvnumero`) y **no le consume
+  saldo**: sus líneas no llevan `nv_linea`, porque una comisión no factura nada
+  de lo vendido.
 - **Los permisos de Softland se preguntan en `Permisos.php`, y son concesiones.**
   La fila existe = puede. Se conceden en dos sitios que **se suman** —por perfil
   (`wisrestperfil` vía `wisperfilusuario`) y por usuario (`wisrestusuario`)—, y un

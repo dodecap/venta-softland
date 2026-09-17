@@ -124,6 +124,13 @@ class AuthController extends Controller
                 // qué va a pasar al apretar, y saber si «sin enviar» es una
                 // avería —rojo— o el paso siguiente del trabajo —ámbar—.
                 'envio_automatico' => (new \App\Services\Dte\ReglasFactura)->envioAutomatico(),
+                // Si **este** usuario puede facturarle a otro cliente. Va en el
+                // arranque y no sólo en la propuesta porque esto se mira en
+                // terreno: sin señal la pantalla tiene que saber si ofrecer el
+                // campo, y una factura sin red se deja escrita en la bandeja.
+                // El servidor lo vuelve a comprobar al emitirla, siempre.
+                'receptor_editable' => (new \App\Services\Dte\ReglasFactura)
+                    ->receptorEditable($u->softland_user),
                 // Los compromisos que esta empresa ofrece y su escalera de
                 // avance. Van aquí y no como maestro porque el teléfono los
                 // necesita para **dibujar un formulario**, no para buscar: son

@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-17 — versión **0.34.0**
+2026-09-17 — versión **0.35.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1300,3 +1300,30 @@ cuando alguien cuadra el mes.
 - [x] La forma del negocio, medida: de **193 facturas atadas a una nota de venta,
       191 van a otro cliente** (189 a Softland Ingeniería) y **2 al cliente de su
       propia nota de venta**.
+
+### La factura de comisión, y la cantidad con más y menos (0.35.0)
+- [x] **La pantalla que faltaba.** El permiso y la regla del servidor estaban
+      desde 0.34.0, pero `Facturar.vue` mandaba siempre el cliente de la nota de
+      venta: no había forma de emitir la factura del mandante desde la app.
+- [x] **Lo que decide el documento es el receptor**, no un interruptor aparte.
+      Al cambiarlo, las líneas de la NV dejan de servir y se escriben a mano. Un
+      modo aparte dejaba posible el estado incoherente —otro receptor con las
+      líneas de la venta—, que es el documento que no se quiere emitir.
+- [x] **Enlazada a la NV y sin consumirle saldo**, las dos a la vez: va en
+      `iw_gsaen.nvnumero` y sus líneas no llevan `nv_linea`. Ensayado en la base
+      de pruebas: receptor correcto, `nvnumero` correcto, `nvCorrela` en cero y
+      el saldo intacto en 12. El folio se gasta y vuelve al borrarla.
+- [x] El precio nace en **cero**: la comisión no se calcula, la escribe quien
+      factura.
+- [x] **Sin señal también**: el permiso viaja en el arranque y se guarda. Entra
+      a `propuestaLocal()` por la puerta, no leyéndolo ahí, para que `saldo.js`
+      siga sin saber de plataforma — es el que corre en Node con `npm run pruebas`.
+- [x] `Cantidad.vue`: menos a la izquierda y más a la derecha. Arriba y abajo
+      partiría el área pulsable en dos de 22 px. Medido en 375 px: botones de
+      44×44, campo de 231 px a 16 px de letra, sin desplazamiento horizontal.
+- [x] La cantidad **se lleva la fila entera**: compartiéndola con precio y
+      descuento el campo quedaba en **16 px de ancho**.
+- [x] **Fallo corregido**: `FacturaController` no validaba `lineas.*.descuento_pct`
+      y `validate()` devuelve sólo lo validado, así que el descuento tecleado en
+      la factura suelta se caía en silencio — la pantalla enseñaba un total y se
+      emitía otro, en un documento tributario.

@@ -10,6 +10,7 @@ import { encolar, nuevoUuid } from '../pendientes';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
+import Cantidad from '../components/Cantidad.vue';
 import Buscador from '../components/Buscador.vue';
 import Selector from '../components/Selector.vue';
 import Vacio from '../components/Vacio.vue';
@@ -317,10 +318,7 @@ function cantidad(n) {
                         <textarea v-model="l.glosa" rows="2" :placeholder="l.nombre"></textarea>
                     </label>
                     <div class="linea-campos">
-                        <label>
-                            <span>Cantidad</span>
-                            <input v-model.number="l.cantidad" type="number" inputmode="decimal" min="0" step="any">
-                        </label>
+                        <Cantidad v-model.number="l.cantidad" />
                         <label>
                             <span>Precio</span>
                             <input v-model.number="l.precio" type="number" inputmode="decimal" min="0" step="any">

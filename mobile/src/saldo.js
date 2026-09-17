@@ -268,8 +268,17 @@ export async function facturadoDe(notaVenta) {
  * Lo único que no se puede saber sin red son **los folios**: los reparte
  * Softland y no hay copia en el teléfono. Va en `null`, que quiere decir «no se
  * sabe», no «no quedan».
+ *
+ * El permiso para facturarle a otro entra **por la puerta**, no se lee aquí:
+ * vive en las preferencias del teléfono y este módulo no sabe de plataforma —
+ * es el que `npm run pruebas` ejecuta en Node. Lo pasa quien llama, que ya está
+ * dentro de una pantalla. El servidor lo vuelve a comprobar al emitir, así que
+ * no abre nada: sólo decide si se ofrece el campo sin señal.
+ *
+ * @param {number} numero
+ * @param {boolean} [receptorEditable]  lo que dijo el servidor al arrancar
  */
-export async function propuestaLocal(numero) {
+export async function propuestaLocal(numero, receptorEditable = false) {
     const nv = await idb.obtener('notas_venta', Number(numero));
 
     if (! nv) return null;
@@ -285,7 +294,7 @@ export async function propuestaLocal(numero) {
         condicion: nv.condicion || null,
         vendedor: nv.vendedor || '',
         estado: nv.estado,
-        receptor_editable: false,
+        receptor_editable: receptorEditable,
         conocible: true,
         motivo: null,
         folios: null,

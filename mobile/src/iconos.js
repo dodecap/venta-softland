@@ -117,6 +117,9 @@ export const ICONOS = {
 
     // ---- Controles de interfaz ----
     crear: { glifo: Plus },
+    // El «menos» del selector de cantidad. Es hermano de `crear`, no de
+    // `sinCambio`: aquel es la raya del panel cuando un número no se movió.
+    quitar: { glifo: Minus },
     cerrar: { glifo: X },
     atras: { glifo: ChevronLeft },
     avanzar: { glifo: ChevronRight },

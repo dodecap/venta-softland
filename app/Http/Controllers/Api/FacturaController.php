@@ -141,6 +141,11 @@ class FacturaController extends Controller
             'lineas.*.cantidad' => 'required|numeric|gt:0',
             'lineas.*.precio' => 'nullable|numeric|min:0',
             'lineas.*.glosa' => 'nullable|string|max:500',
+            // Faltaba, y `validate()` devuelve sólo lo validado: el descuento
+            // que se tecleaba en la factura suelta se caía aquí en silencio. La
+            // pantalla enseñaba un total y se emitía otro, en un documento
+            // tributario. El escritor siempre supo leerlo.
+            'lineas.*.descuento_pct' => 'nullable|numeric|min:0|max:100',
             'lineas.*.nv_linea' => 'nullable|numeric|min:1',
         ]);
 
