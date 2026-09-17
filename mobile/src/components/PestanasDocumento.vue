@@ -1,7 +1,7 @@
 <script setup>
 import { computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ultimaLista } from '../nav';
+import { LISTAS_DOCUMENTO, ultimaLista } from '../nav';
 
 /**
  * Las tres listas del flujo de venta, como hermanas.
@@ -21,23 +21,19 @@ import { ultimaLista } from '../nav';
  * según dónde estés.
  *
  * Se cambia con `replace` y no con `push`: son hermanas, no una encima de otra.
- * Con `push`, «atrás» recorrería el zigzag entre listas en vez de salir.
+ * Con `push`, «atrás» recorrería el zigzag entre listas en vez de volver al
+ * panel. También se cambia deslizando la lista de lado (`deslizar.js`), y el
+ * orden de las tres lo pone `LISTAS_DOCUMENTO` para las dos cosas.
  */
 
 const route = useRoute();
 const router = useRouter();
 
-const LISTAS = [
-    { ruta: '/cotizaciones', rotulo: 'Cotizaciones' },
-    { ruta: '/notas-venta', rotulo: 'Notas de venta' },
-    { ruta: '/facturas', rotulo: 'Facturas' },
-];
-
 const actual = computed(() => route.path);
 
 /* La barra de abajo abre «Documentos» por la última que se miró. */
 watch(actual, (r) => {
-    if (LISTAS.some((l) => l.ruta === r)) ultimaLista.value = r;
+    if (LISTAS_DOCUMENTO.some((l) => l.ruta === r)) ultimaLista.value = r;
 }, { immediate: true });
 
 function ir(ruta) {
@@ -50,7 +46,7 @@ function ir(ruta) {
 
 <template>
     <div class="pestanas-doc" role="tablist">
-        <button v-for="l in LISTAS" :key="l.ruta" role="tab"
+        <button v-for="l in LISTAS_DOCUMENTO" :key="l.ruta" role="tab"
                 :class="{ activa: actual === l.ruta }"
                 :aria-selected="actual === l.ruta"
                 @click="ir(l.ruta)">{{ l.rotulo }}</button>

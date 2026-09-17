@@ -17,6 +17,23 @@ const pila = [];
 export const hayCapa = ref(false);
 
 /**
+ * El orden de las tres listas de documentos, en un solo sitio.
+ *
+ * Lo leen las pestañas de arriba y el gesto de deslizar. Es el orden del ciclo
+ * de venta —se cotiza, se vende, se factura— y por eso deslizar hacia la
+ * izquierda avanza: el dedo va en el sentido del negocio.
+ *
+ * Está aquí y no en el componente de las pestañas porque el mismo orden escrito
+ * en dos sitios es un gesto que un día lleva a otra pestaña que la que se ve
+ * encendida.
+ */
+export const LISTAS_DOCUMENTO = [
+    { ruta: '/cotizaciones', rotulo: 'Cotizaciones' },
+    { ruta: '/notas-venta', rotulo: 'Notas de venta' },
+    { ruta: '/facturas', rotulo: 'Facturas' },
+];
+
+/**
  * La última lista de documentos que se miró.
  *
  * La pestaña «Documentos» de la barra abre por ahí. Volver siempre a

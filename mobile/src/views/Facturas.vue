@@ -10,6 +10,7 @@ import { useAccionCrear } from '../crear';
 import { conectado } from '../red';
 import { refrescarGrupo } from '../sync';
 import { useTirarParaRefrescar } from '../refresco';
+import { useDeslizarPestanas } from '../deslizar';
 import AppIcon from '../components/AppIcon.vue';
 import PestanasDocumento from '../components/PestanasDocumento.vue';
 import Aviso from '../components/Aviso.vue';
@@ -67,6 +68,12 @@ const refrescado = ref(null);
 const errorRefresco = ref('');
 
 const { distancia, refrescando, listo } = useTirarParaRefrescar(contenido, refrescar, conectado);
+
+/* Y deslizando de lado se cambia de pestaña. Va después del otro gesto a
+   propósito: los dos escuchan el mismo dedo y se ceden el paso según qué eje
+   mande, así que se enganchan sobre el mismo contenedor. Mientras se refresca
+   no se atiende: la lista ya está ocupada moviéndose. */
+useDeslizarPestanas(contenido, refrescando);
 
 // La factura que no sale de ninguna nota de venta —el 88 % de las de
 // NETDOMAIN— nace aquí, que es donde alguien está mirando lo emitido.

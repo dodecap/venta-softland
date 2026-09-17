@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-17 — versión **0.32.1**
+2026-09-17 — versión **0.33.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1261,3 +1261,15 @@ cuando alguien cuadra el mes.
       como se llega a ellas con `replace`, detrás no había historial suyo. Ahora
       **el panel es el destino inicial** y la única pestaña desde la que se
       sale: las demás vuelven al panel, igual que la flecha de su cabecera.
+- [x] **Deslizar la lista de lado cambia de pestaña** (0.33.0). El orden es el
+      del ciclo de venta, así que hacia la izquierda se avanza; en los extremos
+      la lista cede apenas y vuelve sola. La lista se arrastra con el dedo y la
+      siguiente entra desde el lado del que vino.
+- [x] **Los dos gestos de la lista se ceden el paso.** Tirar para refrescar y
+      deslizar miran el mismo dedo: nada ocurre hasta que un eje le saca
+      ventaja clara al otro. El desplazamiento vertical normal no se cancela
+      nunca — comprobado con toques sintéticos: 0 `preventDefault` en un
+      desplazamiento hacia arriba de 200 px.
+- [x] El orden de las tres listas vive en `LISTAS_DOCUMENTO` (`nav.js`), y lo
+      leen las pestañas y el gesto. Escrito dos veces sería un gesto que lleva
+      a otra pestaña que la encendida.

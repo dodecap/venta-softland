@@ -14,6 +14,7 @@ import { contarPendientes, porEnviar } from '../pendientes';
 import { conectado } from '../red';
 import { refrescarGrupo } from '../sync';
 import { useTirarParaRefrescar } from '../refresco';
+import { useDeslizarPestanas } from '../deslizar';
 import AppIcon from '../components/AppIcon.vue';
 import PestanasDocumento from '../components/PestanasDocumento.vue';
 import Aviso from '../components/Aviso.vue';
@@ -123,6 +124,12 @@ const refrescado = ref(null);
 const errorRefresco = ref('');
 
 const { distancia, refrescando, listo } = useTirarParaRefrescar(contenido, refrescar, conectado);
+
+/* Y deslizando de lado se cambia de pestaña. Va después del otro gesto a
+   propósito: los dos escuchan el mismo dedo y se ceden el paso según qué eje
+   mande, así que se enganchan sobre el mismo contenedor. Mientras se refresca
+   no se atiende: la lista ya está ocupada moviéndose. */
+useDeslizarPestanas(contenido, refrescando);
 
 async function refrescar() {
     errorRefresco.value = '';

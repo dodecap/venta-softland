@@ -42,6 +42,32 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.33.0 — Deslizar la lista para cambiar de pestaña
+*2026-09-17*
+
+- **Se desliza la lista de lado y se pasa a la pestaña vecina.** Las tres ya son
+  hermanas y se ven una junto a otra en la tira de arriba; en un teléfono lo que
+  está al lado se alcanza con el dedo. Tocar la pestaña sigue estando: esto es el
+  atajo de quien va con el teléfono en una mano.
+- El sentido no es arbitrario. El orden es el del ciclo de venta —se cotiza, se
+  vende, se factura—, así que hacia la izquierda se avanza, como pasar la página.
+  En los extremos la lista cede apenas y vuelve sola: así se dice «no hay más»
+  sin un cartel.
+- **La lista se corre con el dedo**, a un tercio de su recorrido, y la siguiente
+  entra desde el lado del que vino. Sin eso, dos listas parecidas se confunden y
+  no se sabe si cambió de pestaña o se recargó la misma. Con
+  `prefers-reduced-motion` se cambia sin animación.
+- **Los dos gestos de la lista se ceden el paso.** Tirar hacia abajo para
+  actualizar y deslizar de lado miran el mismo dedo: no se hace nada hasta que
+  un eje le saca ventaja clara al otro, y cada uno se retira cuando manda el
+  contrario. Sin ese acuerdo, un deslizamiento con algo de caída arrastraba la
+  lista hacia abajo. El desplazamiento vertical normal no se toca nunca.
+- Los filtros de la lista se quedan con el gesto: ahí el dedo está hojeando sus
+  propios botones, no cambiando de pestaña.
+- El orden de las tres listas pasa a `LISTAS_DOCUMENTO`, en `nav.js`. El mismo
+  orden escrito en dos sitios es un gesto que un día lleva a otra pestaña que la
+  que se ve encendida.
+
 ### 0.32.1 — Atrás desde una lista vuelve al panel, no sale de la app
 *2026-09-17*
 

@@ -303,6 +303,28 @@ html.con-barra .contenido {
 /* Las tres listas del flujo de venta, hermanas. Van pegadas bajo la barra del
    título: son el cambio de lista más frecuente del día y tienen que estar
    donde el pulgar ya está. */
+/* La lista que entra tras deslizar llega desde el lado del que vino el dedo.
+   Es lo que dice que se cambió de pestaña y no que se recargó la misma: sin
+   eso, dos listas parecidas se confunden. La marca la pone `deslizar.js` en
+   el elemento raíz, porque la lista de facturas es otro componente y el
+   contenedor de la anterior ya no existe cuando entra ésta. */
+html[data-entra] .contenido > * { animation: entra-lista .2s ease-out; }
+html[data-entra="derecha"] .contenido > * { animation-name: entra-lista-derecha; }
+
+@keyframes entra-lista {
+    from { transform: translateX(26px); opacity: .4; }
+    to { transform: none; opacity: 1; }
+}
+
+@keyframes entra-lista-derecha {
+    from { transform: translateX(-26px); opacity: .4; }
+    to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-entra] .contenido > * { animation: none; }
+}
+
 .pestanas-doc {
     display: flex;
     gap: 4px;

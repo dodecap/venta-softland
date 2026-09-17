@@ -49,6 +49,7 @@ export function useTirarParaRefrescar(contenedor, alRefrescar, activo = null) {
     const listo = computed(() => distancia.value >= UMBRAL);
 
     let desde = null;
+    let desdeX = null;
 
     const habilitado = () => (activo ? activo.value : true);
 
@@ -59,16 +60,19 @@ export function useTirarParaRefrescar(contenedor, alRefrescar, activo = null) {
         if ((contenedor.value?.scrollTop ?? 1) > 0) return;
 
         desde = e.touches[0].clientY;
+        desdeX = e.touches[0].clientX;
     }
 
     function mover(e) {
         if (desde === null || refrescando.value) return;
 
         const avance = e.touches[0].clientY - desde;
+        const lado = Math.abs(e.touches[0].clientX - desdeX);
 
-        // Hacia arriba, o si la lista ya se movió, esto era un desplazamiento
-        // normal y el gesto se cancela sin dejar rastro.
-        if (avance <= 0 || (contenedor.value?.scrollTop ?? 0) > 0) {
+        // Hacia arriba, si la lista ya se movió, o si el dedo va claramente de
+        // lado —eso es deslizar entre pestañas, y lo atiende `deslizar.js`—,
+        // esto no era tirar para refrescar y el gesto se cancela sin rastro.
+        if (avance <= 0 || lado > Math.abs(avance) || (contenedor.value?.scrollTop ?? 0) > 0) {
             desde = null;
             distancia.value = 0;
 
