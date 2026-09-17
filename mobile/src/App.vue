@@ -15,22 +15,26 @@ const router = useRouter();
 const route = useRoute();
 const avisoSalida = ref(false);
 
+/** El destino inicial de la barra: a donde vuelve «atrás» desde cualquier otra
+ *  pestaña, y la única pantalla de la barra desde la que se sale de la app. */
+const INICIO = '/inicio';
+
 /**
  * Pantallas sin nada detrás. Retroceder desde aquí no lleva a ningún lado,
  * así que el gesto se interpreta como salir de la app.
  *
- * Son las de la barra (`meta.tab`) y las dos de entrada. Ahí entran también
- * las tres listas de documentos, que son un destino de la barra con tres
- * caras. Todas se navegan con `replace`, así que entre ellas no hay historial
- * que desandar: desde cualquiera, «atrás» significa salir.
+ * **El panel es el destino inicial**, y es el único de la barra que está aquí.
+ * Las demás pestañas no: se llega a ellas con `replace` y detrás no queda
+ * historial suyo que desandar, así que «atrás» desde una lista de documentos
+ * cerraba la app de golpe. Vuelven al panel, que es de donde se viene.
  *
- * Avisos y Cuenta se fueron de la barra a la cabecera, y por eso dejaron de
- * ser raíz: se entra a ellas apilándolas, y «atrás» devuelve a donde se
- * estaba. Cada una lleva su flecha, que hace lo mismo.
+ * Avisos y Cuenta tampoco son raíz, y por otro motivo: se entra a ellas
+ * apilándolas desde la cabecera, así que ahí sí hay historial y «atrás»
+ * devuelve a donde se estaba. Cada una lleva su flecha, que hace lo mismo.
  */
-const RAICES = ['/login', '/servidor'];
+const RAICES = ['/login', '/servidor', INICIO];
 
-const enRaiz = () => RAICES.includes(route.path) || !!route.meta.tab;
+const enRaiz = () => RAICES.includes(route.path);
 
 let salidaArmada = null;
 const oyentes = [];
@@ -47,7 +51,13 @@ function atras() {
     if (cerrarCapaSuperior()) return;
 
     if (!enRaiz()) {
-        router.back();
+        // Una pestaña que no es el panel vuelve al panel, no al historial: se
+        // llegó a ella con `replace`, así que detrás hay lo que hubiera antes
+        // —a menudo nada—, y retroceder ahí cerraba la app. Es lo mismo que
+        // hace la flecha de la cabecera de cada lista.
+        if (route.meta.tab) router.replace(INICIO);
+        else router.back();
+
         return;
     }
 

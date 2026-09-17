@@ -42,6 +42,22 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.32.1 — Atrás desde una lista vuelve al panel, no sale de la app
+*2026-09-17*
+
+- **El «atrás» de Android cerraba la app desde las tres listas.** Al entrar en
+  la barra, cotizaciones, notas de venta y facturas pasaron a ser raíz, y en la
+  raíz el gesto significa salir. Se llega a ellas con `replace`, así que detrás
+  no hay historial suyo: retroceder no tenía a dónde ir.
+- **El panel es el destino inicial**, y es la única pestaña desde la que se sale
+  de la app. Cualquier otra —Documentos, Clientes, Cobranza— vuelve al panel,
+  igual que la flecha de su cabecera. Es el patrón de la barra de navegación de
+  Android, y evita el otro extremo: un historial que hace recorrer el zigzag
+  entre listas antes de dejar salir.
+- Las pantallas de adentro no cambian: la ficha de un documento, Avisos y Cuenta
+  se apilan, así que ahí «atrás» sigue devolviendo a donde se estaba — incluida
+  la cadena que se arma saltando entre documentos relacionados.
+
 ### 0.32.0 — La barra de abajo, el botón de crear y los documentos enlazados
 *2026-09-17*
 

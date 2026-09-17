@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-17 — versión **0.32.0**
+2026-09-17 — versión **0.32.1**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1256,3 +1256,8 @@ cuando alguien cuadra el mes.
 - [x] **Cobranza queda declarada como fase 5**, con su pantalla diciendo qué va
       a haber ahí y un atajo a Facturas mientras tanto. Un botón que no hace
       nada y no explica por qué parece una avería.
+- [x] **El «atrás» de Android cerraba la app desde las tres listas** (0.32.1).
+      Al entrar en la barra pasaron a ser raíz, y ahí el gesto significa salir;
+      como se llega a ellas con `replace`, detrás no había historial suyo. Ahora
+      **el panel es el destino inicial** y la única pestaña desde la que se
+      sale: las demás vuelven al panel, igual que la flecha de su cabecera.
