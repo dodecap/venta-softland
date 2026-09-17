@@ -36,7 +36,9 @@ compilar la app:
 bash mobile/build-apk.sh
 ```
 
-Deja el APK en `venta-softland.apk`, en la raíz del repo.
+Deja el APK en `venta-softland-<versión>.apk`, en la raíz del repo, y borra los
+de versiones anteriores: con todos llamándose igual, el que está en el teléfono
+y el que está en la carpeta de descargas son indistinguibles.
 
 Para probar solo la interfaz en el navegador, sin compilar nada:
 

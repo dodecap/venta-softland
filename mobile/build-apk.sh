@@ -16,6 +16,19 @@ cd android
 [ -f local.properties ] || echo "sdk.dir=$HOME/android-sdk" > local.properties
 ./gradlew assembleDebug --no-daemon
 
-cp app/build/outputs/apk/debug/app-debug.apk ../../venta-softland.apk
+# El nombre lleva la versión. Es la primera pregunta de cualquier soporte —«¿qué
+# versión tienes?»— y con todos los APK llamándose igual, el que está en el
+# teléfono y el que está en la carpeta de descargas son indistinguibles. Sale de
+# VERSION, como todo lo demás.
+cd ../..
+VERSION="$(tr -d ' \t\r\n' < VERSION)"
+APK="venta-softland-${VERSION}.apk"
+
+cp mobile/android/app/build/outputs/apk/debug/app-debug.apk "$APK"
+
+# Y se borran los de versiones anteriores: son 5 MB cada uno y el único que
+# sirve es el último. Se queda el que se acaba de escribir.
+find . -maxdepth 1 -name 'venta-softland*.apk' ! -name "$APK" -delete
+
 echo
-echo "APK: venta-softland.apk (en la raíz del repo)"
+echo "APK: $APK (en la raíz del repo)"
