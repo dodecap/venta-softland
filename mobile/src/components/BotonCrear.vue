@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { accionCrear } from '../crear';
-import { hayCapa } from '../nav';
+import { useRoute, useRouter } from 'vue-router';
+import { accionCrear, DOCUMENTOS } from '../crear';
+import { hayCapa, useCapa } from '../nav';
 import { tecladoAbierto } from '../teclado';
 import { db } from '../db';
 import AppIcon from './AppIcon.vue';
@@ -12,6 +13,15 @@ import AppIcon from './AppIcon.vue';
  * Va abajo y al centro, no arriba a la derecha: el pulgar llega solo, sea la
  * mano que sea. Y si el vendedor prefiere tenerlo de un lado, lo deja
  * presionado, lo arrastra y ahí se queda — el teléfono se lo recuerda.
+ *
+ * ## Abre una hoja, no crea directo
+ *
+ * Porque el botón era contextual y eso obligaba a volver al panel para crear
+ * cualquier otra cosa. Ahora ofrece **los tres documentos desde cualquier
+ * pantalla**, con la acción propia del sitio arriba cuando la hay.
+ *
+ * El precio está medido y es éste: en Clientes, crear pasó de un toque a dos.
+ * A cambio, cotizar desde las notas de venta pasó de cuatro a dos.
  */
 
 const TAMANO = 56;
@@ -26,8 +36,35 @@ const ancho = ref(anchoActual());
 const arrastreX = ref(null); // px mientras se mueve; null = quieto en su ancla
 const moviendo = ref(false);
 
-const visible = computed(() => !!accionCrear.value && !hayCapa.value && !tecladoAbierto.value);
+const route = useRoute();
+const router = useRouter();
+
+const abierta = ref(false);
+useCapa(abierta, () => { abierta.value = false; });
+
+/*
+ * El botón vive con la barra de abajo, en las pestañas: son los sitios de
+ * estar, y crear es lo que se hace desde ahí. En las pantallas de adentro
+ * —la ficha de un documento, Cuenta, Avisos— se está haciendo otra cosa, y un
+ * «+» flotando encima ofrece empezar algo nuevo justo cuando no toca.
+ *
+ * Se esconde además con el teclado abierto —montado sobre las teclas— y con
+ * otra hoja encima, donde estorbaría.
+ */
+const enPestana = computed(() => !! route.meta.tab);
+
+const visible = computed(() => enPestana.value && ! hayCapa.value && ! tecladoAbierto.value);
 const etiqueta = computed(() => accionCrear.value?.etiqueta || 'Crear');
+
+function elegir(ruta) {
+    abierta.value = false;
+    router.push(ruta);
+}
+
+function propia() {
+    abierta.value = false;
+    abierta.value = true;
+}
 
 /* En el primer render la ventana puede no estar medida todavía (ancho 0) y el
    botón saldría pegado al borde izquierdo. Se vuelve a medir al montar. */
@@ -139,5 +176,35 @@ onUnmounted(() => window.removeEventListener('resize', medir));
                 @contextmenu.prevent @click="clic">
             <AppIcon name="crear" :size="26" :stroke-width="2.25" color="currentColor" />
         </button>
+    </div>
+
+    <!-- La hoja de crear. Sube desde abajo, que es de donde viene el dedo. -->
+    <div class="velo" v-if="abierta" @click.self="abierta = false">
+        <div class="hoja">
+            <div class="hoja-cabecera">
+                <h2>Crear</h2>
+                <button class="icono-barra" @click="abierta = false">
+                    <AppIcon name="cerrar" :size="21" />
+                </button>
+            </div>
+            <div class="hoja-cuerpo">
+                <!-- Lo de esta pantalla primero: quien entró a Clientes y toca
+                     «+» viene a crear un cliente, no una factura. -->
+                <button class="item" v-if="accionCrear" @click="propia">
+                    <div class="item-estado cian"></div>
+                    <div class="item-cuerpo">
+                        <div class="item-titulo">{{ etiqueta }}</div>
+                    </div>
+                </button>
+
+                <button class="item" v-for="d in DOCUMENTOS" :key="d.id" @click="elegir(d.ruta)">
+                    <div class="item-estado"></div>
+                    <div class="item-cuerpo">
+                        <div class="item-titulo">{{ d.rotulo }}</div>
+                        <div class="item-meta">Se abre el formulario, listo para escribir</div>
+                    </div>
+                </button>
+            </div>
+        </div>
     </div>
 </template>

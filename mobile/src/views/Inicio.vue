@@ -16,6 +16,7 @@ import { estado as estadoDoc, estadoSii } from '../documentos';
 import { idb } from '../idb';
 import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
+import BarraSuperior from '../components/BarraSuperior.vue';
 import Aviso from '../components/Aviso.vue';
 import Persiana from '../components/Persiana.vue';
 import Vacio from '../components/Vacio.vue';
@@ -77,15 +78,20 @@ const hayCompromisos = computed(() => {
 /* Cambia lo que significa una factura sin enviar: avería o tarea pendiente. */
 const envioAutomatico = ref(true);
 
+/*
+ * Dos renglones y cada uno es una cosa: arriba el flujo de venta —de la
+ * cotización a la factura, en el orden en que ocurre— y abajo el catálogo y la
+ * plata. Antes iban mezclados y había que leer los seis para encontrar uno.
+ */
 const FLUJO = [
     { icono: 'cotizacion', rotulo: 'Cotizaciones', ruta: '/cotizaciones' },
     { icono: 'notaVenta', rotulo: 'Notas de venta', ruta: '/notas-venta' },
+    // A lo emitido, que es lo que se viene a mirar. La cola de trabajo —las
+    // notas con algo pendiente— está a un toque desde ahí, con su chip.
+    { icono: 'factura', rotulo: 'Facturar', ruta: '/facturas' },
     { icono: 'cliente', rotulo: 'Clientes', ruta: '/clientes' },
     { icono: 'producto', rotulo: 'Productos', ruta: '/productos' },
-    // Facturar cuelga de una nota de venta, así que lleva a las que todavía
-    // tienen algo por facturar: es la cola de trabajo, no un catálogo.
-    { icono: 'factura', rotulo: 'Facturar', ruta: '/notas-venta?facturar=1' },
-    { icono: 'cobranza', rotulo: 'Cobranza', fase: 'Fase 5' },
+    { icono: 'cobranza', rotulo: 'Cobranza', ruta: '/cobranza', fase: 'Fase 5' },
 ];
 
 /* ------------------------------------------------------------------ ámbito
@@ -510,9 +516,6 @@ async function sincronizarTodo() {
     }
 }
 
-/** Iniciales del vendedor para la placa del encabezado. */
-const iniciales = computed(() => (usuario.value?.nombre || '')
-    .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || 'VS');
 
 const cuando = computed(() => {
     if (!sincronizado.value) return 'Nunca';
@@ -538,20 +541,20 @@ const pct = computed(() => {
 
 <template>
     <div class="pantalla">
-        <div class="encabezado">
-            <div class="marca">{{ iniciales }}</div>
-            <div class="saludo">
-                <div class="hola">Hola, {{ (usuario?.nombre || '').split(' ')[0] }}</div>
-                <div class="quien">
-                    {{ usuario?.rol }}<span v-if="usuario?.ven_cod"> · vendedor {{ usuario.ven_cod }}</span>
-                </div>
+        <BarraSuperior>
+            <div class="hola">Hola, {{ (usuario?.nombre || '').split(' ')[0] }}</div>
+            <div class="quien">
+                {{ usuario?.rol }}<span v-if="usuario?.ven_cod"> · vendedor {{ usuario.ven_cod }}</span>
             </div>
+
             <!-- Cerrar sesión ya no está aquí: se fue a Cuenta. Al lado de
                  «sincronizar» era un dedazo de distancia perder la sesión. -->
-            <button class="icono-barra" :disabled="sincronizando" title="Sincronizar" @click="sincronizarTodo">
-                <AppIcon name="sincronizar" :size="20" :class="{ girando: sincronizando }" />
-            </button>
-        </div>
+            <template #acciones>
+                <button class="icono-barra" :disabled="sincronizando" title="Sincronizar" @click="sincronizarTodo">
+                    <AppIcon name="sincronizar" :size="20" :class="{ girando: sincronizando }" />
+                </button>
+            </template>
+        </BarraSuperior>
 
         <div class="contenido panel">
             <Aviso tipo="error" v-if="error" style="margin-top:14px;">{{ error }}</Aviso>

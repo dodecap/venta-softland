@@ -19,9 +19,14 @@ const avisoSalida = ref(false);
  * Pantallas sin nada detrás. Retroceder desde aquí no lleva a ningún lado,
  * así que el gesto se interpreta como salir de la app.
  *
- * Son las cuatro pestañas (`meta.tab`) y las dos de entrada. Las pestañas se
- * navegan con `replace`, así que entre ellas no hay historial que desandar:
- * desde cualquiera, «atrás» significa salir.
+ * Son las de la barra (`meta.tab`) y las dos de entrada. Ahí entran también
+ * las tres listas de documentos, que son un destino de la barra con tres
+ * caras. Todas se navegan con `replace`, así que entre ellas no hay historial
+ * que desandar: desde cualquiera, «atrás» significa salir.
+ *
+ * Avisos y Cuenta se fueron de la barra a la cabecera, y por eso dejaron de
+ * ser raíz: se entra a ellas apilándolas, y «atrás» devuelve a donde se
+ * estaba. Cada una lleva su flecha, que hace lo mismo.
  */
 const RAICES = ['/login', '/servidor'];
 

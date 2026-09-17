@@ -5,12 +5,13 @@ import { db } from '../db';
 import { idb } from '../idb';
 import { monto, fecha } from '../catalogos';
 import { estadoSii } from '../documentos';
-import { facturasEmitidas } from '../saldo';
+import { facturasEmitidas, porFacturar } from '../saldo';
 import { useAccionCrear } from '../crear';
 import { conectado } from '../red';
 import { refrescarGrupo } from '../sync';
 import { useTirarParaRefrescar } from '../refresco';
 import AppIcon from '../components/AppIcon.vue';
+import PestanasDocumento from '../components/PestanasDocumento.vue';
 import Aviso from '../components/Aviso.vue';
 import Buscador from '../components/Buscador.vue';
 import TirarRefrescar from '../components/TirarRefrescar.vue';
@@ -52,6 +53,13 @@ const cargando = ref(true);
  */
 const envioAutomatico = ref(true);
 
+/*
+ * Las notas de venta que todavía tienen algo por facturar: la cola que alimenta
+ * esta lista. Va arriba porque es la pregunta siguiente de quien acaba de
+ * mirar lo emitido — «¿y qué me falta?».
+ */
+const porFacturarN = ref(0);
+
 const estado = (d) => estadoSii(d, envioAutomatico.value);
 
 const contenido = ref(null);
@@ -83,8 +91,16 @@ const FILTROS = {
 onMounted(async () => {
     envioAutomatico.value = (await db.getServidorInfo())?.envio_automatico !== false;
     await cargar();
+    await contarPorFacturar();
     await leerRefrescado();
 });
+
+async function contarPorFacturar() {
+    const notas = await idb.todos('notas_venta');
+    const pendientes = await porFacturar(notas.map((n) => n.numero));
+
+    porFacturarN.value = pendientes.size;
+}
 
 watch([busqueda, filtro], cargar);
 
@@ -157,9 +173,18 @@ function abrir(d) {
 <template>
     <div class="pantalla">
         <div class="barra">
-            <button class="icono-barra" @click="router.back()"><AppIcon name="atras" :size="24" /></button>
+            <!-- Al panel, no «atrás»: estas tres son pestañas de la barra, y
+                 se llega a ellas tanto desde el panel como saltando entre sí.
+                 Un «atrás» ahí desharía el zigzag entre listas. -->
+            <button class="icono-barra" @click="router.replace('/inicio')" title="Volver al panel">
+                <AppIcon name="atras" :size="24" />
+            </button>
             <h1>Facturas</h1>
         </div>
+
+        <!-- Las tres listas son hermanas: se cambia entre ellas sin volver al
+             panel, que era el rodeo de todos los días. -->
+        <PestanasDocumento />
 
         <div class="contenido" ref="contenido">
             <TirarRefrescar :distancia="distancia" :refrescando="refrescando" :listo="listo"
@@ -196,6 +221,13 @@ function abrir(d) {
                     El envío está en manual: salen cuando alguien los manda desde su ficha.
                 </template>
             </Aviso>
+
+            <button class="chip-cola" v-if="porFacturarN"
+                    @click="router.push('/notas-venta?facturar=1')">
+                <span class="n">{{ porFacturarN }}</span>
+                <span>{{ porFacturarN === 1 ? 'nota por facturar' : 'notas por facturar' }}</span>
+                <AppIcon name="avanzar" :size="15" color="currentColor" />
+            </button>
 
             <div class="pestanas en-linea">
                 <button :class="{ activa: filtro === '' }" @click="filtro = ''">Todo</button>

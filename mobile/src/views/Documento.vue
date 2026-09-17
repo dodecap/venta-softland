@@ -7,6 +7,7 @@ import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe, simbolo } from '../catalogos';
 import { TIPOS, estado, enriquecerLineas, lineasDe, avanceFacturacion } from '../documentos';
 import { facturadoDe, facturasDe, saldoCotizacion } from '../saldo';
+import { cotizacionDe, notasDeCotizacion } from '../relaciones';
 import { comoTexto, definidos as atributosDefinidos, valoresDe } from '../atributos';
 import { agendar, calendarioDisponible } from '../calendario';
 import { cuando as cuandoTexto, hora as horaDe, sumarDias } from '../seguimiento';
@@ -16,6 +17,7 @@ import { useCapa } from '../nav';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import Persiana from '../components/Persiana.vue';
+import Relacionados from '../components/Relacionados.vue';
 import Selector from '../components/Selector.vue';
 import Vacio from '../components/Vacio.vue';
 
@@ -51,6 +53,15 @@ const saldo = ref(null);
  * en la nota de venta donde alguien se pregunta qué se facturó y qué falta.
  */
 const facturas = ref([]);
+
+/**
+ * El otro extremo del trato: las notas de venta que salieron de esta
+ * cotización, o la cotización de la que viene esta nota de venta.
+ *
+ * Es la misma pregunta desde los dos lados, así que la contesta un solo sitio
+ * (`relaciones.js`) y aquí sólo se guarda lo que devuelve.
+ */
+const relacionados = ref([]);
 
 /*
  * Los campos que la empresa definió en el ERP para la nota de venta. Pueden ser
@@ -185,8 +196,10 @@ async function cargar() {
                 facturado: facturado.get(Number(l.linea).toFixed(2)) || 0,
             }));
             facturas.value = await facturasDe(numero.value);
+            relacionados.value = await cotizacionDe(doc.value);
         }
         if (esCotizacion.value && doc.value) {
+            relacionados.value = await notasDeCotizacion(numero.value);
             const info = await db.getServidorInfo();
             compromisos.value = info?.compromisos ?? [];
             escaleraAvance.value = info?.avance ?? [];
@@ -913,14 +926,23 @@ function cantidad(n) {
                     proveedor. Se pregunta cuál cada vez.
                 </p>
 
-                <!-- Lo que ya se facturó de esta nota de venta. Va aquí porque
+<!-- De dónde viene y en qué terminó. La cotización enseña las notas
+                     de venta que salieron de ella; la nota de venta, la
+                     cotización de la que nació. Es la misma pregunta desde los
+                     dos lados, y hasta ahora sólo se contestaba con el número
+                     escrito, que obligaba a volver a la lista y buscarlo. -->
+                <Relacionados :filas="relacionados"
+                              :titulo="esCotizacion ? 'Notas de venta' : 'Viene de'" />
+
+                                <!-- Lo que ya se facturó de esta nota de venta. Va aquí porque
                      es aquí donde alguien se pregunta qué salió y qué falta, no
                      en una lista de facturas aparte. Las notas de crédito no se
                      listan: son el desenlace de una factura, y enseñarlas
                      sueltas haría contar dos veces la misma operación. -->
                 <template v-if="! esCotizacion && facturas.length">
                     <div class="seccion"><h2>Facturado</h2></div>
-                    <div class="item" v-for="f in facturas" :key="`${f.tipo}-${f.numero_interno}`">
+                    <div class="item" v-for="f in facturas" :key="`${f.tipo}-${f.numero_interno}`"
+                         @click="router.push(`/facturas/${f.tipo}/${f.numero_interno}`)">
                         <div class="item-estado" :class="f.anulada || f.acreditada ? 'gris' : 'verde'"></div>
                         <div class="item-cuerpo">
                             <div class="item-titulo">

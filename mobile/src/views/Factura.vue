@@ -7,12 +7,14 @@ import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe } from '../catalogos';
 import { estadoSii as leerEstadoSii } from '../documentos';
 import { facturasEmitidas } from '../saldo';
+import { relacionesDeFactura } from '../relaciones';
 import { nuevoUuid } from '../pendientes';
 import { compartirPdf, verPdf } from '../pdf';
 import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import Persiana from '../components/Persiana.vue';
+import Relacionados from '../components/Relacionados.vue';
 
 /*
  * La ficha de un documento emitido.
@@ -64,9 +66,18 @@ onMounted(async () => {
  * el SII cambia por su cuenta —el veredicto llega minutos después— y porque el
  * documento pudo tocarse desde el Softland de escritorio.
  */
+/**
+ * De dónde viene y en qué terminó: la nota de venta, su cotización, y la nota
+ * de crédito que lo anuló —o, si esto **es** la nota de crédito, la factura que
+ * devuelve. Se calcula al final, con el documento ya armado: el folio que lo
+ * acredita sale de cruzar almacenes y el servidor no lo manda.
+ */
+const relacionados = ref([]);
+
 async function cargar() {
     cargando.value = true;
     error.value = '';
+    relacionados.value = [];
 
     try {
         const guardado = (await facturasEmitidas())
@@ -92,6 +103,7 @@ async function cargar() {
         } else if (! guardado) {
             error.value = 'Ese documento no está en el teléfono y no hay señal para traerlo.';
         }
+        if (doc.value) relacionados.value = await relacionesDeFactura(doc.value);
     } catch (e) {
         if (! doc.value) error.value = e.message;
     } finally {
@@ -411,13 +423,15 @@ function cantidad(n) {
                             <div class="fuerte">
                                 <span>Total</span><b>{{ monto(Math.abs(doc.total), doc.moneda) }}</b>
                             </div>
-                            <div v-if="doc.nota_venta"><span>Viene de</span>
-                                <b><button class="enlace" @click="router.push(`/notas-venta/${doc.nota_venta}`)">
-                                    Nota de venta {{ doc.nota_venta }}</button></b>
-                            </div>
                         </div>
                     </Persiana>
                 </div>
+
+                <!-- Los documentos con los que éste está atado, abribles. El
+                     aviso de arriba dice que la anularon; esto deja ir a ver
+                     con qué, que hasta ahora obligaba a volver a la lista y
+                     buscar el folio a mano. -->
+                <Relacionados :filas="relacionados" />
 
                 <div class="seccion"><h2>Detalle</h2></div>
 

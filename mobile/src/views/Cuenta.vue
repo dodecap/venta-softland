@@ -212,7 +212,10 @@ async function salir() {
 
 <template>
     <div class="pantalla">
-        <div class="encabezado simple">
+        <div class="barra">
+            <button class="icono-barra" @click="router.back()" title="Volver">
+                <AppIcon name="atras" :size="24" />
+            </button>
             <h1>Cuenta</h1>
         </div>
 

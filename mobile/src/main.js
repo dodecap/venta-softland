@@ -19,6 +19,7 @@ import Documento from './views/Documento.vue';
 import Editor from './views/Editor.vue';
 import Facturar from './views/Facturar.vue';
 import FacturaNueva from './views/FacturaNueva.vue';
+import Cobranza from './views/Cobranza.vue';
 import Facturas from './views/Facturas.vue';
 import Factura from './views/Factura.vue';
 import Aprobaciones from './views/Aprobaciones.vue';
@@ -36,7 +37,9 @@ import Bitacora from './views/Bitacora.vue';
  *   adentro    el resto                    se apilan sobre una pestaña y se
  *                                          salen con «atrás»
  *
- * `meta.tab` marca las de arriba. De ahí salen tanto la barra inferior como
+ * `meta.tab` marca las de arriba — incluidas las tres listas de documentos,
+ * que son un solo destino de la barra («Documentos») con tres caras. De ahí
+ * salen tanto la barra inferior como
  * las raíces del botón «atrás» de Android.
  */
 const router = createRouter({
@@ -49,26 +52,30 @@ const router = createRouter({
 
         { path: '/inicio', component: Inicio, meta: { tab: true } },
         { path: '/clientes', component: Clientes, meta: { tab: true } },
-        { path: '/avisos', component: Avisos, meta: { tab: true } },
-        { path: '/cuenta', component: Cuenta, meta: { tab: true } },
+        // Avisos y Cuenta dejaron de ser pestañas: se llega a ellas por la
+        // campana y por las iniciales, arriba. Se apilan como cualquier
+        // pantalla de adentro y se salen con «atrás».
+        { path: '/avisos', component: Avisos },
+        { path: '/cuenta', component: Cuenta },
+        { path: '/cobranza', component: Cobranza, meta: { tab: true } },
 
         // Consulta del catálogo y de los documentos, todo desde IndexedDB.
         // `/clientes/nuevo` y `/clientes/77234300` son la misma pantalla: la
         // ficha sabe si está dando de alta o mostrando por el código que le toca.
         { path: '/clientes/:codigo', component: Cliente },
         { path: '/productos', component: Productos },
-        { path: '/cotizaciones', component: Documentos, meta: { tipo: 'cotizacion' } },
+        { path: '/cotizaciones', component: Documentos, meta: { tipo: 'cotizacion', tab: true } },
         // `nuevo` va antes que `:numero` porque el router toma la primera que
         // calce, y `:numero` calzaría también con la palabra «nuevo».
         { path: '/cotizaciones/nuevo', component: Editor, meta: { tipo: 'cotizacion' } },
         { path: '/cotizaciones/:numero', component: Documento, meta: { tipo: 'cotizacion' } },
         { path: '/cotizaciones/:numero/editar', component: Editor, meta: { tipo: 'cotizacion' } },
-        { path: '/notas-venta', component: Documentos, meta: { tipo: 'nota_venta' } },
+        { path: '/notas-venta', component: Documentos, meta: { tipo: 'nota_venta', tab: true } },
         { path: '/notas-venta/nuevo', component: Editor, meta: { tipo: 'nota_venta' } },
         { path: '/notas-venta/:numero', component: Documento, meta: { tipo: 'nota_venta' } },
         { path: '/notas-venta/:numero/editar', component: Editor, meta: { tipo: 'nota_venta' } },
         { path: '/notas-venta/:numero/facturar', component: Facturar },
-        { path: '/facturas', component: Facturas },
+        { path: '/facturas', component: Facturas, meta: { tab: true } },
         { path: '/facturas/nueva', component: FacturaNueva },
         // Va después de «nueva» a propósito: el tipo es una letra y «nueva» no
         // lo es, pero el orden deja claro cuál gana sin tener que pensarlo.

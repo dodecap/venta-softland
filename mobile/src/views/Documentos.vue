@@ -8,13 +8,14 @@ import { dia } from '../panel/periodo';
 import { situacion } from '../panel/metricas';
 import { TIPOS, estado } from '../documentos';
 import { parciales, porFacturar } from '../saldo';
-import { compromisosVivos, cuando as cuandoTexto, estado as estadoCompromiso, hora as horaDe } from '../seguimiento';
+import { compromisosVivos, cuando as cuandoTexto, estado as estadoCompromiso, hora as horaDe, resumen as resumenCompromisos } from '../seguimiento';
 import { useAccionCrear } from '../crear';
 import { contarPendientes, porEnviar } from '../pendientes';
 import { conectado } from '../red';
 import { refrescarGrupo } from '../sync';
 import { useTirarParaRefrescar } from '../refresco';
 import AppIcon from '../components/AppIcon.vue';
+import PestanasDocumento from '../components/PestanasDocumento.vue';
 import Aviso from '../components/Aviso.vue';
 import Buscador from '../components/Buscador.vue';
 import TirarRefrescar from '../components/TirarRefrescar.vue';
@@ -89,6 +90,19 @@ const atencion = computed(() => (ATENCION[route.query.atencion] ? route.query.at
 const documentos = ref([]);
 /* El compromiso vivo de cada cotización de la lista, para pintarlo. */
 const compromisos = ref(new Map());
+
+/*
+ * La cola que alimenta esta lista.
+ *
+ * Cada lista lleva encima el trabajo que la surte: en notas de venta, las
+ * cotizaciones que siguen abiertas; en cotizaciones, los compromisos de hoy.
+ * Así el vendedor recorre su embudo hacia atrás sin pasar por el panel.
+ *
+ * El número sale de reglas que ya están escritas —`situacion()` y el resumen de
+ * compromisos—, no de una cuenta nueva: dos copias de la misma regla son un
+ * chip que dice 7 y una lista que muestra 6.
+ */
+const cola = ref(null);
 const sinEnviar = ref([]);
 const nombres = ref({});
 const cargando = ref(true);
@@ -207,6 +221,7 @@ async function cargar() {
         // El más nuevo arriba: es el que se está mirando en la reunión.
         documentos.value = filas.sort((a, b) => b.numero - a.numero);
         compromisos.value = vivos;
+        await contarCola(regla);
 
         // Los que todavía no salieron del teléfono no tienen número, así que no
         // están en el almacén. Van arriba y con la franja ámbar: el vendedor
@@ -284,6 +299,29 @@ const vacio = computed(() =>
 
 const hoyTexto = () => dia(new Date());
 
+async function contarCola(regla) {
+    if (esCotizacion.value) {
+        const r = await resumenCompromisos({
+            cotizaciones: await idb.todos('cotizaciones'), hoy: regla.hoy,
+        });
+        const n = r.atrasado + r.hoy;
+
+        cola.value = n ? { n, rotulo: n === 1 ? 'compromiso para hoy' : 'compromisos para hoy',
+            ruta: '/cotizaciones?atencion=compromiso_hoy' } : null;
+
+        return;
+    }
+
+    // En notas de venta, lo que la surte son las cotizaciones todavía abiertas.
+    const abiertas = (await idb.todos('cotizaciones'))
+        .filter((c) => ['P', ''].includes(String(c.estado || '').trim().toUpperCase())).length;
+
+    cola.value = abiertas
+        ? { n: abiertas, rotulo: abiertas === 1 ? 'cotización pendiente' : 'cotizaciones pendientes',
+            ruta: '/cotizaciones?estado=P' }
+        : null;
+}
+
 /** Rojo si ya se pasó, ámbar si es hoy, y neutro lo que viene. */
 function etiquetaCompromiso(d) {
     const e = estadoCompromiso(d, compromisos.value.get(Number(d.numero)), hoyTexto());
@@ -299,9 +337,18 @@ function quitarAtencion() {
 <template>
     <div class="pantalla">
         <div class="barra">
-            <button class="icono-barra" @click="router.back()"><AppIcon name="atras" :size="24" /></button>
+            <!-- Al panel, no «atrás»: estas tres son pestañas de la barra, y
+                 se llega a ellas tanto desde el panel como saltando entre sí.
+                 Un «atrás» ahí desharía el zigzag entre listas. -->
+            <button class="icono-barra" @click="router.replace('/inicio')" title="Volver al panel">
+                <AppIcon name="atras" :size="24" />
+            </button>
             <h1>{{ def.titulo }}</h1>
         </div>
+
+        <!-- Las tres listas son hermanas: se cambia entre ellas sin volver al
+             panel, que era el rodeo de todos los días. -->
+        <PestanasDocumento />
 
         <div class="contenido" ref="contenido">
             <TirarRefrescar :distancia="distancia" :refrescando="refrescando" :listo="listo"
@@ -344,6 +391,14 @@ function quitarAtencion() {
                     <AppIcon name="factura" :size="17" color="currentColor" /> Facturas emitidas
                 </button>
             </div>
+
+            <!-- La cola que alimenta esta lista, a un toque. No aparece en
+                 cero: un «Pendientes · 0» ocupa igual y no dice nada. -->
+            <button class="chip-cola" v-if="cola && ! atencion" @click="router.push(cola.ruta)">
+                <span class="n">{{ cola.n }}</span>
+                <span>{{ cola.rotulo }}</span>
+                <AppIcon name="avanzar" :size="15" color="currentColor" />
+            </button>
 
             <div class="pestanas en-linea">
                 <button :class="{ activa: filtroEstado === '' }" @click="filtroEstado = ''">Todo</button>

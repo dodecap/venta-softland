@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { avisos, cargando, familias, marcarVistos, refrescarAvisos } from '../avisos';
 import AppIcon from '../components/AppIcon.vue';
 import Vacio from '../components/Vacio.vue';
@@ -11,7 +12,11 @@ import Vacio from '../components/Vacio.vue';
  * Las pestañas de arriba las manda el servidor (`Eventos::familias()`): si
  * mañana se agrega un evento, cae solo en la pestaña que le toca sin cambiar
  * nada aquí.
+ *
+ * Lleva franja índigo y flecha porque ya no es una pestaña: se entra desde la
+ * campana de la cabecera y se sale por donde se vino.
  */
+const router = useRouter();
 const filtro = ref('todo');
 
 onMounted(async () => {
@@ -50,7 +55,10 @@ function cuando(a) {
 
 <template>
     <div class="pantalla">
-        <div class="encabezado simple">
+        <div class="barra">
+            <button class="icono-barra" @click="router.back()" title="Volver">
+                <AppIcon name="atras" :size="24" />
+            </button>
             <h1>Avisos</h1>
             <button class="icono-barra" :disabled="cargando" title="Actualizar" @click="refrescarAvisos">
                 <AppIcon name="sincronizar" :size="20" :class="{ girando: cargando }" />

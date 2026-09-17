@@ -277,6 +277,62 @@ html.con-barra .contenido {
 
 .item-estado.gris { background: var(--texto-suave); }
 
+/* El chip de la cola anterior: el trabajo que alimenta esta lista. Va ancho y
+   tocable entero — es un salto, no una etiqueta. */
+.chip-cola {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: calc(14px * var(--d));
+    color: var(--indigo);
+    background: var(--indigo-suave);
+    border: 0;
+    border-left: 4px solid var(--cian);
+    border-radius: 4px var(--radio) var(--radio) 4px;
+    cursor: pointer;
+    text-align: left;
+}
+.chip-cola .n { font-weight: 800; font-size: calc(17px * var(--d)); font-variant-numeric: tabular-nums; }
+.chip-cola span:nth-child(2) { flex: 1 1 auto; }
+
+/* Las tres listas del flujo de venta, hermanas. Van pegadas bajo la barra del
+   título: son el cambio de lista más frecuente del día y tienen que estar
+   donde el pulgar ya está. */
+.pestanas-doc {
+    display: flex;
+    gap: 4px;
+    padding: 0 12px 10px;
+    background: var(--blanco);
+    border-bottom: 1px solid var(--borde);
+    flex: 0 0 auto;
+}
+.pestanas-doc button {
+    flex: 1 1 0;
+    min-height: 40px;
+    padding: 8px 4px;
+    font-family: inherit;
+    /* 13 px es el piso de lectura para tres rótulos en 360 px; no se escala
+       con la densidad porque bajar de ahí no se lee al sol. */
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--texto-suave);
+    background: transparent;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pestanas-doc button.activa {
+    color: var(--indigo);
+    /* El subrayado cian de 3 px: la misma señal que el resto de la app. */
+    border-bottom-color: var(--cian);
+}
+
 /* Los tres contadores de compromisos del panel. Tres cifras grandes y nada
    más: es lo que se mira de un vistazo antes de salir a la calle. */
 /* El separador de las etapas que no encadenan. Una flecha diría que una sale
@@ -346,6 +402,19 @@ html.con-barra .contenido {
 }
 
 .item-meta { font-size: 12px; color: var(--texto-suave); }
+
+/* Documentos relacionados: la fila dice de qué familia es lo que abre y se ve
+   que es un enlace. La flecha no es adorno — un documento nombrado y sin
+   flecha parece un dato, no un sitio al que se puede ir. */
+.rel-titulo { display: flex; align-items: center; gap: 7px; }
+.rel-titulo span { overflow: hidden; text-overflow: ellipsis; }
+.rel-flecha {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    padding-right: 10px;
+    color: var(--texto-suave);
+}
 
 /* ---------- Panel de control ----------
    La jerarquía de la pantalla de inicio, de arriba abajo:

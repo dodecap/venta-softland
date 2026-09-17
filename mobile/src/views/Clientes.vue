@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { idb } from '../idb';
 import { nombre as nombreDe } from '../catalogos';
 import { useAccionCrear } from '../crear';
-import { px } from '../densidad';
+import BarraSuperior from '../components/BarraSuperior.vue';
 import AppIcon from '../components/AppIcon.vue';
 import { conectado } from '../red';
 import { refrescarGrupo } from '../sync';
@@ -109,13 +109,10 @@ const cuando = computed(() => {
 
 <template>
     <div class="pantalla">
-        <div class="encabezado simple">
-            <AppIcon name="cliente" :caja="px(40)" :size="px(20)" />
-            <div class="saludo">
-                <h1>Clientes</h1>
-                <div class="quien">{{ total.toLocaleString('es-CL') }} en el teléfono</div>
-            </div>
-        </div>
+        <BarraSuperior>
+            <div class="hola">Clientes</div>
+            <div class="quien">{{ total.toLocaleString('es-CL') }} en el teléfono</div>
+        </BarraSuperior>
 
         <div class="contenido" ref="contenido">
             <TirarRefrescar :distancia="distancia" :refrescando="refrescando" :listo="listo"

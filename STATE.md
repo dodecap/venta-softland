@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-16 — versión **0.31.0**
+2026-09-17 — versión **0.32.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1216,3 +1216,43 @@ cuando alguien cuadra el mes.
 - [x] **Probado contra palena, en producción, sin emitir nada**: `dte:token`
       devuelve token; `dte:estado --track=` devuelve «EPR, 1 aceptado»;
       `dte:estado --folio=` devuelve «DOK».
+
+### La navegación de dos niveles, y los documentos enlazados (0.32.0)
+- [x] **Avisos y Cuenta se fueron de la barra a la cabecera.** La barra de abajo
+      es *dónde estoy*, no quién soy: se llevaban la mitad del sitio más valioso
+      con dos cosas que se visitan una vez al día. `BarraSuperior.vue` las pone
+      en el mismo píxel de todas las pestañas — iniciales a la izquierda,
+      campana con su contador a la derecha.
+- [x] **La barra pasa a Panel · Documentos · Clientes · Cobranza**, y ahí se
+      cierra: en 360 px, con la activa desplegada, una quinta no cabe sin bajar
+      de los 44 px de área pulsable.
+- [x] **«Documentos» es un destino con tres caras.** Cotizaciones, notas de
+      venta y facturas son el mismo documento en tres momentos de su vida:
+      hermanas, se cambian con `PestanasDocumento.vue` y `replace`, y la barra
+      abre por la última que se miró (`ultimaLista` en `nav.js`). El de terreno
+      y el de facturación no viven en la misma lista.
+- [x] **El «+» siempre crea; la pestaña siempre lista.** Eran el mismo gesto, y
+      por eso *ver* una lista obligaba a pasar por el panel. El botón flotante
+      abre una hoja con los tres documentos —la acción de la pantalla primero—
+      y vive sólo en las pestañas (`route.meta.tab`): en la ficha de un
+      documento ofrecía empezar otro justo cuando no tocaba.
+- [x] La flecha de las tres listas vuelve **al panel**, no «atrás»: un retroceso
+      ahí desharía el zigzag entre hermanas. Avisos y Cuenta, que ya no son
+      pestañas, estrenan franja índigo y su propia flecha.
+- [x] **Los documentos enlazados, y abribles.** Las fichas *contaban* sus
+      relaciones —«viene de la nota de venta 812», «anulada con la NC 45»— y
+      había que volver a la lista y buscar el número a mano.
+- [x] Quién cuelga de quién se decide en **un solo sitio**
+      (`mobile/src/relaciones.js`) y se dibuja en **uno solo**
+      (`Relacionados.vue`). Tres fichas contestando la misma pregunta por su
+      cuenta acaban diciendo cosas distintas de lo mismo.
+- [x] Los dos enlaces que se usan para navegar son **de Softland**:
+      `nw_nventa.CotNum` y `iw_gsaen.nvnumero`. El nuestro, el de línea a línea
+      en `ventas.linea_origen`, es para el saldo — aquí basta con saber que el
+      documento existe.
+- [x] Todo se lee del teléfono: una ficha que sólo enseña sus relaciones con
+      señal no las enseña cuando hacen falta. Un documento fuera de la ventana
+      de doce meses se enlaza igual y se trae al abrirlo.
+- [x] **Cobranza queda declarada como fase 5**, con su pantalla diciendo qué va
+      a haber ahí y un atajo a Facturas mientras tanto. Un botón que no hace
+      nada y no explica por qué parece una avería.

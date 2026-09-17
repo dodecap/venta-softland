@@ -46,6 +46,9 @@ export const ICONOS = {
     duplicar: { glifo: Copy, variante: 'venta' },
     notaVenta: { glifo: ClipboardList, variante: 'venta' },
     factura: { glifo: ReceiptText, variante: 'venta' },
+    // La nota de crédito es un documento del flujo, no un peligro: devuelve lo
+    // facturado. El rojo es de anular, que es la acción, no del papel.
+    notaCredito: { glifo: ReceiptText, variante: 'venta' },
     pdf: { glifo: FileDown, variante: 'venta' },
     venta: { glifo: ShoppingCart, variante: 'venta' },
 

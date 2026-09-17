@@ -16,6 +16,15 @@ const pila = [];
 /** Si hay algo abierto encima. Lo que flota al pie se esconde mientras tanto. */
 export const hayCapa = ref(false);
 
+/**
+ * La última lista de documentos que se miró.
+ *
+ * La pestaña «Documentos» de la barra abre por ahí. Volver siempre a
+ * cotizaciones le costaría dos toques a quien vive en facturas, y el vendedor
+ * de terreno y el de facturación no viven en la misma lista.
+ */
+export const ultimaLista = ref('/cotizaciones');
+
 function sincronizarBandera() {
     hayCapa.value = pila.length > 0;
 }

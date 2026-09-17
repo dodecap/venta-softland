@@ -42,6 +42,41 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.32.0 — La barra de abajo, el botón de crear y los documentos enlazados
+*2026-09-17*
+
+- **Avisos y Cuenta se fueron arriba.** La barra de abajo es *dónde estoy*, no
+  quién soy: ocupaban la mitad del sitio más valioso de la pantalla con dos
+  cosas que se visitan una vez al día. Ahora la campana y las iniciales viven
+  en la cabecera, que comparten todas las pestañas (`BarraSuperior.vue`), y
+  están siempre en el mismo píxel.
+- **La barra pasa a Panel · Documentos · Clientes · Cobranza.** «Documentos»
+  es un destino con tres caras —cotizaciones, notas de venta y facturas—, que
+  se cambian con las pestañas de arriba (`PestanasDocumento.vue`) y abre por
+  la última que se miró: el vendedor de terreno y el de facturación no viven
+  en la misma lista.
+- **Cobranza queda declarada como fase 5**, con su pantalla diciendo qué va a
+  haber ahí y un atajo a Facturas mientras tanto. Un botón que no hace nada y
+  no explica por qué parece una avería.
+- **El «+» siempre crea; la pestaña siempre lista.** Eran el mismo gesto y por
+  eso había que pasar por el panel para *ver* una lista. Ahora el botón
+  flotante abre una hoja con los tres documentos —la acción de la pantalla
+  primero— y vive sólo en las pestañas: en la ficha de un documento ofrecía
+  empezar otro justo cuando no tocaba.
+- **Los documentos enlazados, y abribles.** Las fichas *contaban* sus
+  relaciones —«viene de la nota de venta 812», «anulada con la NC 45»— y había
+  que volver a la lista y buscar el número a mano. La cotización enseña las
+  notas de venta que salieron de ella, la nota de venta su cotización, y la
+  factura su venta, su cotización y la nota de crédito que la anuló —o, siendo
+  nota de crédito, la factura que devuelve. Las facturas listadas en la nota
+  de venta también abren.
+- Quién cuelga de quién se decide en **un solo sitio** (`mobile/src/relaciones.js`)
+  y se dibuja en **uno solo** (`Relacionados.vue`): tres fichas contestando la
+  misma pregunta por su cuenta acaban diciendo cosas distintas de lo mismo. Y
+  todo se lee del teléfono, porque esto se mira en terreno.
+- La flecha de las tres listas vuelve **al panel**, no «atrás»: son hermanas y
+  un retroceso ahí desharía el zigzag entre ellas.
+
 ### 0.31.0 — El icono nuevo, y lo facturado del período
 *2026-09-16*
 
