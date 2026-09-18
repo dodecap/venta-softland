@@ -84,6 +84,14 @@ class Traduccion
         'ALTO BIOBIO' => 'ALTO BIO BIO',
     ];
 
+    /**
+     * Palabras que no pueden quedar al final de una descripción recortada.
+     *
+     * No es cosmética: `GirDes` sale impreso, y una frase que acaba en «Y» o en
+     * «DE» parece un error de la aplicación en vez de un texto cortado.
+     */
+    private const COLGANDO = ['Y', 'O', 'E', 'U', 'DE', 'DEL', 'LA', 'EL', 'LAS', 'LOS', 'EN', 'A', 'AL', 'CON', 'PARA', 'POR'];
+
     /** Lo que el padrón pone cuando no hay comuna. No es un sitio. */
     private const SIN_COMUNA = 'SIN COMUNA';
 
@@ -178,7 +186,16 @@ class Traduccion
      * `PUB_NOM_ACTECOS` del SII. Lo usan la carga de `cwtgiro` y
      * `ventas:verifica-sii`; la traducción de arriba no lo necesita.
      *
-     * @return array<string, string> código de seis dígitos => descripción
+     * **Una lista, y no un array con el código de clave.** PHP convierte a
+     * entero toda clave de array que parezca un número entero canónico, así
+     * que `'474100'` se vuelve `int` mientras `'011101'` se queda texto: el
+     * mismo array acaba con las claves de dos tipos. Con eso, un `whereIn`
+     * manda enteros a una columna `varchar` y SQL Server intenta convertir
+     * *toda* la columna — y revienta contra el giro que alguien codificó
+     * `'..3'`. Es el problema del cero a la izquierda otra vez, entrando por
+     * una puerta que no se ve.
+     *
+     * @return list<array{codigo: string, descripcion: string}>
      */
     public static function catalogo(): array
     {
@@ -193,10 +210,47 @@ class Traduccion
 
         foreach (file($ruta, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $linea) {
             [$codigo, $descripcion] = array_pad(explode("\t", $linea, 2), 2, '');
-            $catalogo[$codigo] = $descripcion;
+            $catalogo[] = ['codigo' => $codigo, 'descripcion' => $descripcion];
         }
 
         return $catalogo;
+    }
+
+    /**
+     * La descripción del SII recortada a lo que admite `cwtgiro.GirDes`.
+     *
+     * **Cortando en palabra**, que es la diferencia entre «VENTA AL POR MENOR
+     * DE COMPUTADORES, EQUIPO PERIFERICO, PROGRAMAS INFORMAT» y la misma frase
+     * cortada limpia. 239 de los 674 no caben en 60.
+     */
+    public static function recortar(string $texto, int $tope = 60): string
+    {
+        $texto = trim(preg_replace('/\s+/', ' ', $texto));
+
+        if (mb_strlen($texto) <= $tope) {
+            return $texto;
+        }
+
+        $corte = mb_substr($texto, 0, $tope);
+        $espacio = mb_strrpos($corte, ' ');
+
+        // Sin espacio en los primeros 60 no hay palabra donde cortar: se corta
+        // donde toca. Una sola palabra de más de 60 no existe en el catálogo,
+        // pero el padrón cambia y esto no puede devolver cadena vacía.
+        if ($espacio === false || $espacio < $tope / 2) {
+            return rtrim($corte);
+        }
+
+        $corte = rtrim(mb_substr($corte, 0, $espacio), " ,;:.-");
+
+        // Y sin la conjunción o la preposición que quedó colgando. «CULTIVO DE
+        // OTROS CEREALES (EXCEPTO TRIGO, MAIZ, AVENA Y» se lee como si faltara
+        // una palabra; sin la «Y», se lee como lo que es, una frase cortada.
+        while (preg_match('/\s('.implode('|', self::COLGANDO).')$/u', $corte)) {
+            $corte = rtrim(preg_replace('/\s\S+$/u', '', $corte), " ,;:.-");
+        }
+
+        return $corte;
     }
 
     /**

@@ -46,3 +46,21 @@ Thumbs.db
 # repositorio para siempre.
 /*.png
 /*.pdf
+
+# Los padrones públicos del SII: 331 MB de material de referencia que se
+# descarga otra vez cuando haga falta. Lo que sí se versiona es el catálogo
+# destilado de ahí, `resources/sii/actecos.tsv`, que son 44 KB.
+#
+# El CSV de empresas y los padrones llevan RUT, nombre y domicilio de cientos
+# de miles de personas y sociedades: no tienen por qué quedar en el historial
+# del repositorio para siempre.
+/sii/*.zip
+/sii/*.csv
+/sii/*.txt
+
+# Vídeos y audios que se mandan por WhatsApp para explicar algo. Se miran y se
+# borran; el historial de git no es el sitio.
+*.mp4
+*.mov
+*.m4a
+*.ogg

@@ -178,18 +178,18 @@ class VentasVerificaSii extends Command
         $catalogo = Traduccion::catalogo();
         $malos = [];
 
-        foreach ($catalogo as $codigo => $descripcion) {
-            if (! preg_match('/^\d{6}$/', (string) $codigo)) {
-                $malos[] = "«{$codigo}» no son seis dígitos";
-            } elseif (trim($descripcion) === '') {
-                $malos[] = "{$codigo} sin descripción";
+        foreach ($catalogo as $fila) {
+            if (! preg_match('/^\d{6}$/', $fila['codigo'])) {
+                $malos[] = "«{$fila['codigo']}» no son seis dígitos";
+            } elseif (trim($fila['descripcion']) === '') {
+                $malos[] = "{$fila['codigo']} sin descripción";
             }
         }
 
         $this->resultado(count($catalogo) - count($malos), count($catalogo), $malos);
 
-        $ceros = count(array_filter(array_keys($catalogo), fn ($c) => str_starts_with((string) $c, '0')));
-        $largas = count(array_filter($catalogo, fn ($d) => strlen($d) > 60));
+        $ceros = count(array_filter($catalogo, fn ($f) => str_starts_with($f['codigo'], '0')));
+        $largas = count(array_filter($catalogo, fn ($f) => strlen($f['descripcion']) > 60));
         $this->line("   Empiezan por cero (por eso el código es texto): <options=bold>{$ceros}</>");
         $this->line("   Descripciones que no caben en GirDes(60): <options=bold>{$largas}</>");
     }
@@ -201,8 +201,8 @@ class VentasVerificaSii extends Command
 
         $catalogo = Traduccion::catalogo();
         $alcanzables = count(array_filter(
-            array_keys($catalogo),
-            fn ($acteco) => $traduccion->giro((string) $acteco) !== null
+            $catalogo,
+            fn ($fila) => $traduccion->giro($fila['codigo']) !== null
         ));
 
         $total = count($catalogo);

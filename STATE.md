@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-18 — versión **0.36.0**
+2026-09-18 — versión **0.37.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1364,12 +1364,7 @@ cuando alguien cuadra el mes.
       estrenar fila.
 - [x] **`ventas:verifica-sii`** contrasta sin escribir ni salir a internet:
       11/11 alias, 352/352 comunas, 937/937 ciudades, 674/674 actecos.
-- [ ] **Queda decidir la carga de `cwtgiro`.** Hoy sólo **16 de los 674**
-      actecos tienen un giro al que llegar (2,4 %): sin cargarlo, seis de cada
-      siete clientes nuevos entran con el giro vacío. Es un maestro compartido
-      con el Softland de escritorio, así que la carga es una migración
-      deliberada y revisada, no un efecto colateral del alta. **Decisión del
-      administrador del ERP.**
+- [x] **La carga de `cwtgiro` está hecha** (0.37.0). Ver abajo.
 - [x] **La API ya devuelve el código** (`giro_codigo`, `giros_todos_detalle`),
       filtra por `VIGENCIA` y prefiere `DOMICILIO` sobre `SUCURSAL` — las tres
       comprobadas. Le falta usar `DEPARTAMENTO`, `BLOQUE` y `VILLA_POBLACION`,
@@ -1377,3 +1372,30 @@ cuando alguien cuadra el mes.
 - [ ] **Lo que el SII recorta en origen no tiene arreglo**: `CIUDAD` a 15
       caracteres, y razón social hasta 80 contra los 60 de `NomAux`. Por eso la
       pantalla tendrá que **enseñar el recorte**, no hacerlo callada.
+
+### Alta de clientes desde el SII, paso 2: el maestro de giros (0.37.0)
+- [x] **`cwtgiro` cargado con los 674 ACTECO vigentes**: de 2.009 a 2.667
+      giros, y la cobertura del giro del **2,4 % al 100 %**. Sin esto, seis de
+      cada siete clientes nuevos entraban con el giro vacío.
+- [x] **`ventas:carga-giros`, que no escribe sin `--escribir`.** `cwtgiro` lo ve
+      el administrativo en su desplegable del escritorio: que crezca tiene que
+      ser una decisión mirando la lista, no un efecto colateral del alta.
+- [x] **No toca una fila que ya exista, ni su descripción.** Los 16 actecos que
+      ya estaban se quedaron igual. Un giro en uso tiene el texto que sus
+      clientes reconocen y que sale impreso en el `GiroRecep` de sus DTE.
+- [x] **No borra nunca**: `cwtauxi.GirAux` tiene clave foránea contra la tabla.
+- [x] **Ensayado en `INNOVAGES_DTE` antes de producción**, como manda la regla 9.
+      Comprobado en las dos: 0 filas existentes modificadas, 0 auxiliares con
+      `GirAux` huérfano, los 94 códigos con cero a la izquierda con sus seis
+      caracteres, y `GirDes` en 60 como tope.
+- [x] **Descripciones recortadas a 60 cortando en palabra** —239 de 674 no
+      caben— y sin la conjunción colgando.
+- [x] **Fallo corregido**: `Traduccion::catalogo()` devolvía el código como
+      clave de array y PHP convierte a entero toda clave que parezca un entero
+      canónico. El array acababa con `'011101'` de texto y `474100` de número, y
+      un `whereIn` así manda enteros a una columna `varchar`: SQL Server intenta
+      convertir la columna y revienta contra el giro codificado `'..3'`. Ahora
+      devuelve una lista.
+- [x] **`.gitignore`**: los padrones del SII (331 MB con datos personales de
+      cientos de miles de personas) y los vídeos ya no pueden colarse con un
+      `git add -A`. `resources/sii/actecos.tsv` sigue versionado.

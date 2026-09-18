@@ -193,8 +193,10 @@ escritorio, así que **es una migración deliberada y revisada, no un efecto
 colateral** de que un vendedor teclee un RUT. El alta nunca escribe en
 `cwtgiro`: sólo busca.
 
-Ojo con la descripción: **239 de los 674 no caben en `GirDes(60)`** y hay que
-recortarlas cortando en palabra. Y aguas abajo, `dte_doccab.GiroRecep` es
+Ojo con la descripción: **239 de los 674 no caben en `GirDes(60)`**. Se recortan
+cortando en palabra y **quitando la conjunción que queda colgando**: «…TRIGO,
+MAIZ, AVENA Y» se lee como si faltara texto por un fallo, y «…TRIGO, MAIZ,
+AVENA» se lee como lo que es, una frase cortada. Y aguas abajo, `dte_doccab.GiroRecep` es
 `varchar(40)`: **462 de 674** se pasan. Eso ya ocurre hoy sin nosotros — el giro
 más largo de los 286 DTE emitidos está cortado en los 40 exactos.
 
@@ -256,7 +258,7 @@ Alias de comuna                                  11 de 11
 Comunas que se traducen a sí mismas             352 de 352
 Ciudades que se traducen a sí mismas            937 de 937
 Catálogo ACTECO                                 674 de 674
-Cobertura del giro                               16 de 674 (2,4 %)
+Cobertura del giro                              674 de 674 (100 %)
 ```
 
 ## El plan, por pasos
@@ -266,11 +268,25 @@ Cobertura del giro                               16 de 674 (2,4 %)
 `app/Services/Sii/Traduccion.php`, el catálogo en `resources/sii/actecos.tsv`,
 la tabla `ventas.giro_sii` y `ventas:verifica-sii`.
 
-### Paso 2 — Cargar `cwtgiro`
+### Paso 2 — Cargar `cwtgiro` ✅ hecho (0.37.0)
 
-Comando de carga de los 674 actecos, con recorte de descripción en palabra.
-Contra la base de pruebas primero, con la lista a la vista, y sólo entonces a
-`INNOVAGES`. Sube la cobertura del giro del 2,4 % al 100 %.
+`ventas:carga-giros`. Ensayado en `INNOVAGES_DTE` y después corrido en
+`INNOVAGES`: **2.009 → 2.667 giros**, y la cobertura del **2,4 % al 100 %**.
+
+Tres reglas del comando:
+
+- **No escribe si no se lo piden.** Sin `--escribir` enseña lo que haría y se
+  va. `cwtgiro` lo ve el administrativo en su desplegable del escritorio: que
+  crezca tiene que ser una decisión, no un efecto colateral.
+- **No toca ni una fila que ya exista, ni su descripción.** Los 16 actecos que
+  ya estaban se quedaron como estaban — comprobado: 0 filas modificadas. Un giro
+  que ya usan clientes tiene el texto que esa gente reconoce, y que sale impreso
+  en el `GiroRecep` de sus DTE.
+- **No borra nunca**: `cwtauxi.GirAux` tiene clave foránea contra esta tabla.
+
+Comprobado después de cargar, en la copia y en producción: **0 auxiliares con
+`GirAux` huérfano**, los 94 códigos con cero a la izquierda guardados con sus
+seis caracteres, y `GirDes` en 60 como máximo.
 
 ### Paso 3 — La consulta
 
@@ -296,6 +312,8 @@ Proponiendo, nunca pisando lo que escribió una persona.
 - **Si la API sobrevive a un padrón nuevo.** `fecha_actualizacion` cambió de
   2026-09-17 a 2026-09-18 durante esta misma revisión, así que se recarga; lo
   que no se ha visto es un cambio de formato del SII.
-- **Si conviene cargar los 674 o sólo los que se usen.** Cargar todo deja el
-  desplegable del Softland de escritorio con 2.683 giros. Es una decisión del
-  administrador del ERP, no de esta app.
+- **Cómo le sienta al Softland de escritorio** tener 2.667 giros en el
+  desplegable en vez de 2.009. Se cargaron los 674 enteros porque cargar «sólo
+  los que se usen» exige saber de antemano a quién se le va a vender, que es
+  justo lo que no se sabe. Si estorba, se revierte borrando los actecos que
+  ningún auxiliar use.

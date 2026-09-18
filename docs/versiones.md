@@ -42,6 +42,36 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.37.0 — El maestro de giros cargado con los ACTECO del SII
+*2026-09-18*
+
+- **`cwtgiro` pasa de 2.009 a 2.667 giros**, y la cobertura del giro en el alta
+  desde el SII del **2,4 % al 100 %**. Sin esto, seis de cada siete clientes
+  nuevos habrían entrado con el giro vacío: de los 674 actecos vigentes sólo 16
+  tenían una fila a la que llegar.
+- **`ventas:carga-giros`**, que no escribe si no se lo piden con `--escribir`.
+  `cwtgiro` lo ve el administrativo en su desplegable del Softland de
+  escritorio: que crezca tiene que ser una decisión mirando la lista, no un
+  efecto colateral de que un vendedor teclee un RUT.
+- **No toca ni una fila que ya exista, ni su descripción.** Un giro que ya usan
+  clientes tiene el texto que esa gente reconoce y que sale impreso en el
+  `GiroRecep` de sus DTE. Comprobado tras la carga: 0 filas modificadas y 0
+  auxiliares con `GirAux` huérfano, en la copia de pruebas y en producción.
+- **Las descripciones se recortan a 60 cortando en palabra** —239 de los 674 no
+  caben— y sin la conjunción colgando: «…TRIGO, MAIZ, AVENA Y» parece un fallo
+  de la aplicación; «…TRIGO, MAIZ, AVENA» se lee como la frase cortada que es.
+- **Fallo corregido**: `Traduccion::catalogo()` devolvía el código como clave de
+  array, y PHP convierte a entero toda clave que parezca un entero canónico. El
+  mismo array acababa con `'011101'` de texto y `474100` de número, y un
+  `whereIn` así manda enteros a una columna `varchar`: SQL Server intenta
+  convertir la columna entera y revienta contra el giro que alguien codificó
+  `'..3'`. Ahora devuelve una lista. Es el problema del cero a la izquierda otra
+  vez, entrando por una puerta que no se ve.
+- **`.gitignore`**: los padrones del SII —331 MB con RUT, nombre y domicilio de
+  cientos de miles de personas— y los vídeos de WhatsApp dejan de poder colarse
+  en el historial con un `git add -A` distraído. El catálogo destilado,
+  `resources/sii/actecos.tsv`, sigue versionado: son 44 KB.
+
 ### 0.36.0 — Alta de clientes desde el SII: la traducción a códigos de Softland
 *2026-09-18*
 
