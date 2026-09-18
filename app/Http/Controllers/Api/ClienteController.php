@@ -58,10 +58,14 @@ class ClienteController extends Controller
      * comprobado: lo que llega por la red no es de fiar, y un RUT inventado
      * consultaría el padrón para nada.
      *
-     * Devuelve una **propuesta**, no un cliente. Quien da de alta es `store()`,
-     * con una persona de por medio.
+     * Con `?con_sii=1` no corta: devuelve las dos fichas, la de Softland y la
+     * del SII. Es lo que necesita «Actualizar desde el SII» sobre un cliente
+     * que ya existe, porque lo que enseña es en qué se diferencian.
+     *
+     * Devuelve una **propuesta**, no un cliente. Quien da de alta es `store()`
+     * y quien corrige es `update()`, con una persona de por medio en los dos.
      */
-    public function sii(string $rut, Auxiliar $auxiliar)
+    public function sii(string $rut, Request $peticion, Auxiliar $auxiliar)
     {
         if (! Rut::esValido($rut)) {
             return response()->json(['message' => 'El dígito verificador no corresponde.'], 422);
@@ -71,11 +75,32 @@ class ClienteController extends Controller
         $existente = $this->buscar($codigo);
 
         if ($existente) {
-            return response()->json([
+            $carga = [
                 'ya_existe' => true,
                 'cliente' => $existente,
                 'contactos' => $this->contactosDe($codigo),
-            ]);
+            ];
+
+            /*
+             * El alta corta aquí: si el RUT ya es cliente no hay nada que
+             * proponer y salir a internet sería gastar una consulta para nada.
+             *
+             * «Actualizar desde el SII» es el caso contrario y por eso lo pide:
+             * necesita las dos fichas a la vez —la que tiene Softland y la que
+             * publica el SII— porque lo que va a enseñar es en qué se
+             * diferencian. Y si el SII no contesta, eso **no** hace fallar la
+             * respuesta: la ficha del cliente vale igual, así que el fallo va
+             * como un campo más y la pantalla lo cuenta.
+             */
+            if ($peticion->boolean('con_sii')) {
+                try {
+                    $carga['sii'] = $auxiliar->consultar($rut);
+                } catch (\RuntimeException $e) {
+                    $carga['sii_error'] = $e->getMessage();
+                }
+            }
+
+            return response()->json($carga);
         }
 
         try {

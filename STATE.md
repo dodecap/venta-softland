@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-18 — versión **0.39.0**
+2026-09-18 — versión **0.40.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -209,9 +209,6 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       tablero de cuadros para que se note la transparencia.
 
 ## Pendiente / próximos pasos
-- [ ] **Alta de clientes desde el SII, paso 5**: «Actualizar desde el SII» sobre
-      la ficha de un cliente que ya existe, para los 1.211 sin correo DTE.
-      Proponiendo, nunca pisando lo que escribió una persona.
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
       admin: el alcance por vendedor está probado contra la base, pero no con
       alguien usando el teléfono. El usuario `softland` no tiene `ven_cod`
@@ -1469,3 +1466,41 @@ cuando alguien cuadra el mes.
       lo ancho, ninguna fila de giro baja de 44 px de alto y el texto del giro
       no baja de 12 px. 13 px por 0,92 —la escala compacta— daba 11,96 y se
       colaba bajo el piso de lectura; va con `max(12px, calc(13px * var(--d)))`.
+
+### Alta de clientes desde el SII, paso 5: los clientes que ya existen (0.40.0)
+- [x] **«Actualizar desde el SII» en la ficha de un cliente.** Trae lo que
+      publica el padrón, lo compara con lo que hay y enseña **sólo lo que
+      cambia**. Una lista de seis filas iguales es una lista que nadie mira.
+- [x] **No escribe nada.** Lo marcado cae en el formulario de edición y sale a
+      Softland por el camino de siempre, el de Guardar, que ya sabe encolar sin
+      señal. Un segundo camino de escritura sería un segundo sitio donde
+      equivocarse.
+- [x] **Lo vacío viene marcado; lo que pisa, no.** Rellenar un hueco casi
+      siempre está bien y es a lo que vino esto; pisar lo que escribió una
+      persona es la trampa del domicilio tributario. Una propuesta que viene
+      aceptada es una propuesta que nadie lee.
+- [x] **La dirección lleva su aviso debajo**, con todas las letras: el SII da el
+      domicilio tributario y una ficha antigua puede llevar la oficina comercial
+      puesta a propósito.
+- [x] **`?con_sii=1`** hace que el endpoint devuelva las dos fichas. Sin el
+      parámetro sigue cortando en cuanto ve que el RUT ya es cliente, que es lo
+      que quiere el alta. Y si el SII no contesta, la ficha del cliente se
+      devuelve igual: el fallo va como un campo más.
+- [x] **La fila entera es pulsable**, no sólo la casilla: la casilla nativa de
+      Android mide 20 px y pedir esa puntería seis veces seguidas es pedir
+      errores. Comprobado en las tres escalas sobre 360 px: nada desborda, las
+      filas van de 89 a 232 px y el rótulo no baja de 12 px —otra vez el 13 por
+      0,92 dando 11,96—.
+
+**Cuánto arregla esto de verdad, que es menos de lo que decía el plan.** De los
+3.373 clientes, 1.211 no tienen correo para el DTE; de ésos **1.014 tienen RUT
+de empresa** y 197 son personas naturales o códigos que no son RUT, a los que el
+padrón de personas jurídicas no llega nunca. Sobre una muestra al azar de 40
+empresas: 29 están en el padrón (72,5 %) y **sólo 10 traen correo de
+intercambio** (34,5 %). O sea unos **250 de los 1.211**, uno de cada cinco.
+
+Lo que el padrón sí trae casi siempre es la ubicación —dirección, comuna y
+ciudad en 29 de 29—, y razón social y giro en 17 de 29. El grueso de lo que
+esta pantalla propone son justo los campos donde pisar es peligroso, y por eso
+el valor por omisión de las casillas no es un detalle de interfaz: es la
+decisión principal del paso.

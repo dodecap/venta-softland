@@ -42,6 +42,25 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.40.0 — Actualizar la ficha del cliente desde el SII
+*2026-09-18*
+
+- En la ficha de un cliente que ya existe, **Actualizar desde el SII**: trae lo
+  que publica el padrón, lo compara con lo que hay y enseña **sólo lo que
+  cambia**.
+- **No escribe nada.** Lo que se marque cae en el formulario de edición y sale
+  a Softland por el camino de siempre, que ya sabe encolar sin señal.
+- **Lo vacío viene marcado; lo que pisa, no.** Rellenar un hueco casi siempre
+  está bien; pisar lo que escribió una persona es la trampa del domicilio
+  tributario, y eso se marca a mano.
+- La dirección lleva el aviso debajo: el SII da el domicilio tributario, y una
+  ficha antigua puede llevar la oficina comercial a propósito.
+- `GET /clientes/sii/{rut}?con_sii=1` devuelve las dos fichas a la vez. Sin ese
+  parámetro el servidor sigue cortando en cuanto ve que el RUT ya es cliente,
+  que es lo que quiere el alta.
+- Si el SII no contesta, la ficha del cliente se devuelve igual y el fallo va
+  como un campo más: no tiene por qué romper la pantalla.
+
 ### 0.39.0 — Buscar en el SII desde el alta de clientes
 *2026-09-18*
 

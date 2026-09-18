@@ -353,10 +353,54 @@ Comprobado en las tres escalas de densidad sobre 360 px: nada desborda a lo
 ancho, ninguna fila de giro baja de 44 px y el texto del giro no baja de 12 px
 —13 px por 0,92 daba 11,96, y por eso va con `max()`—.
 
-### Paso 5 — Los clientes que ya existen
+### Paso 5 — Los clientes que ya existen ✅ hecho (0.40.0)
 
-«Actualizar desde el SII» sobre la ficha abierta, para los 1.211 sin correo DTE.
-Proponiendo, nunca pisando lo que escribió una persona.
+«Actualizar desde el SII» sobre la ficha abierta. **No escribe nada**: trae la
+ficha del padrón, la compara con la que hay y enseña sólo lo que cambia. Lo que
+se marque cae en el formulario de edición, y de ahí sale a Softland por el
+camino de siempre — el de Guardar, que ya sabe encolar sin señal.
+
+Cómo pide las dos fichas: `GET /clientes/sii/{rut}?con_sii=1`. Sin ese
+parámetro el servidor corta en cuanto ve que el RUT ya es cliente, que es lo
+que quiere el alta; aquí hace falta lo contrario.
+
+- **Lo que está vacío viene marcado; lo que pisa, no.** Rellenar un hueco casi
+  siempre está bien y es a lo que vino esto. Pisar lo que escribió una persona
+  es la trampa del domicilio tributario, y eso se marca a mano. Una propuesta
+  que viene aceptada es una propuesta que nadie lee.
+- **La dirección lleva su aviso escrito debajo**: el SII da el domicilio
+  tributario, y una ficha antigua puede llevar la oficina comercial a
+  propósito.
+- **Sólo salen los campos que cambian.** Una lista de seis filas iguales es una
+  lista que nadie mira.
+- **Lo que el SII no publica no aparece.** Que el padrón no lo traiga no
+  significa que lo de la ficha esté mal.
+- La fila entera es pulsable, no sólo la casilla: la casilla nativa de Android
+  mide 20 px, y pedir esa puntería seis veces seguidas es pedir errores.
+
+#### Cuánto arregla esto de verdad
+
+El plan decía «para los 1.211 sin correo DTE». Medido, es bastante menos, y
+conviene saberlo antes de prometerlo:
+
+| | |
+|---|---|
+| Clientes de INNOVAGES | 3.373 |
+| Sin correo para el DTE | 1.211 |
+| De ésos, con RUT de empresa (8 dígitos) | 1.014 |
+| El resto: persona natural o código que no es un RUT | 197 |
+
+Sobre una muestra al azar de **40** de esas empresas: **29 están en el padrón**
+(72,5 %) y de ellas **sólo 10 traen correo de intercambio** (34,5 %). Es decir
+que de los 1.211 esto le pondrá correo DTE a unos **250**, uno de cada cinco.
+Los 197 que no son empresa no se arreglan por aquí nunca: el padrón que
+consulta la API es el de personas jurídicas.
+
+Lo que el padrón sí trae casi siempre es la ubicación — dirección, comuna y
+ciudad en **29 de 29**—, y razón social y giro en 17 de 29. O sea que el
+grueso de lo que esta pantalla va a proponer son justo los campos donde pisar
+es peligroso. Por eso los valores por omisión de las casillas no son un detalle
+de interfaz: son la decisión principal del paso.
 
 ## Lo que no se sabe todavía
 

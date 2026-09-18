@@ -53,6 +53,38 @@ const siiDisponible = ref(false);
 const buscandoSii = ref(false);
 const avisoSii = ref('');
 
+/*
+ * «Actualizar desde el SII» sobre un cliente que ya existe.
+ *
+ * No es el alta con otro nombre. Aquí ya hay una ficha escrita por alguien, y
+ * el SII da el **domicilio tributario**: una ficha antigua puede llevar la
+ * oficina comercial puesta a propósito. Así que esto no escribe nada — arma
+ * una lista de diferencias, se marca lo que valga la pena y lo marcado cae en
+ * el formulario de edición, donde todavía hay que mirarlo y guardarlo.
+ */
+const comparando = ref(false);
+const propuesta = ref([]);
+
+useCapa(comparando, () => { comparando.value = false; });
+
+/*
+ * Qué se compara, en el orden en que se enseña. Los que son código llevan su
+ * maestro: en pantalla va el nombre, porque `08307` no le dice nada a nadie.
+ */
+const CAMPOS_SII = [
+    { campo: 'nombre', rotulo: 'Nombre o razón social' },
+    { campo: 'giro', rotulo: 'Giro', maestro: 'giros' },
+    {
+        campo: 'direccion',
+        rotulo: 'Dirección',
+        nota: 'El SII da el domicilio tributario. Si la ficha lleva la oficina '
+            + 'comercial puesta a propósito, déjala como está.',
+    },
+    { campo: 'comuna', rotulo: 'Comuna', maestro: 'comunas' },
+    { campo: 'ciudad', rotulo: 'Ciudad', maestro: 'ciudades' },
+    { campo: 'email_dte', rotulo: 'Correo para documentos tributarios' },
+];
+
 useCapa(editando, () => { editando.value = false; });
 
 function vacio() {
@@ -90,8 +122,12 @@ watch(porEnviar, cargar);
 
 watch(codigo, () => {
     editando.value = false;
+    comparando.value = false;
+    sii.value = null;
+    propuesta.value = [];
     error.value = '';
     aviso.value = '';
+    avisoSii.value = '';
     cargar();
 });
 
@@ -224,6 +260,93 @@ function recorteDeSii(campo) {
 
 /** Los giros que el SII le conoce, cuando es más de uno y hay que elegir. */
 const girosSii = computed(() => (sii.value?.giros || []).filter((g) => g.valor));
+
+/** ¿Tiene sentido ofrecer la actualización de esta ficha? */
+const puedeActualizarSii = computed(() =>
+    siiDisponible.value && conectado.value && ! editando.value
+    && !! cliente.value && Rut.esValido(cliente.value.rut));
+
+/*
+ * Trae la ficha del SII y la compara con la que hay.
+ *
+ * Pide las dos a la vez (`con_sii`) porque el servidor, para el alta, corta en
+ * cuanto ve que el RUT ya es cliente: aquí es justo al revés.
+ */
+async function actualizarDesdeSii() {
+    avisoSii.value = '';
+    error.value = '';
+    buscandoSii.value = true;
+    try {
+        const r = await api.clienteSii(cliente.value.rut, true);
+
+        if (r.sii_error) {
+            error.value = r.sii_error;
+            return;
+        }
+        if (! r.sii?.encontrado) {
+            avisoSii.value = 'El SII no publica ese RUT. El padrón es de empresas, '
+                + 'así que una persona natural no sale.';
+            return;
+        }
+
+        sii.value = r.sii;
+        propuesta.value = compararConSii(r.sii);
+        comparando.value = true;
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        buscandoSii.value = false;
+    }
+}
+
+/**
+ * En qué se diferencian la ficha y lo que publica el SII.
+ *
+ * Sólo salen los campos que **cambian**: una lista con diez filas iguales es
+ * una lista que nadie lee. Y lo que el SII no trae no aparece — que no lo
+ * publique no significa que lo de la ficha esté mal.
+ */
+function compararConSii(ficha) {
+    return CAMPOS_SII.map((c) => {
+        const d = ficha.campos?.[c.campo];
+        if (! d || d.valor === null || d.valor === '') return null;
+
+        const actual = String(cliente.value?.[c.campo] ?? '').trim();
+        if (actual === String(d.valor).trim()) return null;
+
+        return {
+            ...c,
+            actual,
+            nuevo: d.valor,
+            textoActual: c.maestro ? nombreDe(c.maestro, actual) : actual,
+            textoNuevo: c.maestro ? nombreDe(c.maestro, d.valor) : d.valor,
+            // El texto entero cuando no cabe en Softland, para que se vea qué
+            // se pierde antes de aceptarlo.
+            completo: d.recortado ? d.texto : '',
+            /*
+             * Rellenar un hueco casi siempre está bien, y es a lo que vino
+             * esto: hay 1.211 clientes sin correo para el DTE. **Pisar** lo que
+             * escribió una persona es la trampa, así que eso se marca a mano.
+             * Una propuesta que viene aceptada es una propuesta que nadie lee.
+             */
+            marcado: actual === '',
+        };
+    }).filter(Boolean);
+}
+
+const propuestaMarcada = computed(() => propuesta.value.filter((p) => p.marcado));
+
+/*
+ * Lo marcado cae en el formulario de edición, y ahí se queda hasta que alguien
+ * lo guarde. Esto no escribe en Softland: el camino de guardar es uno solo, el
+ * de siempre, y así lo aceptado sin señal también se va a la bandeja de salida.
+ */
+function aplicarPropuesta() {
+    editar();
+    for (const p of propuestaMarcada.value) form.value[p.campo] = p.nuevo;
+    comparando.value = false;
+    aviso.value = 'Revisa lo que trajo el SII y guarda para que llegue a Softland.';
+}
 
 async function guardar() {
     error.value = '';
@@ -400,6 +523,14 @@ const ubicacion = computed(() => [
                     </div>
                 </div>
 
+                <Aviso tipo="info" v-if="avisoSii">{{ avisoSii }}</Aviso>
+
+                <button v-if="puedeActualizarSii" class="boton secundario con-icono"
+                        :disabled="buscandoSii" @click="actualizarDesdeSii">
+                    <AppIcon name="descargar" :size="18" color="currentColor" />
+                    {{ buscandoSii ? 'Consultando al SII…' : 'Actualizar desde el SII' }}
+                </button>
+
                 <div class="seccion">
                     <h2>Contactos</h2>
                     <span class="sub">{{ contactos.length }}</span>
@@ -426,6 +557,68 @@ const ubicacion = computed(() => [
             <Vacio v-else-if="! esNuevo" icono="sinResultados" titulo="No encontramos ese cliente">
                 Puede que no esté descargado en el teléfono. Sincroniza y vuelve a intentar.
             </Vacio>
+        </div>
+
+        <!-- Lo que el SII publica, frente a lo que hay escrito -->
+        <div class="velo" v-if="comparando" @click.self="comparando = false">
+            <div class="hoja">
+                <div class="hoja-cabecera">
+                    <h2>Lo que dice el SII</h2>
+                    <button class="icono-barra" @click="comparando = false">
+                        <AppIcon name="cerrar" :size="21" />
+                    </button>
+                </div>
+                <div class="hoja-cuerpo">
+                    <p class="sii-origen" v-if="sii">
+                        <AppIcon name="descargar" :size="14" color="currentColor" />
+                        Padrón del SII al {{ sii.padron }}
+                    </p>
+
+                    <Vacio v-if="! propuesta.length" icono="alDia" titulo="No hay nada que cambiar">
+                        La ficha dice lo mismo que el SII en todo lo que el padrón publica.
+                    </Vacio>
+
+                    <template v-else>
+                        <p class="ayuda">
+                            Sólo salen los campos que cambian. Vienen marcados los que están
+                            vacíos en la ficha; los que ya tienen algo escrito los marcas tú.
+                        </p>
+
+                        <label class="sii-cambio" v-for="p in propuesta" :key="p.campo"
+                               :class="{ marcado: p.marcado }">
+                            <input type="checkbox" v-model="p.marcado">
+                            <div class="sii-cambio-cuerpo">
+                                <div class="sii-cambio-rotulo">{{ p.rotulo }}</div>
+                                <div class="sii-cambio-valor antes">
+                                    <span>En la ficha</span>
+                                    <b v-if="p.actual">{{ p.textoActual }}</b>
+                                    <i v-else>vacío</i>
+                                </div>
+                                <div class="sii-cambio-valor">
+                                    <span>En el SII</span>
+                                    <b>{{ p.textoNuevo }}</b>
+                                </div>
+                                <p class="sii-cambio-nota" v-if="p.completo">
+                                    No cabe entero en Softland, que guarda 60 caracteres.
+                                    El SII lo tiene así: <b>{{ p.completo }}</b>
+                                </p>
+                                <p class="sii-cambio-nota" v-if="p.nota">{{ p.nota }}</p>
+                            </div>
+                        </label>
+
+                        <button class="boton" :disabled="! propuestaMarcada.length"
+                                @click="aplicarPropuesta">
+                            {{ propuestaMarcada.length
+                                ? `Llevar ${propuestaMarcada.length} al formulario`
+                                : 'Marca lo que quieras cambiar' }}
+                        </button>
+                        <p class="ayuda">
+                            Esto no guarda nada todavía: lo marcado cae en el formulario de
+                            edición y de ahí sale a Softland cuando pulses Guardar.
+                        </p>
+                    </template>
+                </div>
+            </div>
         </div>
 
         <!-- Hoja de edición -->

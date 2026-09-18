@@ -2287,3 +2287,59 @@ label .etiqueta { margin-left: 6px; vertical-align: 1px; }
     border-bottom: 4px solid var(--cian);
 }
 .sii-giro:active { background: var(--fondo); }
+
+/* Una diferencia entre la ficha y el padrón, con su casilla.
+
+   Es una `label` entera para que valga tocar en cualquier parte: la casilla
+   nativa de Android mide 20 px y pedir puntería de 20 px sobre una lista de
+   seis es pedir errores. La fila completa pasa de los 44 px de sobra. */
+.sii-cambio {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    margin: 10px 0 0;
+    padding: 11px 12px;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    font-weight: 400;
+    cursor: pointer;
+}
+.sii-cambio.marcado { border-color: var(--cian); border-bottom: 4px solid var(--cian); }
+.sii-cambio input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; }
+.sii-cambio-cuerpo { flex: 1; min-width: 0; }
+
+.sii-cambio-rotulo {
+    /* Con el piso de 12 px, como el giro: 13 por 0,92 da 11,96. */
+    font-size: max(12px, calc(13px * var(--d)));
+    font-weight: 700;
+    color: var(--texto);
+    margin-bottom: 6px;
+}
+
+/* Antes y después, uno debajo del otro y no en dos columnas: los valores son
+   direcciones y razones sociales, y a 150 px de ancho se parten en cuatro
+   líneas cada uno. */
+.sii-cambio-valor {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.sii-cambio-valor + .sii-cambio-valor { margin-top: 3px; }
+.sii-cambio-valor > span { flex: 0 0 62px; color: var(--texto-suave); }
+.sii-cambio-valor > b { flex: 1; min-width: 0; font-weight: 600; color: var(--indigo); }
+.sii-cambio-valor > i { flex: 1; color: var(--texto-suave); font-style: italic; }
+/* Lo que hay hoy, en gris: lo que manda la vista es la propuesta. */
+.sii-cambio-valor.antes > b { font-weight: 400; color: var(--texto-medio); }
+
+.sii-cambio-nota {
+    margin: 7px 0 0;
+    padding: 7px 9px;
+    border-radius: 6px;
+    background: #fff5e0;
+    color: #7a4e00;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.sii-cambio-nota b { font-weight: 700; }

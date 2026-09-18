@@ -181,7 +181,11 @@ export const api = {
     // con su dígito verificador: el servidor lo exige, porque un cuerpo pelado
     // y un RUT completo se escriben igual y reducirlo dos veces contesta por
     // otra empresa sin que nada falle.
-    clienteSii: (rut) => pedir(`/clientes/sii/${encodeURIComponent(rut)}`),
+    // Con `conSii`, además, lo que el SII publica de un cliente que ya existe:
+    // es lo que compara «Actualizar desde el SII». Sin eso el servidor corta en
+    // cuanto ve que el RUT ya es cliente, que es lo que quiere el alta.
+    clienteSii: (rut, conSii = false) =>
+        pedir(`/clientes/sii/${encodeURIComponent(rut)}${conSii ? '?con_sii=1' : ''}`),
     crearCliente: (c) => pedir('/clientes', { method: 'POST', body: c }),
     editarCliente: (codigo, c) =>
         pedir(`/clientes/${encodeURIComponent(codigo)}`, { method: 'PUT', body: c }),
