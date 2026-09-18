@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-17 — versión **0.35.0**
+2026-09-18 — versión **0.36.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1327,3 +1327,53 @@ cuando alguien cuadra el mes.
       y `validate()` devuelve sólo lo validado, así que el descuento tecleado en
       la factura suelta se caía en silencio — la pantalla enseñaba un total y se
       emitía otro, en un documento tributario.
+
+### Alta de clientes desde el SII, paso 1: la traducción (0.36.0)
+- [x] **Plan y evidencia en `docs/alta-clientes-sii.md`.** Lo que se construye
+      es: se escribe el RUT y el formulario de alta aparece lleno con lo que el
+      SII publica, para completar y corregir en vez de transcribir. No es sólo
+      comodidad: de los 3.373 clientes, **1.211 no tienen correo DTE**, 780 no
+      tienen ciudad y 631 no tienen giro.
+- [x] **El teléfono no llama a la API del SII; la llama el servidor.** La llave
+      no puede ir en el APK, que se descompila, y además el servidor es el único
+      que puede traducir el texto a códigos: es quien tiene los maestros.
+- [x] **`app/Services/Sii/Traduccion.php`**, único sitio donde el castellano del
+      padrón se vuelve `ComCod`, `CiuCod` y `GirCod`.
+- [x] **La comuna calza**: 331 de los 347 nombres del padrón vigente, el
+      **98,48 %** de 3.604.762 domicilios. Las once que no son la misma comuna
+      escrita de otra manera y están en `Traduccion::COMUNAS`; «Sin Comuna» es
+      un marcador; Cholchol no está en Softland y devuelve `null`.
+- [x] **Ante dos comunas con el mismo nombre gana la del código del INE.**
+      `cwtcomu` tiene ocho filas puestas a mano con el nombre mal escrito
+      —`CPN` «CONCPECION», `VITACUR` «VITAVURA»— y Estación Central está dos
+      veces. Sin esa regla los clientes nuevos se reparten entre la buena y su
+      duplicado, y los informes que agrupan por comuna dejan de sumar.
+- [x] **La ciudad se deduce de la comuna** cuando el SII no la manda, que es
+      **18 de cada 53** fichas. Se desempata con la región de la comuna ya
+      resuelta; si quedan dos, no se elige.
+- [x] **El giro va por código ACTECO y nunca por texto.** Hay dos listas y la de
+      Softland (`sii_tacteco`) es la vieja: 696 de sus 698 códigos figuran como
+      `ActEcoAntigua`. Comparten números con significados distintos — `702000`
+      es «Corredores de propiedades» en una y «Actividades de consultoría de
+      gestión» en la otra. **`sii_tacteco` no se consulta nunca.**
+- [x] **Catálogo vigente en el repo**: `resources/sii/actecos.tsv`, 674 códigos
+      de seis dígitos. **94 empiezan por cero**, así que el acteco es texto en
+      todas partes: como número, `011101` se vuelve `11101`, que existe y es
+      otra cosa, y acabaría impreso en el `GiroRecep` del DTE.
+- [x] **`ventas.giro_sii`** para apuntar un acteco a un giro histórico en vez de
+      estrenar fila.
+- [x] **`ventas:verifica-sii`** contrasta sin escribir ni salir a internet:
+      11/11 alias, 352/352 comunas, 937/937 ciudades, 674/674 actecos.
+- [ ] **Queda decidir la carga de `cwtgiro`.** Hoy sólo **16 de los 674**
+      actecos tienen un giro al que llegar (2,4 %): sin cargarlo, seis de cada
+      siete clientes nuevos entran con el giro vacío. Es un maestro compartido
+      con el Softland de escritorio, así que la carga es una migración
+      deliberada y revisada, no un efecto colateral del alta. **Decisión del
+      administrador del ERP.**
+- [x] **La API ya devuelve el código** (`giro_codigo`, `giros_todos_detalle`),
+      filtra por `VIGENCIA` y prefiere `DOMICILIO` sobre `SUCURSAL` — las tres
+      comprobadas. Le falta usar `DEPARTAMENTO`, `BLOQUE` y `VILLA_POBLACION`,
+      que descarta: un cliente en un edificio llega sin el departamento.
+- [ ] **Lo que el SII recorta en origen no tiene arreglo**: `CIUDAD` a 15
+      caracteres, y razón social hasta 80 contra los 60 de `NomAux`. Por eso la
+      pantalla tendrá que **enseñar el recorte**, no hacerlo callada.

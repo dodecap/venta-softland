@@ -568,6 +568,45 @@ autorización— sin emitir ni gastar un folio:
 ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:token"
 ```
 
+## El alta de clientes desde el SII
+
+Desde la 0.36.0 el alta de un cliente se llena con lo que el SII publica: se
+escribe el RUT, el servidor consulta la API y el vendedor completa y corrige. El
+plan y las mediciones están en `docs/alta-clientes-sii.md`. Lo que hay que saber
+antes de tocar nada:
+
+- **El teléfono no llama a la API del SII.** La llama el servidor. La llave no
+  puede ir en el APK, que se descompila, y además el servidor es el único que
+  puede traducir: es quien tiene `cwtgiro`, `cwtcomu` y `cwtciud`.
+- **Toda traducción vive en `app/Services/Sii/Traduccion.php`**, y sólo ahí.
+- **Hay dos listas de ACTECO y la que trae Softland es la vieja.** 696 de los
+  698 códigos de `sii_tacteco` figuran como `ActEcoAntigua`. Comparten números
+  con significados distintos: `702000` es «Corredores de propiedades» en la
+  antigua y «Actividades de consultoría de gestión» en la nueva. **`sii_tacteco`
+  no se consulta nunca.** El catálogo vigente son 674 códigos y está en
+  `resources/sii/actecos.tsv`.
+- **El acteco es texto, no número.** 94 empiezan por cero; como entero,
+  `011101` se convierte en `11101`, que existe y es otra cosa, y acabaría
+  impreso en el `GiroRecep` del DTE.
+- **El giro se traduce por código, nunca por texto.** El padrón reescribe
+  descripciones sin tocar el código: una búsqueda por texto que deja de
+  encontrar no falla, **acierta otra cosa**.
+- **Ante dos comunas con el mismo nombre gana la del código del INE.**
+  `cwtcomu` tiene ocho filas puestas a mano con el nombre mal escrito, y
+  Estación Central está dos veces. Sin esa regla los clientes nuevos se reparten
+  entre la comuna buena y su duplicado.
+- **Lo que el SII recorta en origen no tiene arreglo.** Guarda `CIUDAD` en 15
+  caracteres y hay direcciones cortadas de fábrica. Por eso lo que trae se
+  **propone** y lo confirma una persona, y la pantalla **enseña el recorte** en
+  vez de hacerlo callada.
+- **La búsqueda nunca es requisito para dar de alta.** Sin señal el botón sale
+  apagado y el formulario se llena a mano; la bandeja de salida sigue con el RUT
+  como clave.
+- **No se actualiza en masa lo que ya existe.** El SII da el domicilio
+  tributario y la ficha de un cliente antiguo puede llevar la oficina comercial
+  puesta a propósito. Es la misma trampa de la identidad de la empresa, un nivel
+  más abajo.
+
 ## La versión
 
 Vive en **un solo archivo**, `VERSION`, en la raíz. De ahí la leen la SPA
@@ -581,7 +620,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.22.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.36.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado
@@ -591,5 +630,6 @@ contesta las consultas de estado. **Falta el primer envío de verdad**, que es l
 único que no se deshace. Ver `STATE.md`. El mapa de
 tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
 documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
-`docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el historial de
+`docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el alta de clientes
+desde el SII en `docs/alta-clientes-sii.md`, el historial de
 versiones en `docs/versiones.md` y el plan por fases en `docs/roadmap.md`.

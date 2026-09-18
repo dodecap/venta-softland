@@ -42,6 +42,43 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.36.0 — Alta de clientes desde el SII: la traducción a códigos de Softland
+*2026-09-18*
+
+- **Primer paso del alta automática de clientes**: dado el RUT, llenar el
+  formulario con lo que el SII publica. Esta versión trae la pieza de abajo —la
+  traducción del texto del padrón a los códigos de Softland—, que es donde se
+  puede meter la pata en silencio. El plan entero está en
+  `docs/alta-clientes-sii.md`.
+- **`app/Services/Sii/Traduccion.php`**, único sitio donde el castellano del SII
+  se convierte en `ComCod`, `CiuCod` y `GirCod`. De los 347 nombres de comuna
+  del padrón vigente calzan **331**, el 98,48 % de los 3.604.762 domicilios;
+  las once que no son la misma comuna escrita de otra manera y están en una
+  lista a la vista.
+- **El giro se traduce por código ACTECO, nunca por texto.** Hay dos listas de
+  ACTECO y la que trae Softland en `sii_tacteco` es la vieja: 696 de sus 698
+  códigos figuran como `ActEcoAntigua`. Comparten números con significados
+  distintos —`702000` es «Corredores de propiedades» en una y «Actividades de
+  consultoría de gestión» en la otra—, así que `sii_tacteco` no se consulta.
+- **El catálogo vigente va en el repo**: `resources/sii/actecos.tsv`, 674
+  códigos de seis dígitos extraídos de `PUB_NOM_ACTECOS`. **94 empiezan por
+  cero**, y por eso el código se trata como texto en todas partes: como número,
+  `011101` se convierte en `11101`, que existe y es otra cosa.
+- **Ante dos comunas con el mismo nombre gana la del código del INE.**
+  `cwtcomu` tiene ocho filas añadidas a mano con el nombre mal escrito, y
+  Estación Central está dos veces (`13106` y `ESTACIO`). Sin esa regla los
+  clientes nuevos se repartirían entre la comuna buena y su duplicado.
+- **Cuando el SII no manda ciudad —18 de cada 53 fichas— se prueba con el
+  nombre de la comuna**, que en Chile suele ser el mismo y así está en Softland.
+  Para desempatar se usa la región de la comuna ya resuelta; si sigue habiendo
+  dos, no se elige.
+- **`ventas.giro_sii`**, para apuntar un acteco a un giro histórico en vez de
+  estrenar fila.
+- **`ventas:verifica-sii`**, que lo contrasta sin escribir nada y sin salir a
+  internet: 11 de 11 alias, 352 de 352 comunas, 937 de 937 ciudades y 674 de
+  674 actecos. Y avisa de lo que queda: hoy sólo **16 de los 674** actecos
+  tienen un giro al que llegar en `cwtgiro`.
+
 ### 0.35.0 — La factura de comisión desde la app, y la cantidad con más y menos
 *2026-09-17*
 
