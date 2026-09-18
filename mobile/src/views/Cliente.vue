@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '../api';
+import { db } from '../db';
 import { idb } from '../idb';
 import { nombre as nombreDe } from '../catalogos';
 import { encolar, enviarPendientes, pendienteDe, descartar, porEnviar } from '../pendientes';
@@ -39,6 +40,19 @@ const guardando = ref(false);
 const editando = ref(false);
 const form = ref(vacio());
 
+/*
+ * Lo que el SII publica de esta empresa.
+ *
+ * Es una **propuesta**: llena el formulario y se queda guardada para poder
+ * decir, campo por campo, de dónde salió lo que hay escrito. En cuanto el
+ * vendedor cambia un campo, el sello de ese campo desaparece solo —`deSii()`
+ * compara, no hay que vigilar nada.
+ */
+const sii = ref(null);
+const siiDisponible = ref(false);
+const buscandoSii = ref(false);
+const avisoSii = ref('');
+
 useCapa(editando, () => { editando.value = false; });
 
 function vacio() {
@@ -50,6 +64,15 @@ function vacio() {
 }
 
 onMounted(cargar);
+
+/*
+ * Si este servidor sabe consultar el padrón. Es configuración del servidor, no
+ * permiso del usuario: cuando no está configurado el botón **no se dibuja**,
+ * en vez de dibujarse y fallar al apretarlo.
+ */
+onMounted(async () => {
+    siiDisponible.value = !! (await db.getServidorInfo())?.sii_disponible;
+});
 
 /*
  * Saltar de una ficha a otra no desmonta el componente: es la misma ruta con
@@ -120,6 +143,87 @@ function editar() {
 }
 
 const rutValido = computed(() => ! esNuevo.value || Rut.esValido(form.value.rut));
+
+/*
+ * Traer del SII lo que publica de esta empresa.
+ *
+ * El botón sólo existe si el servidor sabe consultar, y sólo se puede apretar
+ * con señal y con un RUT válido. **Nunca es requisito**: sin red se apaga y el
+ * formulario se llena a mano, que es como se ha hecho siempre.
+ */
+async function buscarEnSii() {
+    avisoSii.value = '';
+    error.value = '';
+    buscandoSii.value = true;
+    try {
+        const r = await api.clienteSii(form.value.rut);
+
+        // Ya es cliente. No es un error: es que el trabajo ya estaba hecho.
+        if (r.ya_existe) {
+            // Se guardan también los contactos: la ficha a la que se salta los
+            // lee de IndexedDB, y sin esto aparecería vacía de contactos hasta
+            // la siguiente descarga.
+            await idb.guardar('clientes', [r.cliente]);
+            await idb.guardar('contactos', r.contactos || []);
+            if (confirm(`${r.cliente.nombre} ya es cliente.\n\n¿Quieres abrir su ficha?`)) {
+                editando.value = false;
+                router.replace(`/clientes/${r.cliente.codigo}`);
+            } else {
+                avisoSii.value = `Ese RUT ya es el cliente ${r.cliente.codigo}.`;
+            }
+            return;
+        }
+
+        if (! r.encontrado) {
+            avisoSii.value = 'El SII no publica ese RUT. El padrón es de empresas, '
+                + 'así que una persona natural no sale. Llena el formulario a mano.';
+            return;
+        }
+
+        sii.value = r;
+        for (const [campo, dato] of Object.entries(r.campos)) {
+            // Lo que el SII no trae no borra lo que ya estaba escrito.
+            if (dato.valor === null || dato.valor === '') continue;
+            form.value[campo] = dato.valor;
+        }
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        buscandoSii.value = false;
+    }
+}
+
+/*
+ * Cambiar el RUT invalida la propuesta entera: dejar los sellos puestos sería
+ * decir que los datos de otra empresa vienen del SII.
+ */
+watch(() => form.value.rut, () => {
+    sii.value = null;
+    avisoSii.value = '';
+});
+
+/** ¿Este campo sigue teniendo, tal cual, lo que propuso el SII? */
+function deSii(campo) {
+    const d = sii.value?.campos?.[campo];
+
+    return !! d && d.valor !== null && d.valor !== '' && form.value[campo] === d.valor;
+}
+
+/**
+ * El texto entero cuando no cupo en el campo de Softland.
+ *
+ * Se enseña a propósito. El SII guarda razones sociales de hasta 80 caracteres
+ * y `NomAux` tiene 60: recortar en silencio deja al vendedor creyendo que el
+ * nombre que ve es el que hay. Que lo mire y decida él.
+ */
+function recorteDeSii(campo) {
+    const d = sii.value?.campos?.[campo];
+
+    return d?.recortado && deSii(campo) ? d.texto : '';
+}
+
+/** Los giros que el SII le conoce, cuando es más de uno y hay que elegir. */
+const girosSii = computed(() => (sii.value?.giros || []).filter((g) => g.valor));
 
 async function guardar() {
     error.value = '';
@@ -347,30 +451,82 @@ const ubicacion = computed(() => [
                                 Es la clave del cliente en Softland y no se puede cambiar después.
                             </template>
                         </p>
+
+                        <button v-if="siiDisponible" class="boton secundario con-icono"
+                                :disabled="! rutValido || ! conectado || buscandoSii"
+                                @click="buscarEnSii">
+                            <AppIcon name="buscar" :size="18" color="currentColor" />
+                            {{ buscandoSii ? 'Consultando al SII…' : 'Buscar en el SII' }}
+                        </button>
+                        <p class="ayuda" v-if="siiDisponible && ! conectado">
+                            Sin señal no se puede consultar. El alta no lo necesita: llena el
+                            formulario a mano y saldrá cuando vuelva la señal.
+                        </p>
+
+                        <Aviso tipo="info" v-if="avisoSii">{{ avisoSii }}</Aviso>
+
+                        <template v-if="sii">
+                            <Aviso tipo="info" v-if="sii.fuente === 'cache-vieja'">
+                                El SII no contestó. Esto es lo que teníamos guardado del
+                                {{ sii.consultado_en.slice(0, 10) }}: míralo con cuidado.
+                            </Aviso>
+                            <p class="sii-origen">
+                                <AppIcon name="descargar" :size="14" color="currentColor" />
+                                Padrón del SII al {{ sii.padron }}<template v-if="sii.region">
+                                 · {{ sii.region }}</template>
+                            </p>
+                        </template>
                     </template>
 
-                    <label>Nombre o razón social</label>
+                    <label>Nombre o razón social <span class="etiqueta cian" v-if="deSii('nombre')">del SII</span></label>
                     <input v-model="form.nombre" type="text">
+
+                    <p class="sii-recorte" v-if="recorteDeSii('nombre')">
+                        <AppIcon name="alerta" :size="15" />
+                        <span>No cabe entero en Softland, que guarda 60 caracteres.
+                        El SII lo tiene así: <b>{{ recorteDeSii('nombre') }}</b></span>
+                    </p>
 
                     <label>Nombre de fantasía</label>
                     <input v-model="form.fantasia" type="text" placeholder="Como lo conoce la gente">
 
-                    <label>Giro</label>
+                    <label>Giro <span class="etiqueta cian" v-if="deSii('giro')">del SII</span></label>
                     <Selector v-model="form.giro" maestro="giros"
                               vacio="— sin giro —" filtrar="Filtrar giros" />
+                    <template v-if="girosSii.length > 1">
+                        <p class="ayuda">
+                            El SII le conoce {{ girosSii.length }} giros. Va puesto el primero
+                            que declaró; elige el que corresponda a lo que le vendes.
+                        </p>
+                        <div class="sii-giros">
+                            <button v-for="g in girosSii" :key="g.acteco" type="button"
+                                    class="sii-giro" :class="{ puesto: form.giro === g.valor }"
+                                    @click="form.giro = g.valor">
+                                <AppIcon :name="form.giro === g.valor ? 'ok' : 'crear'" :size="16"
+                                         color="currentColor" />
+                                <span>{{ g.descripcion }}</span>
+                            </button>
+                        </div>
+                    </template>
 
-                    <label>Dirección</label>
+                    <label>Dirección <span class="etiqueta cian" v-if="deSii('direccion')">del SII</span></label>
                     <input v-model="form.direccion" type="text">
 
-                    <label>Comuna</label>
+                    <label>Comuna <span class="etiqueta cian" v-if="deSii('comuna')">del SII</span></label>
                     <Selector v-model="form.comuna" maestro="comunas"
                               vacio="— sin comuna —" filtrar="Filtrar comunas" />
 
-                    <label>Ciudad</label>
+                    <label>Ciudad <span class="etiqueta cian" v-if="deSii('ciudad')">del SII</span></label>
                     <Selector v-model="form.ciudad" maestro="ciudades"
                               vacio="— sin ciudad —" filtrar="Filtrar ciudades" />
                     <p class="ayuda">
-                        En Softland la ciudad es su propio maestro, no sale de la comuna.
+                        <template v-if="sii?.campos?.ciudad?.deducido && deSii('ciudad')">
+                            El SII no trae ciudad para este domicilio, así que va la de la
+                            comuna. Cámbiala si no es esa.
+                        </template>
+                        <template v-else>
+                            En Softland la ciudad es su propio maestro, no sale de la comuna.
+                        </template>
                     </p>
 
                     <label>Teléfono</label>
@@ -380,9 +536,18 @@ const ubicacion = computed(() => [
                     <input v-model="form.email" type="email" autocapitalize="off" spellcheck="false">
                     <p class="ayuda">Adonde llega la cotización.</p>
 
-                    <label>Correo para documentos tributarios</label>
+                    <label>Correo para documentos tributarios <span class="etiqueta cian" v-if="deSii('email_dte')">del SII</span></label>
                     <input v-model="form.email_dte" type="email" autocapitalize="off" spellcheck="false">
-                    <p class="ayuda">Adonde llega la factura o la boleta. Suele ser el de contabilidad.</p>
+                    <p class="ayuda">
+                        <template v-if="deSii('email_dte') && form.email_dte === 'FacturacionMIPYME@sii.cl'">
+                            Factura por el portal gratuito del SII, y ése es su correo de
+                            intercambio de verdad. Le pasa a cuatro de cada cinco empresas
+                            del país: no lo borres.
+                        </template>
+                        <template v-else>
+                            Adonde llega la factura o la boleta. Suele ser el de contabilidad.
+                        </template>
+                    </p>
 
                     <label>Días de plazo</label>
                     <input v-model.number="form.dias_plazo" type="number" min="0" max="99" class="angosto">

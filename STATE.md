@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-18 — versión **0.38.0**
+2026-09-18 — versión **0.39.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -209,10 +209,6 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       tablero de cuadros para que se note la transparencia.
 
 ## Pendiente / próximos pasos
-- [ ] **Alta de clientes desde el SII, paso 4: la pantalla.** El servidor ya
-      contesta (0.38.0). Falta el botón «Buscar en el SII», los sellos de
-      procedencia por campo, el aviso de recorte del nombre y la elección entre
-      los varios giros de la empresa. Ver `docs/alta-clientes-sii.md`.
 - [ ] **Alta de clientes desde el SII, paso 5**: «Actualizar desde el SII» sobre
       la ficha de un cliente que ya existe, para los 1.211 sin correo DTE.
       Proponiendo, nunca pisando lo que escribió una persona.
@@ -1444,3 +1440,32 @@ cuando alguien cuadra el mes.
 - [x] **Probado de punta a punta contra el SII de verdad**: 76469596-8 (HYTEC
       SPA) vuelve con comuna `08307`, ciudad `NEGRE`, giro `479909` y sus tres
       actecos; la segunda consulta del mismo RUT tarda 31 ms y dice `cache`.
+
+### Alta de clientes desde el SII, paso 4: la pantalla (0.39.0)
+- [x] **Botón «Buscar en el SII»** en el alta de `Cliente.vue`, bajo el RUT.
+      Llena razón social, dirección, comuna, ciudad, giro y correo de
+      intercambio, ya traducidos a códigos de Softland.
+- [x] **No se dibuja si el servidor no sabe consultar** (`sii_disponible` viene
+      en el arranque de la sesión). Ofrecer un botón que falla al apretarlo es
+      peor que no ofrecerlo.
+- [x] **Sin señal sale apagado, y lo dice.** La búsqueda **nunca** es requisito:
+      el formulario se llena a mano y sale de la bandeja al volver la red.
+- [x] **Sello «del SII» por campo, en el rótulo, y se cae solo.** No hay nada
+      que vigilar: `deSii()` compara lo escrito con lo propuesto. Cambiar el RUT
+      tira la propuesta entera — dejar los sellos sería decir que los datos de
+      otra empresa vienen del SII.
+- [x] **El recorte se enseña.** `NomAux` guarda 60 caracteres y el SII publica
+      razones sociales de hasta 80: debajo del campo va el texto entero, en
+      ámbar. El dato no está mal, pero alguien tiene que mirarlo.
+- [x] **Los varios giros se eligen tocando, una fila cada uno.** Son de hasta 60
+      caracteres: en 360 px no se reparten en dos columnas sin bajar de los
+      44 px de área pulsable, así que cede la rejilla.
+- [x] **Si el RUT ya es cliente se ofrece abrir su ficha**, con sus contactos
+      guardados en IndexedDB para que no aparezca vacía. Mismo camino que el
+      409 del alta repetida.
+- [x] **`FacturacionMIPYME@sii.cl` lleva su explicación bajo el campo**, para
+      que nadie lo borre creyendo que es basura.
+- [x] **Medido en las tres escalas de densidad sobre 360 px**: nada desborda a
+      lo ancho, ninguna fila de giro baja de 44 px de alto y el texto del giro
+      no baja de 12 px. 13 px por 0,92 —la escala compacta— daba 11,96 y se
+      colaba bajo el piso de lectura; va con `max(12px, calc(13px * var(--d)))`.

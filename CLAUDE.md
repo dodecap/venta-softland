@@ -570,7 +570,7 @@ ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:t
 
 ## El alta de clientes desde el SII
 
-Desde la 0.36.0 el alta de un cliente se llena con lo que el SII publica: se
+Desde la 0.39.0 el alta de un cliente se llena con lo que el SII publica: se
 escribe el RUT, el servidor consulta la API y el vendedor completa y corrige. El
 plan y las mediciones están en `docs/alta-clientes-sii.md`. Lo que hay que saber
 antes de tocar nada:
@@ -604,7 +604,11 @@ antes de tocar nada:
   vez de hacerlo callada.
 - **La búsqueda nunca es requisito para dar de alta.** Sin señal el botón sale
   apagado y el formulario se llena a mano; la bandeja de salida sigue con el RUT
-  como clave.
+  como clave. El botón **no se dibuja** si el servidor no sabe
+  consultar (`sii_disponible` en el arranque): ofrecerlo y que falle es peor.
+- **El sello «del SII» se cae solo.** No se vigila nada: `deSii()` compara lo
+  escrito con lo propuesto, así que tocar el campo quita el sello. Y tocar el
+  RUT tira la propuesta entera — los datos de otra empresa no vienen del SII.
 - **No se actualiza en masa lo que ya existe.** El SII da el domicilio
   tributario y la ficha de un cliente antiguo puede llevar la oficina comercial
   puesta a propósito. Es la misma trampa de la identidad de la empresa, un nivel
@@ -637,7 +641,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.38.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.39.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

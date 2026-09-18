@@ -2202,3 +2202,88 @@ select.filtro-grupo { margin-bottom: 12px; }
     box-shadow: none;
     cursor: pointer;
 }
+
+/* ---------- El alta de clientes con lo que publica el SII ----------
+
+   Tres cosas que se dibujan aquí y no existen en el resto de los formularios:
+   de dónde salió cada campo, qué se recortó al entrar en Softland, y cuál de
+   los giros de la empresa elegir. Las tres son lo mismo: enseñar lo que la app
+   dedujo en vez de darlo por bueno en silencio. */
+
+.boton.con-icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* El sello de procedencia va dentro del rótulo del campo. Desaparece solo en
+   cuanto alguien toca el campo: `deSii()` compara valores. */
+label .etiqueta { margin-left: 6px; vertical-align: 1px; }
+
+.sii-origen {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    line-height: 1.5;
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--texto-suave);
+}
+/* El icono, a la altura de la primera línea y no del centro de las dos. */
+.sii-origen > :first-child { margin-top: 2px; }
+
+/* Lo que no cupo. En ámbar y con su icono, porque no es un error —el dato está
+   bien— pero sí algo que alguien tiene que mirar antes de guardar. */
+.sii-recorte {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 6px 0 0;
+    padding: 9px 11px;
+    border-radius: 8px;
+    background: #fff5e0;
+    color: #7a4e00;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.sii-recorte b { font-weight: 700; }
+
+.sii-giros {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+/* Fila entera por giro: son descripciones de hasta 60 caracteres y en 360 px
+   no se reparten en dos columnas sin bajar de los 44 px de área pulsable. */
+.sii-giro {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 11px;
+    text-align: left;
+    font-family: inherit;
+    /* Crece con la escala pero no baja del piso de lectura: 13 px por 0,92
+       —la escala compacta— da 11,96, y esto es texto que hay que leer para
+       elegir, no un rótulo. */
+    font-size: max(12px, calc(13px * var(--d)));
+    line-height: 1.35;
+    color: var(--texto-medio);
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    cursor: pointer;
+}
+.sii-giro > :last-child { flex: 1; min-width: 0; }
+.sii-giro.puesto {
+    color: var(--indigo);
+    font-weight: 600;
+    background: var(--indigo-suave);
+    border-color: var(--indigo-suave);
+    border-bottom: 4px solid var(--cian);
+}
+.sii-giro:active { background: var(--fondo); }

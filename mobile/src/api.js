@@ -175,6 +175,13 @@ export const api = {
 
     // ---- Clientes: lo único de Softland que la app escribe en esta fase ----
     cliente: (codigo) => pedir(`/clientes/${encodeURIComponent(codigo)}`),
+    // La ficha que el SII publica de una empresa, ya traducida a códigos de
+    // Softland. Es una **propuesta** para llenar el formulario, no un alta: da
+    // de alta `crearCliente`, con una persona de por medio. Va el RUT entero,
+    // con su dígito verificador: el servidor lo exige, porque un cuerpo pelado
+    // y un RUT completo se escriben igual y reducirlo dos veces contesta por
+    // otra empresa sin que nada falle.
+    clienteSii: (rut) => pedir(`/clientes/sii/${encodeURIComponent(rut)}`),
     crearCliente: (c) => pedir('/clientes', { method: 'POST', body: c }),
     editarCliente: (codigo, c) =>
         pedir(`/clientes/${encodeURIComponent(codigo)}`, { method: 'PUT', body: c }),

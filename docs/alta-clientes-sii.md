@@ -323,10 +323,35 @@ Son **1.376.048 de los 1.755.724** facturadores electrónicos del país, el
 **78,4 %**: filtrarlo dejaría sin correo DTE a cuatro de cada cinco clientes
 nuevos.
 
-### Paso 4 — La pantalla
+### Paso 4 — La pantalla ✅ hecho (0.39.0)
 
-Botón «Buscar en el SII», sellos de procedencia por campo, aviso de recorte del
-nombre y elección entre los `giros_todos_detalle` de la empresa.
+En el alta de `Cliente.vue`, bajo el RUT. Lo que se decidió:
+
+- **El botón no se dibuja si el servidor no sabe consultar.** `sii_disponible`
+  viene en el arranque de la sesión. Ofrecerlo y que falle al apretarlo es peor
+  que no ofrecerlo.
+- **Sin señal sale apagado, y lo dice.** La búsqueda **nunca** es requisito: el
+  formulario se llena a mano y sale de la bandeja cuando vuelva la red.
+- **El sello «del SII» va en el rótulo del campo y se cae solo.** No hay nada
+  que vigilar: `deSii()` compara lo que hay escrito con lo que propuso el SII,
+  así que en cuanto alguien toca el campo el sello desaparece. Tocar el RUT
+  tira la propuesta entera — dejar los sellos puestos sería decir que los datos
+  de otra empresa vienen del SII.
+- **El recorte se enseña, no se hace callando.** `NomAux` guarda 60 caracteres
+  y el SII publica razones sociales de hasta 80. Debajo del campo va el texto
+  entero, en ámbar: el dato no está mal, pero alguien tiene que mirarlo.
+- **Los varios giros se eligen tocando, no en un desplegable.** Son dos a cinco
+  filas de hasta 60 caracteres: en 360 px no se reparten en dos columnas sin
+  bajar de los 44 px de área pulsable, así que cada una se lleva la fila.
+- **Si el RUT ya es cliente, se ofrece abrir su ficha**, con sus contactos ya
+  guardados en IndexedDB para que la ficha no aparezca vacía. Es el mismo
+  camino que ya tenía el 409 del alta repetida.
+- **`FacturacionMIPYME@sii.cl` lleva su propia explicación bajo el campo**, para
+  que nadie lo borre creyendo que es basura.
+
+Comprobado en las tres escalas de densidad sobre 360 px: nada desborda a lo
+ancho, ninguna fila de giro baja de 44 px y el texto del giro no baja de 12 px
+—13 px por 0,92 daba 11,96, y por eso va con `max()`—.
 
 ### Paso 5 — Los clientes que ya existen
 

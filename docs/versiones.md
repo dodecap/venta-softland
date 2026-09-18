@@ -42,6 +42,24 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.39.0 — Buscar en el SII desde el alta de clientes
+*2026-09-18*
+
+- En «Nuevo cliente», bajo el RUT, un botón **Buscar en el SII**: trae razón
+  social, dirección, comuna, ciudad, giro y correo de intercambio ya
+  traducidos a códigos de Softland.
+- El botón **no se dibuja** si el servidor no sabe consultar, y sale **apagado**
+  sin señal. La búsqueda nunca es requisito para dar de alta.
+- **Sello «del SII» por campo**, en el rótulo, y se cae solo en cuanto alguien
+  cambia ese campo. Cambiar el RUT tira la propuesta entera.
+- **El recorte del nombre se enseña**: Softland guarda 60 caracteres y el SII
+  publica hasta 80, así que debajo del campo va el texto entero.
+- **Los varios giros de la empresa se eligen tocando**, una fila cada uno.
+- Si el RUT ya es cliente, se ofrece abrir su ficha en vez de dejar al vendedor
+  peleando con el formulario.
+- El correo `FacturacionMIPYME@sii.cl` lleva su explicación al lado: es el de
+  intercambio de quien factura por el portal gratuito del SII, y es el correcto.
+
 ### 0.38.0 — El alta de clientes consulta al SII
 *2026-09-18*
 
