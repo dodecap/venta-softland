@@ -131,6 +131,12 @@ class AuthController extends Controller
                 // El servidor lo vuelve a comprobar al emitirla, siempre.
                 'receptor_editable' => (new \App\Services\Dte\ReglasFactura)
                     ->receptorEditable($u->softland_user),
+                // Si este servidor sabe consultar el padrón del SII. Sin esto
+                // el alta de clientes no ofrece el botón de buscar, en vez de
+                // ofrecerlo y fallar. Es configuración del servidor, no
+                // permiso del usuario: el teléfono sólo necesita saber si el
+                // botón existe.
+                'sii_disponible' => (new \App\Services\Sii\Auxiliar)->configurado(),
                 // Los compromisos que esta empresa ofrece y su escalera de
                 // avance. Van aquí y no como maestro porque el teléfono los
                 // necesita para **dibujar un formulario**, no para buscar: son

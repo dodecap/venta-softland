@@ -39,6 +39,10 @@ Route::middleware('auth.api')->group(function () {
     Route::get('/catalogo/{recurso}', [CatalogoController::class, 'show']);
 
     // Clientes: lo único de Softland que la app escribe además del flujo de venta.
+    //
+    // `/clientes/sii/{rut}` va antes que `/clientes/{codigo}` por costumbre, no
+    // por necesidad: son dos segmentos contra uno y no se pisan.
+    Route::get('/clientes/sii/{rut}', [ClienteController::class, 'sii']);
     Route::get('/clientes/{codigo}', [ClienteController::class, 'show']);
     Route::post('/clientes', [ClienteController::class, 'store']);
     Route::put('/clientes/{codigo}', [ClienteController::class, 'update']);

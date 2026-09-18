@@ -609,6 +609,20 @@ antes de tocar nada:
   tributario y la ficha de un cliente antiguo puede llevar la oficina comercial
   puesta a propósito. Es la misma trampa de la identidad de la empresa, un nivel
   más abajo.
+- **La URL lleva la llave dentro, así que no puede acabar en un registro.**
+  `Auxiliar` **nunca** llama a `$respuesta->throw()`: la excepción HTTP de
+  Laravel trae la URL en el mensaje y ese mensaje va a `laravel.log`. Los
+  estados se miran a mano y del `catch` sale un mensaje limpio.
+- **La caché guarda la respuesta cruda, no la ficha traducida.** Así la
+  traducción se rehace con las reglas de hoy, y un giro nuevo o un alias añadido
+  después mejoran también lo que ya estaba guardado.
+- **Todo RUT que cruce una frontera va entero, con dígito verificador.**
+  `Rut::cuerpo()` no puede ser idempotente: «76469596» es a la vez el cuerpo de
+  76.469.596-8 y el RUT 7.646.959-6 completo. Un RUT ya reducido que se vuelva a
+  reducir contesta por otra empresa **sin que nada falle**.
+- **`FacturacionMIPYME@sii.cl` no es basura**: es el correo de intercambio de
+  quien factura por el portal gratuito del SII, y es el correcto. Son el 78,4 %
+  de los facturadores electrónicos del país. No se filtra.
 
 ## La versión
 
@@ -623,7 +637,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.37.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.38.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

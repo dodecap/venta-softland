@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-18 — versión **0.37.0**
+2026-09-18 — versión **0.38.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -209,6 +209,13 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       tablero de cuadros para que se note la transparencia.
 
 ## Pendiente / próximos pasos
+- [ ] **Alta de clientes desde el SII, paso 4: la pantalla.** El servidor ya
+      contesta (0.38.0). Falta el botón «Buscar en el SII», los sellos de
+      procedencia por campo, el aviso de recorte del nombre y la elección entre
+      los varios giros de la empresa. Ver `docs/alta-clientes-sii.md`.
+- [ ] **Alta de clientes desde el SII, paso 5**: «Actualizar desde el SII» sobre
+      la ficha de un cliente que ya existe, para los 1.211 sin correo DTE.
+      Proponiendo, nunca pisando lo que escribió una persona.
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
       admin: el alcance por vendedor está probado contra la base, pero no con
       alguien usando el teléfono. El usuario `softland` no tiene `ven_cod`
@@ -1399,3 +1406,41 @@ cuando alguien cuadra el mes.
 - [x] **`.gitignore`**: los padrones del SII (331 MB con datos personales de
       cientos de miles de personas) y los vídeos ya no pueden colarse con un
       `git add -A`. `resources/sii/actecos.tsv` sigue versionado.
+
+### Alta de clientes desde el SII, paso 3: la consulta (0.38.0)
+- [x] **`GET /clientes/sii/{rut}`** devuelve la ficha de una empresa ya
+      traducida a códigos de Softland. Es una **propuesta**: quien da de alta
+      sigue siendo `store()`, con una persona de por medio.
+- [x] **Si el RUT ya es cliente, contesta `ya_existe`** con su ficha y sus
+      contactos, y no sale a internet. Probado con 76469595, que sí lo es.
+- [x] **`app/Services/Sii/Auxiliar.php` es el único sitio que conoce la URL y la
+      llave.** La llave está en el `.env` de `srv`, nunca en el repo ni en el
+      APK. `config/services.php` la expone como `services.sii_aux`.
+- [x] **La URL no se escribe en ningún registro, porque lleva la llave dentro.**
+      `Auxiliar` **nunca** llama a `$respuesta->throw()`: la excepción HTTP de
+      Laravel trae la URL en el mensaje y ese mensaje acaba en `laravel.log`.
+      Los estados se miran a mano —404 no encontrado, 401 llave inválida, el
+      resto genérico— y del `catch` de Guzzle sale un mensaje limpio.
+- [x] **Caché en `ventas.sii_auxiliar`, con la respuesta cruda.** No la ficha
+      traducida: así la traducción se rehace cada vez con las reglas de hoy, y
+      un giro nuevo en `cwtgiro` o un alias de comuna añadido después mejoran
+      también lo que ya estaba guardado. 30 días lo hallado, 7 lo no hallado.
+- [x] **Si el servicio no contesta y hay algo guardado, se devuelve aunque esté
+      viejo**, marcado `cache-vieja`. El vendedor está de pie delante del
+      cliente: una ficha de hace cinco semanas vale más que una pantalla roja.
+      Tiempos cortos: 3 s de conexión, 6 s de respuesta.
+- [x] **`sii_disponible` en el bootstrap del login**, para que la pantalla sepa
+      si ofrecer el botón.
+- [x] **Fallo corregido en la primera prueba**: el controlador reducía el RUT a
+      su cuerpo y se lo pasaba al servicio, que lo reducía otra vez.
+      `Rut::cuerpo()` no puede ser idempotente —«76469596» es a la vez el cuerpo
+      de 76.469.596-8 y el RUT 7.646.959-6 completo—, así que la respuesta era
+      la de otra empresa **sin que nada fallara**. Ahora `consultar()` exige el
+      RUT entero y comprueba el dígito: el error es ruidoso, no silencioso.
+- [x] **`FacturacionMIPYME@sii.cl` no se filtra.** Parece basura y es el correo
+      de intercambio de quien factura por el portal gratuito del SII, que es el
+      correcto para mandarle el XML. Son **1.376.048 de 1.755.724** facturadores
+      electrónicos del país, el **78,4 %**.
+- [x] **Probado de punta a punta contra el SII de verdad**: 76469596-8 (HYTEC
+      SPA) vuelve con comuna `08307`, ciudad `NEGRE`, giro `479909` y sus tres
+      actecos; la segunda consulta del mismo RUT tarda 31 ms y dice `cache`.

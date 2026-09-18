@@ -42,6 +42,29 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.38.0 — El alta de clientes consulta al SII
+*2026-09-18*
+
+- `GET /clientes/sii/{rut}` devuelve la ficha de una empresa desde el padrón
+  del SII, ya traducida a códigos de Softland: comuna, ciudad y giro. Es una
+  **propuesta**, no un alta; quien da de alta sigue siendo `store()`, con una
+  persona de por medio.
+- Si el RUT ya es cliente, contesta `ya_existe` con su ficha y sus contactos, y
+  no sale a internet.
+- `app/Services/Sii/Auxiliar.php` es el único sitio que conoce la URL y la
+  llave. La llave vive en el `.env` de `srv` y **no se escribe en ningún
+  registro**: la excepción de Laravel lleva la URL dentro, así que los estados
+  HTTP se miran a mano en vez de llamar a `throw()`.
+- Caché en `ventas.sii_auxiliar`, con la respuesta **cruda**: la traducción se
+  rehace cada vez con las reglas de hoy. 30 días lo hallado, 7 lo no hallado.
+  Si el servicio no contesta y hay algo guardado, se devuelve aunque esté
+  viejo, marcado `cache-vieja`.
+- El bootstrap del login lleva `sii_disponible`, para que la pantalla sepa si
+  ofrecer el botón.
+- `Auxiliar::consultar()` exige el RUT **con** dígito verificador. Sin eso, un
+  RUT ya reducido se reducía otra vez y contestaba por otra empresa sin fallar:
+  `76469596-8` devolvía la ficha de 7.646.959-8.
+
 ### 0.37.0 — El maestro de giros cargado con los ACTECO del SII
 *2026-09-18*
 

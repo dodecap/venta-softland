@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Sii\Auxiliar;
 use App\Services\Softland\Maestros;
 use App\Support\Rut;
 use Illuminate\Http\Request;
@@ -43,6 +44,47 @@ class ClienteController extends Controller
             'cliente' => $cliente,
             'contactos' => $this->contactosDe($codigo),
         ]);
+    }
+
+    /**
+     * Lo que el SII publica de un RUT, para llenar el formulario de alta.
+     *
+     * **Primero se mira Softland, y sólo después el SII.** Si el RUT ya es
+     * cliente no hay nada que proponer: se devuelve su ficha y se acabó. Eso
+     * mata el alta duplicada antes de empezar, que es el error caro, y de paso
+     * no gasta una consulta.
+     *
+     * El dígito verificador se comprueba aquí aunque el teléfono ya lo haya
+     * comprobado: lo que llega por la red no es de fiar, y un RUT inventado
+     * consultaría el padrón para nada.
+     *
+     * Devuelve una **propuesta**, no un cliente. Quien da de alta es `store()`,
+     * con una persona de por medio.
+     */
+    public function sii(string $rut, Auxiliar $auxiliar)
+    {
+        if (! Rut::esValido($rut)) {
+            return response()->json(['message' => 'El dígito verificador no corresponde.'], 422);
+        }
+
+        $codigo = Rut::cuerpo($rut);
+        $existente = $this->buscar($codigo);
+
+        if ($existente) {
+            return response()->json([
+                'ya_existe' => true,
+                'cliente' => $existente,
+                'contactos' => $this->contactosDe($codigo),
+            ]);
+        }
+
+        try {
+            return response()->json(['ya_existe' => false] + $auxiliar->consultar($rut));
+        } catch (\RuntimeException $e) {
+            // 503 y no 500: no es que la app esté rota, es que el servicio de
+            // fuera no contestó. La pantalla lo dice y deja escribir a mano.
+            return response()->json(['message' => $e->getMessage()], 503);
+        }
     }
 
     /**

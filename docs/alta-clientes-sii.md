@@ -288,11 +288,40 @@ Comprobado después de cargar, en la copia y en producción: **0 auxiliares con
 `GirAux` huérfano**, los 94 códigos con cero a la izquierda guardados con sus
 seis caracteres, y `GirDes` en 60 como máximo.
 
-### Paso 3 — La consulta
+### Paso 3 — La consulta ✅ hecho (0.38.0)
 
 `app/Services/Sii/Auxiliar.php` (cliente HTTP, timeout corto, llave en el
 `.env`), la caché en `ventas.sii_auxiliar` y `GET /clientes/sii/{rut}` en
-`ClienteController`, que es quien ya manda en el alta.
+`ClienteController`, que es quien ya manda en el alta. El bootstrap del login
+lleva `sii_disponible`, para que la pantalla sepa si ofrecer el botón.
+
+Cuatro cosas que se decidieron aquí:
+
+- **La URL no se escribe en ningún registro, porque lleva la llave dentro.**
+  Por eso `Auxiliar` nunca llama a `$respuesta->throw()`: la excepción de
+  Laravel trae la URL en el mensaje, y ese mensaje acabaría en `laravel.log`.
+  Los estados se miran a mano —`404` no encontrado, `401` llave inválida, el
+  resto un error genérico— y lo que sale del `catch` de Guzzle es un mensaje
+  limpio, sin URL.
+- **Se guarda la respuesta cruda, no la ficha traducida.** La traducción se
+  rehace en cada consulta con las reglas de hoy: un giro nuevo en `cwtgiro` o
+  un alias de comuna añadido después mejora también lo que ya estaba
+  guardado. Guardar la ficha sería congelar la traducción de ayer.
+- **Un error del servicio con algo guardado devuelve lo guardado**, marcado
+  `cache-vieja`. El vendedor está de pie delante del cliente: una ficha de hace
+  cinco semanas vale más que una pantalla en rojo.
+- **Se exige el RUT entero, con dígito verificador.** `Rut::cuerpo()` no puede
+  ser idempotente —«76469596» es a la vez el cuerpo de 76.469.596-8 y el RUT
+  7.646.959-6 completo—, así que un RUT ya reducido que llegue al servicio se
+  reduce otra vez y la respuesta es la de otra empresa, sin que falle nada.
+  Pasó en la primera prueba. La comprobación del dígito hace ruidoso ese error.
+
+Y uno que parece basura y no lo es: el correo de intercambio que devuelve el
+SII es muchas veces `FacturacionMIPYME@sii.cl`. Es la dirección de quien
+factura por el portal gratuito, y es **la correcta** para mandarle el XML.
+Son **1.376.048 de los 1.755.724** facturadores electrónicos del país, el
+**78,4 %**: filtrarlo dejaría sin correo DTE a cuatro de cada cinco clientes
+nuevos.
 
 ### Paso 4 — La pantalla
 
