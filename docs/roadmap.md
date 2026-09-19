@@ -2,7 +2,9 @@
 
 El orden no es caprichoso: cada fase deja algo usable y las de más abajo
 dependen de que las de arriba estén firmes. La fase 4 tiene un bloqueo externo
-(folios del SII) que conviene destrabar cuanto antes, en paralelo.
+—los folios CAF de boleta, que son trámite y no código— y una raya que cruzar:
+el primer DTE enviado de verdad, que es lo único de todo esto que no se
+deshace.
 
 ## Fase 1 — Cimientos ✅ hecha
 
@@ -91,8 +93,8 @@ reproduce.
 | 2. Escribir `iw_gsaen` / `iw_gmovi` en la base de pruebas | **hecho** — 199 documentos, columna por columna |
 | 2b. Conversión NV → factura línea por línea | pendiente (2 casos reales) |
 | 3. Generar y firmar el XML | **hecho** — 209 documentos, firma idéntica |
-| 3b. Enviar al SII | pendiente |
-| 4. Producción, un documento acompañado | pendiente |
+| 3b. Enviar al SII | **hecho** — sobre, token y seguimiento; 210 envíos reproducidos |
+| 4. Producción, un documento acompañado | pendiente — **es lo único que no se deshace** |
 | 5. Boleta por la API REST | preparada; bloqueada por los folios |
 
 Detalle en `docs/dte.md`.
@@ -122,13 +124,13 @@ Detalle en `docs/dte.md`.
    `IWSerDTE.exe`, un programa de escritorio que alguien abre; hoy factura una
    persona desde `IWS.EXE` y el DTE sale 1–5 minutos después.
 
-**Lo que ese hallazgo obliga a decidir**: si la app insertara en `iw_gsaen`,
-nadie emitiría el DTE detrás, y esa tabla arrastra 21 triggers, centralización
-contable, kardex, comisiones y libro de ventas. Escribir la factura a mano no
-es «una fase más»: es asumir riesgo fiscal. El alcance real de la fase 4 está
-por decidir — ver `docs/flujo-ventas-softland.md`.
+**Lo que ese hallazgo obligaba a decidir** —si la app escribe en `iw_gsaen`
+sin que nadie emita el DTE detrás— **está decidido y hecho**: la app emite y
+manda en el mismo acto, y llega hasta inventario y facturación. La
+centralización contable no se toca. Lo que queda es soltar el primer documento
+de verdad.
 
-## Fase 4.5 — El ciclo normal de venta 📋 planificada
+## Fase 4.5 — El ciclo normal de venta ✅ hecha
 
 El plan completo, con la evidencia que lo sostiene, está en
 `docs/ciclo-normal.md`. En una frase: **cotización → varias notas de venta →
@@ -150,8 +152,28 @@ Lo que se averiguó antes de planificar nada:
   `V`, las repartidas igual que las enteras. Ese enlace es el único que hay que
   guardar en el esquema `ventas`.
 
-Seis pasos: el saldo, convertir parcial, facturar parcial, devolver el saldo al
-anular, la llave del receptor y las pantallas.
+Seis pasos, los seis hechos: el saldo, convertir parcial, facturar parcial,
+devolver el saldo al anular, la llave del receptor y las pantallas. Detrás
+vinieron la nota de crédito de anulación y la factura sin nota de venta.
+
+## El alta de clientes desde el SII ✅ hecha
+
+No estaba en el plan: salió de que dar de alta un cliente a mano son doce
+campos y un giro que hay que buscar entre dos mil. Se escribe el RUT, el
+servidor consulta el padrón y el vendedor completa y corrige. El plan y las
+mediciones están en `docs/alta-clientes-sii.md`.
+
+| Paso | Estado |
+|---|---|
+| 1. La traducción a códigos de Softland | **hecho** (0.36.0) |
+| 2. Cargar `cwtgiro` con los ACTECO vigentes | **hecho** (0.37.0) — 2.009 → 2.667 giros, cobertura 2,4 % → 100 % |
+| 3. La consulta y su caché | **hecho** (0.38.0) |
+| 4. La pantalla del alta | **hecho** (0.39.0) |
+| 5. Actualizar un cliente que ya existe | **hecho** (0.40.0) |
+
+Lo que no se hace, y es a propósito: **no se actualiza en masa**. El SII da el
+domicilio tributario y una ficha antigua puede llevar la oficina comercial
+puesta a propósito, así que se actualiza de una en una y comparando.
 
 ## Fase 5 — Terreno
 
