@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-18 — versión **0.40.0**
+2026-09-22 — versión **0.41.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -208,6 +208,64 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
 
+### 0.41.0 — La orden de compra viaja de la venta a la factura (2026-09-22)
+
+Dos cosas que se pedían juntas y resultaron ser tres. Todo medido antes de
+escribir: el detalle está en `docs/ciclo-normal.md`, paso 7, y en `docs/dte.md`.
+
+- [x] **La orden de compra se escribe también en la cotización.** La da el
+      cliente al aceptar, que suele ser antes de convertir, y ya viajaba sola de
+      la cotización a la nota de venta. El campo estaba sólo en la NV.
+- [x] **18 caracteres, no 15.** `numOC` y `FolioRef` son los dos `varchar(18)` y
+      hay OC reales de 18; la validación del servidor estaba en 15 y devolvía un
+      422 que no decía por qué.
+- [x] **La factura la nombra en el DTE con el código 801**, no con el 802. El
+      maestro del ERP declara 801 «Orden de Compra/Orden de Servicio» y 802
+      «Nota de Pedido/Hes/Has»; en INNOVAGES las **188** referencias 802 llevan
+      el número de la nota de venta y **ninguna** coincide con un `NumOC`, y las
+      **6** con 801 llevan la orden de compra y coinciden con el `NumOC` de su
+      nota de venta en las 6. Se pidió el 802 y habría chocado con una costumbre
+      de 188 documentos.
+- [x] **Van las dos a la vez.** La factura 232 lleva la 801 con `1368` en la
+      línea 1 y la 802 con `2046` en la 2. `Facturacion::referencia()` escribía
+      una sola fila con `LineaRef` fijo en 1; ahora es `referencias()`.
+- [x] **`AuxDocNum` dejó de ser «la primera referencia».** Es la primera que
+      nombra un documento nuestro: con la orden de compra delante, la primera
+      puede ser un papel que no existe en `iw_gsaen`, y dejarla ahí diría que
+      esta factura corrige una factura número `U36401`.
+- [x] **`iw_gsaen.Orden` no era el sitio**, aunque se llame así. Es un `int` y
+      está en `'0'` en las 200 facturas: no podría guardar `272-OC00008216` ni
+      queriendo. Se deja como lo deja el ERP.
+- [x] **Facturar la venta y facturar una comisión son dos documentos, y ahora se
+      elige cuál.** Se deducía del receptor, y eso hacía imposible un caso
+      corriente: los mismos productos facturados a otro RUT porque quien paga no
+      es quien recibe. La diferencia que importa es el saldo.
+- [x] **La factura hereda lo que describe la venta**: condición de pago, bodega,
+      centro de costo, observación y orden de compra. La observación y la OC se
+      pueden corregir antes de emitir; el resto no, que son datos de la venta.
+- [x] **La observación no cabe entera y se dice.** 4.000 caracteres en la nota
+      de venta, 255 en la glosa de la factura. Se enseña el recorte antes de
+      emitir, como con lo que el SII recorta en el alta de clientes.
+- [x] **Dos llaves nuevas por empresa** (`referencia_orden_compra` y
+      `referencia_nota_venta`), las dos encendidas al nacer. Publicar el número
+      de la nota de venta en un documento que lee el cliente es una costumbre de
+      INNOVAGES, no una regla del SII.
+
+**Comprobado** escribiendo los tres documentos contra la nota de venta 2045
+dentro de una transacción que se deshizo: la venta al cliente de la NV, la venta
+a otro RUT y la comisión. Las tres con sus dos referencias en el orden del ERP y
+con la glosa del maestro. La venta a otro RUT escribió `nvCorrela 1` y bajó el
+saldo de 1 a 0; la comisión escribió `nvCorrela 0` y lo dejó en 1. Deshecho
+todo, el saldo vuelve a 1 y el folio 238 sigue libre. Las 58 pruebas de PHPUnit
+y las 176 del teléfono siguen pasando.
+
+**Medido a 360 px en las tres escalas** (0,92 · 1 · 1,1): las filas de elección
+van de 103 a 128 px de alto —muy por encima de los 44—, el rótulo no baja de 12
+px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
+12 clavados y los campos a 16, que es lo que evita el zoom de Android. Nada
+desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
+esta máquina, así que esto son medidas del DOM, no una revisión visual.
+
 ## Pendiente / próximos pasos
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
       admin: el alcance por vendedor está probado contra la base, pero no con
@@ -228,8 +286,9 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [ ] **Fase 4, paso 2b**: el camino de conversión NV → factura línea por
       línea. Solo hay 2 casos reales contra los que contrastarlo, y arrastran
       los decimales de la NV en vez de redondear a peso.
-- [ ] **Decidir la llave de configuración** que permite cambiar el cliente a
-      facturar (el caso de la comisión). Va en `ventas.config`.
+- [ ] **Probar el flujo entero de facturación con un vendedor de verdad.** Los
+      dos modos —la venta y la comisión— están comprobados contra la base en una
+      transacción deshecha, pero no con alguien usando el teléfono.
 - [ ] **Fase 4.5 — el ciclo normal de venta**: plan en `docs/ciclo-normal.md`.
       **Terminada**: los seis pasos, con la pantalla de facturación incluida.
 - [ ] **Fase 4, paso 4**: el primer envío de verdad. Todo el camino está

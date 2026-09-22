@@ -310,10 +310,40 @@ otra firma, y un rechazo del SII que aparece días después.
 | Receptor | con giro y dirección | igual | admite `66666666-6` | igual |
 | Totales | `MntNeto`, `TasaIVA`, `IVA`, `MntTotal` | solo `MntExe` y `MntTotal` | solo `MntTotal` bruto | como la factura |
 | Líneas | — | `IndExe` en cada una | — | — |
-| Referencia | a la nota de venta, código 802 | igual | — | a la factura, **`CodRef` 1 «Anula Documento»** |
+| Referencias | la orden de compra (801) y la nota de venta (802) | igual | — | a la factura, **`CodRef` 1 «Anula Documento»** |
 
 Ese último no está en ninguna columna: Softland lo deduce de que el documento
 sea devolución, y aquí se deduce igual.
+
+### Las referencias son varias, y cada código dice una cosa
+
+El `<Referencia>` sale de `IW_GSaEn_RefDTE`, una fila por renglón. Desde la
+0.41.0 la factura escribe **dos**, que es lo que hace el ERP:
+
+| Código | Qué nombra | De dónde sale |
+|---|---|---|
+| **801** | la orden de compra del cliente | `nw_nventa.NumOC` |
+| **802** | el número de la nota de venta | `nw_nventa.NVNumero` |
+
+Los nombra el maestro `DTE_SiiTDocRef` —«Orden de Compra/Orden de Servicio» y
+«Nota de Pedido/Hes/Has»—, y de ahí sale también la glosa que se imprime: la app
+no traduce códigos que no son suyos. **No son intercambiables**: en INNOVAGES
+las 188 referencias 802 llevan el número de la nota de venta y ninguna coincide
+con un `NumOC`; las 6 referencias 801 llevan la orden de compra y coinciden con
+el `NumOC` de su nota de venta en los 6 casos. La factura 232 lleva las dos.
+
+Tres detalles que se olvidan:
+
+- **El `FolioRef` es texto, no un número.** Hay órdenes de compra como
+  `272-OC00008216` o `U36401`; convertirlas a entero daba `272` y `0`.
+- **La fecha es la del documento referido**, no la de hoy.
+- **`AuxDocNum` no es la primera referencia, es la primera que nombra un
+  documento nuestro.** Con la orden de compra delante, la primera puede ser un
+  papel que no existe en `iw_gsaen`, y dejarla ahí diría que esta factura
+  corrige una factura número `U36401`.
+
+El resto de la historia —por qué 801 y no 802, y qué hereda la factura de la
+nota de venta— está en `docs/ciclo-normal.md`, paso 7.
 
 ### Cosas que costaron encontrarse
 

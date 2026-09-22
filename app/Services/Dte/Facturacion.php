@@ -103,8 +103,11 @@ class Facturacion
      *     nota_venta?: int|null,
      *     tipo_trans?: int,
      *     forma_pago?: int,
-     *     referencia?: array{folio: int, fecha: string, tipo?: string, subtipo?: string,
+     *     referencia?: array{folio: int|string, fecha: string, tipo?: string, subtipo?: string,
      *                        glosa?: string|null, codigo?: string|null, razon?: string|null}|null,
+     *     referencias?: list<array{folio: int|string, fecha: string, sii?: int, tipo?: string,
+     *                              subtipo?: string, glosa?: string|null, codigo?: string|null,
+     *                              razon?: string|null}>,
      *     descuento_pct?: float,
      *     lineas: array<int, array{producto: string, cantidad: float, precio: float, glosa?: string|null,
      *                              unidad?: string|null, afecto?: bool, descuento_pct?: float,
@@ -194,7 +197,7 @@ class Facturacion
                     );
                 }
 
-                $this->referencia($spec, $letra, $nroInt);
+                $this->referencias($spec, $letra, $nroInt);
                 $this->marcarEscrito($spec, $letra, $nroInt, $spec['_creado_en']);
 
                 return ['tipo' => $letra, 'nroint' => $nroInt, 'folio' => $folio];
@@ -372,7 +375,7 @@ class Facturacion
     {
         $fecha = $spec['fecha'] ?? date('Y-m-d');
         $m = self::montos($totales, $signo);
-        $ref = $spec['referencia'] ?? null;
+        $ref = self::refDocumento($spec);
 
         return [
             'Tipo' => $letra,
@@ -384,7 +387,10 @@ class Facturacion
             'Estado' => 'V',
             'Fecha' => $fecha,
             'FechaVenc' => $this->vencimiento($fecha, $spec['cond_pago'] ?? null),
-            'Glosa' => $spec['glosa'] ?? null,
+            // 255 es lo que mide la columna. La observación de una nota de
+            // venta cabe en 4.000, así que puede no caber aquí: el teléfono lo
+            // enseña antes de emitir y esto es el último respaldo.
+            'Glosa' => $this->recorta($spec['glosa'] ?? null, 255),
             'AuxTipo' => 'A',
             'CodAux' => $spec['receptor'],
             'CodVendedor' => $spec['vendedor'],
@@ -602,7 +608,7 @@ class Facturacion
      */
     private function heredarDelCorregido(array $spec): array
     {
-        $ref = $spec['referencia'] ?? null;
+        $ref = self::refDocumento($spec);
         $conLinea = array_filter($spec['lineas'], fn ($l) => ($l['linea_referencia'] ?? null) !== null);
 
         if ($conLinea === [] || ! $ref) {
@@ -687,7 +693,7 @@ class Facturacion
     private function heredarVendedor(array $spec): array
     {
         $propio = trim((string) ($spec['vendedor'] ?? ''));
-        $ref = $spec['referencia'] ?? null;
+        $ref = self::refDocumento($spec);
         $heredado = '';
 
         if ($ref) {
@@ -891,32 +897,121 @@ class Facturacion
     }
 
     /**
-     * La referencia al documento corregido, en la tabla que alimenta el XML.
+     * Las referencias del documento, en la tabla que alimenta el XML.
      *
      * `IW_GSaEn_RefDTE` es de donde sale el `<Referencia>` del DTE. Va con el
-     * código **del SII** (33 para la factura), no con el de Softland.
+     * código **del SII**, no con el de Softland.
+     *
+     * ## Por qué son varias y no una
+     *
+     * Porque un documento apunta a más de una cosa a la vez, y el ERP ya lo
+     * hace así. La factura 232 de INNOVAGES lleva dos renglones: el **801** con
+     * la orden de compra del cliente —«1368»— y el **802** con el número de la
+     * nota de venta —«2046»—. Escribía sólo el primero quien tuviera la suerte
+     * de pedirlo primero.
+     *
+     * Los códigos no se inventan: los declara `DTE_SiiTDocRef`, y de ahí sale
+     * también la glosa, que es el rótulo que el cliente lleva años leyendo en
+     * el papel de Softland. **801 no es 802**: el primero es la orden de compra
+     * y el segundo la nota de pedido, y en los 194 documentos reales de
+     * INNOVAGES cada uno lleva lo suyo sin excepción.
+     *
+     * Y el orden importa poco pero se respeta: el ERP pone la orden de compra
+     * en la línea 1 y la nota de venta en la 2.
      */
-    private function referencia(array $spec, string $letra, int $nroInt): void
+    private function referencias(array $spec, string $letra, int $nroInt): void
     {
-        $ref = $spec['referencia'] ?? null;
+        foreach (self::listaReferencias($spec) as $i => $ref) {
+            $codigo = self::codigoSii($ref);
 
-        if (! $ref) {
-            return;
+            $this->tabla('IW_GSaEn_RefDTE')->insert([
+                'Tipo' => $letra,
+                'NroInt' => $nroInt,
+                'LineaRef' => $i + 1,
+                'CodRefSII' => (string) $codigo,
+                // 18 caracteres, que es lo que mide la columna y lo que admite
+                // el `FolioRef` del SII. Y es **texto**: hay órdenes de compra
+                // como «272-OC00008216».
+                'FolioRef' => substr(trim((string) $ref['folio']), 0, 18),
+                'FechaRef' => $ref['fecha'],
+                // La glosa es el rótulo impreso. Si no viene dada se lee del
+                // maestro del ERP, que es quien la nombra: la app no traduce
+                // códigos que no son suyos.
+                'Glosa' => $ref['glosa'] ?? self::glosaSii($codigo),
+                'CodRef' => $ref['codigo'] ?? null,
+                'RazonRef' => $ref['razon'] ?? null,
+            ]);
+        }
+    }
+
+    /**
+     * Las referencias de un `spec`, normalizadas.
+     *
+     * Se admiten las dos formas —`referencia` en singular, que es como lo pide
+     * la nota de crédito, y `referencias` en lista— para no obligar a envolver
+     * en un arreglo el caso de una sola. La singular va primera.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function listaReferencias(array $spec): array
+    {
+        $lista = array_values($spec['referencias'] ?? []);
+
+        if ($una = $spec['referencia'] ?? null) {
+            array_unshift($lista, $una);
         }
 
-        $tipoRef = TipoDte::desdeSoftland($ref['tipo'] ?? 'F', $ref['subtipo'] ?? 'T');
+        return array_values(array_filter(
+            $lista,
+            fn ($r) => is_array($r) && trim((string) ($r['folio'] ?? '')) !== '',
+        ));
+    }
 
-        $this->tabla('IW_GSaEn_RefDTE')->insert([
-            'Tipo' => $letra,
-            'NroInt' => $nroInt,
-            'LineaRef' => 1,
-            'CodRefSII' => (string) ($tipoRef?->value ?? TipoDte::FACTURA->value),
-            'FolioRef' => $ref['folio'],
-            'FechaRef' => $ref['fecha'],
-            'Glosa' => $ref['glosa'] ?? null,
-            'CodRef' => $ref['codigo'] ?? null,
-            'RazonRef' => $ref['razon'] ?? null,
-        ]);
+    /**
+     * El código del SII de una referencia.
+     *
+     * Viene dado —801, 802— cuando lo referido no es un documento nuestro; se
+     * deduce de la pareja de Softland cuando sí lo es.
+     */
+    private static function codigoSii(array $ref): int
+    {
+        if ($sii = (int) ($ref['sii'] ?? 0)) {
+            return $sii;
+        }
+
+        return TipoDte::desdeSoftland($ref['tipo'] ?? 'F', $ref['subtipo'] ?? 'T')?->value
+            ?? TipoDte::FACTURA->value;
+    }
+
+    /** Cómo nombra el ERP un código de referencia. Del maestro, no de aquí. */
+    private static function glosaSii(int $codigo): ?string
+    {
+        $glosa = DB::connection(self::CONN)->table('softland.DTE_SiiTDocRef')
+            ->where('CodRefSII', (string) $codigo)->value('DesRefSII');
+
+        return trim((string) $glosa) ?: null;
+    }
+
+    /**
+     * La referencia que nombra un documento **nuestro**, que es la que Softland
+     * repite en `AuxDocNum` para su propia ventana.
+     *
+     * No vale la primera de la lista: desde que la factura lleva también la
+     * orden de compra del cliente, la primera puede ser un papel que no existe
+     * en `iw_gsaen`, y dejarla ahí sería decir que esta factura corrige una
+     * factura número «U36401».
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function refDocumento(array $spec): ?array
+    {
+        foreach (self::listaReferencias($spec) as $r) {
+            if (($r['tipo'] ?? null) !== null) {
+                return $r;
+            }
+        }
+
+        return null;
     }
 
     /**

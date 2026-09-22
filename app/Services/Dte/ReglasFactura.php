@@ -8,9 +8,10 @@ use Illuminate\Support\Facades\DB;
 /**
  * Lo que la empresa decide sobre cómo factura, y que no está en Softland.
  *
- * Dos decisiones: a quién se le factura una nota de venta —que separa el ciclo
- * normal del de distribuidor— y si el documento sale hacia el SII solo o espera
- * a que alguien lo mande.
+ * Cuatro decisiones: a quién se le factura una nota de venta —que separa el
+ * ciclo normal del de distribuidor—, si el documento sale hacia el SII solo o
+ * espera a que alguien lo mande, y qué papeles nombra en sus referencias: la
+ * orden de compra del cliente y el número de la nota de venta.
  *
  * ## A quién se le factura una nota de venta
  *
@@ -150,6 +151,48 @@ class ReglasFactura
     public function fijarEnvioAutomatico(bool $automatico): void
     {
         $this->guardar(['envio_automatico' => $automatico]);
+    }
+
+    /**
+     * Si la factura nombra en el DTE la **orden de compra del cliente**.
+     *
+     * Es la referencia 801 del SII, y es la que de verdad le sirve a quien
+     * recibe la factura: la cuadra contra lo que encargó. Nace encendida y sólo
+     * aparece cuando hay OC que poner, así que apagarla es raro; la llave
+     * existe porque hay empresas que no trabajan con órdenes de compra y
+     * prefieren no ver el renglón nunca.
+     */
+    public function referenciaOrdenCompra(): bool
+    {
+        return (bool) ($this->valores()['referencia_orden_compra'] ?? true);
+    }
+
+    public function fijarReferenciaOrdenCompra(bool $poner): void
+    {
+        $this->guardar(['referencia_orden_compra' => $poner]);
+    }
+
+    /**
+     * Si la factura nombra en el DTE el **número de la nota de venta**.
+     *
+     * Es la referencia 802, «Nota de Pedido», y aquí sí hay que tener cuidado:
+     * INNOVAGES la pone en 188 documentos, pero eso es una costumbre suya, no
+     * una regla del SII. En una empresa donde la nota de venta es un papel
+     * interno, publicar su número en un documento tributario que lee el cliente
+     * no aporta nada.
+     *
+     * Nace encendida porque es lo que hace hoy el Softland de escritorio de
+     * INNOVAGES, y cambiar en silencio lo que el ERP ya escribe sería la peor
+     * forma de estrenar esto.
+     */
+    public function referenciaNotaVenta(): bool
+    {
+        return (bool) ($this->valores()['referencia_nota_venta'] ?? true);
+    }
+
+    public function fijarReferenciaNotaVenta(bool $poner): void
+    {
+        $this->guardar(['referencia_nota_venta' => $poner]);
     }
 
     /**

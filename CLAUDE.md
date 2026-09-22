@@ -464,6 +464,11 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
 - **La glosa de la referencia va en la columna `Glosa`**, no en la que se llama
   `RazonRef`: el `RazonRef` del DTE sale de la primera, y la segunda está vacía
   en los 209 documentos reales.
+- **Las referencias son varias y `AuxDocNum` no es la primera.** Es la primera
+  que nombra un documento nuestro: con la orden de compra delante, la primera
+  puede ser un papel que no existe en `iw_gsaen`, y dejarla ahí diría que esta
+  factura corrige una factura número `U36401`. El `FolioRef` es **texto** y la
+  fecha es la del documento referido, no la de hoy.
 - **Contar folios no es contar los que no están usados.** El repartidor de
   Softland va hacia adelante y no rellena huecos: hay 33 folios de rangos viejos
   que no va a entregar jamás. Se cuenta avanzando desde el último usado dentro
@@ -471,6 +476,21 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
 - **La cotización no estrena letra.** «Convertida a medias» es una lectura de la
   app, no un quinto `CtEstado`. Está en `V` mientras le quede una nota de venta
   viva; si no queda ninguna, vuelve a `P`.
+- **Facturar la venta y facturar una comisión son dos documentos, y se elige
+  cuál.** No se deduce del receptor: los mismos productos facturados a otro RUT
+  siguen siendo la venta —quien paga no siempre es quien recibe— y **descuentan
+  saldo**; la comisión lleva líneas escritas a mano sin `nv_linea` y no lo toca.
+  Deducirlo hacía imposible el primer caso, que es corriente.
+- **La factura hereda lo que describe la venta**, se le facture a quien se le
+  facture: condición de pago, bodega, centro de costo, observación y orden de
+  compra. Cambiar el pagador no cambia qué se vendió.
+- **La orden de compra del cliente va al DTE como referencia 801, no 802.**
+  `DTE_SiiTDocRef` declara 801 «Orden de Compra» y 802 «Nota de Pedido», y en
+  INNOVAGES las 188 referencias 802 llevan el número de la nota de venta y las 6
+  con 801 la orden de compra. Van **las dos a la vez**, como en la factura 232, y
+  cada una se apaga por empresa. **`iw_gsaen.Orden` no es el sitio** aunque se
+  llame así: es un `int`, está en `'0'` en las 200 facturas y no podría guardar
+  `272-OC00008216`.
 
 ## La factura electrónica
 
@@ -643,7 +663,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.40.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.41.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

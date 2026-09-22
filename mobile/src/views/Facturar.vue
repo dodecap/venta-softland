@@ -31,19 +31,39 @@ import Vacio from '../components/Vacio.vue';
  * una bandeja de salida: el folio lo reparte Softland y el número tiene que ser
  * el mismo para siempre desde el instante en que se emite.
  *
- * ## Facturarle a otro: el ciclo del distribuidor
+ * ## Dos facturas distintas, y hay que decir cuál
  *
  * Con el permiso de Softland —`IW · Iw_FacLin · NVOtroAuxiliar`, cruzado con la
- * llave de la empresa— se le puede cambiar el receptor. Eso no es «la misma
- * factura a otro nombre»: es **otro documento**, el que le cobra la comisión al
- * mandante, y por eso al cambiar el receptor las líneas de la nota de venta
- * dejan de servir y se escriben a mano. Facturarle al mandante los productos
- * que compró el cliente final sería un documento mal emitido.
+ * llave de la empresa— se le puede cambiar el receptor. Durante un tiempo esta
+ * pantalla **dedujo** de ahí qué documento era: receptor distinto, comisión. Se
+ * quedó corto, porque son dos cosas que se parecen y no son la misma:
  *
- * **Y queda atada a la nota de venta igual.** Va en `iw_gsaen.nvnumero`, así que
- * se ve desde su ficha y desde la cotización. Lo que no hace es **consumir
- * saldo**: sus líneas no llevan `nv_linea`, y una comisión no factura nada de lo
- * que se vendió. Las dos cosas a la vez son justamente lo que se quería.
+ *  - **Facturar la venta.** Los productos de la nota de venta, con su precio,
+ *    su orden de compra y su observación. Las líneas llevan `nv_linea` y
+ *    **consumen saldo**. El receptor puede ser otro —quien paga no siempre es
+ *    quien recibe— y eso no cambia nada de lo anterior: lo único que cambia es
+ *    a nombre de quién sale el documento.
+ *  - **Facturar la comisión.** El ciclo de distribuidor: la venta es del cliente
+ *    final y a quien se le cobra es al mandante, por un concepto que no está en
+ *    la nota de venta. Las líneas se escriben a mano y **no llevan `nv_linea`**,
+ *    porque una comisión no factura nada de lo que se vendió.
+ *
+ * Deducirlo del receptor hacía imposible la primera con otro RUT, que es un
+ * caso real y corriente: el mismo pedido facturado a la matriz, a la
+ * aseguradora o a quien financia. Así que se pregunta, y el receptor pasa a ser
+ * consecuencia y no causa.
+ *
+ * **Las dos quedan atadas a la nota de venta.** Va en `iw_gsaen.nvnumero`, así
+ * que se ven desde su ficha y desde la cotización.
+ *
+ * ## Lo que la factura hereda de la venta
+ *
+ * Todo lo que describe la venta viaja con ella, se le facture a quien se le
+ * facture: condición de pago, bodega, centro de costo, la observación y la
+ * orden de compra del cliente. Las dos últimas se pueden corregir aquí —la OC
+ * llega muchas veces después de escribir la venta—, y la OC acaba en el DTE
+ * como **referencia 801**, que es la que le sirve a quien recibe la factura
+ * para cuadrarla contra lo que encargó.
  */
 
 const route = useRoute();
@@ -83,16 +103,59 @@ const productosHallados = ref([]);
 const propias = ref([]);
 
 /**
- * Si esta factura ya no es la de la nota de venta, sino la del mandante.
+ * Qué factura es ésta: la de la venta o la de la comisión.
  *
- * No es un interruptor aparte: lo dice el receptor. Ponerle un modo que hubiera
- * que encender además de cambiar el cliente sería pedir dos veces lo mismo, y
- * dejaría posible el estado incoherente —otro receptor con las líneas de la
- * nota de venta— que es el documento que no se quiere emitir.
+ * Se declara, no se deduce. Ver arriba el porqué: deducirlo del receptor
+ * confundía «le facturo a otro» con «le cobro una comisión», que son dos
+ * documentos con dos efectos distintos sobre el saldo de la venta.
  */
+const modo = ref('venta');
+const esComision = computed(() => modo.value === 'comision');
+
+/** Si el documento sale a nombre de alguien que no es el cliente de la venta. */
 const aOtro = computed(
     () => !! propuesta.value && receptor.value !== '' && receptor.value !== propuesta.value.cliente
 );
+
+/*
+ * Lo que la factura hereda de la nota de venta y aquí se puede corregir.
+ *
+ * La orden de compra, porque llega muchas veces después de escribir la venta; y
+ * la observación, porque en `iw_gsaen` cabe en 255 caracteres y en la nota de
+ * venta en 4.000. Lo que no cabe se enseña recortado antes de emitir, nunca se
+ * corta en silencio.
+ */
+const oc = ref('');
+const observacion = ref('');
+
+const LARGO_GLOSA = 255;
+
+/** La observación que de verdad se va a escribir, con su recorte a la vista. */
+const observacionRecortada = computed(
+    () => observacion.value.trim().length > LARGO_GLOSA
+);
+
+/** Lo que propone cada modo como observación, para saber si nadie la tocó. */
+function observacionPropuesta(cual) {
+    if (cual === 'comision') {
+        const quien = clienteNv.value?.nombre || propuesta.value?.cliente || '';
+
+        return quien ? `COMISION ${quien}`.slice(0, LARGO_GLOSA) : '';
+    }
+
+    return propuesta.value?.observacion || '';
+}
+
+/*
+ * Al cambiar de modo cambia el documento, así que cambia lo que propone. Pero
+ * sólo se pisa lo que nadie escribió: si el texto sigue siendo el que propuso
+ * el otro modo, se cambia; si lo tocaron, se respeta.
+ */
+watch(modo, (nuevo, viejo) => {
+    if (observacion.value.trim() === observacionPropuesta(viejo).trim()) {
+        observacion.value = observacionPropuesta(nuevo);
+    }
+});
 
 onMounted(cargar);
 
@@ -134,6 +197,11 @@ async function cargar() {
         receptor.value = r.cliente;
         clienteNv.value = await idb.obtener('clientes', r.cliente);
         cliente.value = clienteNv.value;
+
+        // Lo que se hereda de la venta. Se pone después del cliente porque la
+        // observación que propone el modo comisión lo nombra.
+        oc.value = r.oc || '';
+        observacion.value = observacionPropuesta(modo.value);
     } catch (e) {
         error.value = e.message;
     } finally {
@@ -159,7 +227,7 @@ async function ponerNombres() {
 }
 
 /** Lo que se va a facturar: las de la nota de venta, o las escritas a mano. */
-const enJuego = computed(() => (aOtro.value ? propias.value : lineas.value));
+const enJuego = computed(() => (esComision.value ? propias.value : lineas.value));
 
 const totales = computed(() => calcularTotales(enJuego.value.filter((l) => l.cantidad > 0)));
 
@@ -238,12 +306,12 @@ function agregarProducto(p) {
 // justo lo que la bandeja vino a permitir.
 const sinFolios = computed(() => !! propuesta.value?.folios && propuesta.value.folios.libres <= 0);
 const hayQueFacturar = computed(
-    () => enJuego.value.some((l) => l.cantidad > 0) && (! aOtro.value || totales.value.total > 0)
+    () => enJuego.value.some((l) => l.cantidad > 0) && (! esComision.value || totales.value.total > 0)
 );
 
 /** Facturar de más está permitido, pero tiene que verse. */
 const deMas = computed(
-    () => (aOtro.value ? [] : lineas.value.filter((l) => l.cantidad > l.saldo + 0.0001))
+    () => (esComision.value ? [] : lineas.value.filter((l) => l.cantidad > l.saldo + 0.0001))
 );
 
 /**
@@ -269,13 +337,22 @@ async function emitir() {
         // de esta nota de venta y tiene que poder verse desde su ficha.
         nota_venta: numero.value,
         receptor: receptor.value,
+
+        // Lo que describe la venta viaja con ella, cambie o no el receptor:
+        // quién paga no cambia qué se vendió, con qué condición ni desde qué
+        // bodega. La OC acaba en el DTE como referencia 801 y la observación en
+        // la glosa del documento.
         centro_costo: propuesta.value.centro_costo,
         condicion: propuesta.value.condicion,
+        bodega: propuesta.value.bodega,
+        oc: oc.value.trim() || null,
+        glosa: observacion.value.trim().slice(0, LARGO_GLOSA) || null,
 
-        // Al mandante van las líneas escritas a mano, y **sin `nv_linea`**: una
-        // comisión no factura nada de lo vendido, así que no puede consumir
-        // saldo. Al cliente de la nota de venta van las suyas, enlazadas.
-        lineas: aOtro.value
+        // La comisión va con las líneas escritas a mano y **sin `nv_linea`**:
+        // no factura nada de lo vendido, así que no puede consumir saldo. La
+        // venta va con las suyas, enlazadas — y siguen enlazadas aunque el
+        // documento salga a nombre de otro, porque lo vendido se entregó igual.
+        lineas: esComision.value
             ? propias.value
                 .filter((l) => l.cantidad > 0)
                 .map((l) => ({
@@ -422,32 +499,96 @@ function cantidad(n) {
                         <div v-if="propuesta.vendedor">
                             <span>Vendedor</span><b>{{ nombreDe('vendedores', propuesta.vendedor) }}</b>
                         </div>
+                        <!-- Lo que la factura hereda de la venta, a la vista.
+                             No se edita aquí: son datos de la venta, y
+                             corregirlos en la factura dejaría dos verdades. -->
+                        <div v-if="propuesta.condicion">
+                            <span>Condición de pago</span>
+                            <b>{{ nombreDe('condiciones_venta', propuesta.condicion) }}</b>
+                        </div>
                         <div v-if="propuesta.centro_costo">
                             <span>Centro de costo</span><b>{{ propuesta.centro_costo }}</b>
                         </div>
+                        <div v-if="propuesta.bodega">
+                            <span>Bodega</span><b>{{ nombreDe('bodegas', propuesta.bodega) }}</b>
+                        </div>
                     </div>
                 </div>
-                <!-- Por usuario, no por empresa: lo dice el permiso que Softland
-                     le tenga concedido a éste, cruzado con la llave de la
-                     configuración. Quien no lo tenga ni ve el campo. -->
-                <p class="ayuda" v-if="propuesta.receptor_editable && ! aOtro">
-                    Puedes facturarle a otro cliente. Al hacerlo, las líneas se escriben a mano:
-                    es la factura que le cobra al mandante, no la de los productos que compró
-                    el cliente final.
+
+                <!-- Qué documento es. Se pregunta, no se deduce del receptor:
+                     facturarle la venta a otro RUT y cobrarle una comisión son
+                     dos cosas distintas, y la diferencia es si lo emitido
+                     descuenta o no el saldo de la venta. -->
+                <template v-if="propuesta.receptor_editable">
+                    <div class="seccion"><h2>Qué factura es</h2></div>
+                    <div class="eleccion">
+                        <label class="eleccion-fila" :class="{ activa: modo === 'venta' }">
+                            <input type="radio" value="venta" v-model="modo">
+                            <span>
+                                <b>La venta</b>
+                                <small>
+                                    Los productos de la nota de venta, con su precio. Descuenta
+                                    saldo. Se le puede facturar a otro RUT sin que eso cambie.
+                                </small>
+                            </span>
+                        </label>
+                        <label class="eleccion-fila" :class="{ activa: modo === 'comision' }">
+                            <input type="radio" value="comision" v-model="modo">
+                            <span>
+                                <b>Una comisión</b>
+                                <small>
+                                    Un concepto que no está en la nota de venta, escrito a mano.
+                                    Queda enlazada a ella y <b>no descuenta saldo</b>.
+                                </small>
+                            </span>
+                        </label>
+                    </div>
+                </template>
+
+                <!-- El aviso es del cambio de receptor, no del modo: el que
+                     importa decir es que la venta se le va a cobrar a alguien
+                     que no la hizo, y eso pasa en los dos casos. -->
+                <Aviso tipo="info" v-if="aOtro">
+                    <template v-if="esComision">
+                        <b>Se le cobra a {{ cliente?.nombre || receptor }}</b>, no al cliente de la
+                        nota de venta. Queda enlazada a la Nº {{ propuesta.nota_venta }} —se ve
+                        desde su ficha—, pero <b>no le descuenta saldo</b>.
+                    </template>
+                    <template v-else>
+                        <b>Esta factura sale a nombre de {{ cliente?.nombre || receptor }}</b>, que
+                        no es el cliente de la nota de venta. Lleva los productos vendidos y
+                        <b>sí le descuenta saldo</b>: lo que quede por facturar baja igual.
+                    </template>
+                </Aviso>
+                <button class="chip-accion" v-if="aOtro" @click="volverAlDeLaNotaVenta">
+                    <AppIcon name="atras" :size="16" color="currentColor" />
+                    Volver a facturarle a {{ clienteNv?.nombre || propuesta.cliente }}
+                </button>
+
+                <!-- Lo que viaja de la venta a la factura y sí se puede
+                     corregir: la OC llega muchas veces después de escribir la
+                     venta, y la observación no siempre es la que va en el
+                     documento tributario. -->
+                <div class="seccion"><h2>Lo que va en la factura</h2></div>
+
+                <label>Orden de compra del cliente</label>
+                <input v-model="oc" type="text" placeholder="Sin orden de compra" maxlength="18">
+                <p class="ayuda">
+                    Va al DTE como referencia <b>Orden de Compra</b>. Es lo que le sirve a quien
+                    recibe la factura para cuadrarla contra lo que encargó.
                 </p>
 
-                <template v-if="aOtro">
-                    <Aviso tipo="info">
-                        <b>Esta factura va a {{ cliente?.nombre || receptor }}</b>, no al cliente de
-                        la nota de venta. Queda enlazada a la Nº {{ propuesta.nota_venta }} —se ve
-                        desde su ficha—, pero <b>no le descuenta saldo</b>: lo que queda por
-                        facturar de la venta sigue igual.
-                    </Aviso>
-                    <button class="chip-accion" @click="volverAlDeLaNotaVenta">
-                        <AppIcon name="atras" :size="16" color="currentColor" />
-                        Volver a facturarle a {{ clienteNv?.nombre || propuesta.cliente }}
-                    </button>
+                <label>Observación</label>
+                <textarea v-model="observacion" rows="2"
+                          placeholder="Lo que tiene que leer el cliente"></textarea>
+                <p class="ayuda" v-if="observacionRecortada">
+                    <b>No cabe entera.</b> En la factura caben {{ LARGO_GLOSA }} caracteres y
+                    llevas {{ observacion.trim().length }}: se escribirá cortada ahí.
+                </p>
 
+                <!-- La comisión: líneas escritas a mano, sin enlace a las de la
+                     nota de venta y sin consumir su saldo. -->
+                <template v-if="esComision">
                     <div class="seccion">
                         <h2>Qué se le cobra</h2>
                         <button class="ver-todo" @click="abrirProductos">
@@ -495,7 +636,7 @@ function cantidad(n) {
                 <Vacio v-else-if="! lineas.length" icono="factura" titulo="No queda nada por facturar">
                     Todas las líneas de esta nota de venta ya se facturaron.
                     <template v-if="propuesta.receptor_editable">
-                        Si lo que vas a emitir es la comisión, cámbiale el receptor arriba.
+                        Si lo que vas a emitir es la comisión, elígelo arriba.
                     </template>
                 </Vacio>
 
@@ -560,7 +701,7 @@ function cantidad(n) {
                     <p class="ayuda centrado" v-if="sinFolios">
                         Sin folios no hay documento que emitir.
                     </p>
-                    <p class="ayuda centrado" v-else-if="aOtro && ! hayQueFacturar">
+                    <p class="ayuda centrado" v-else-if="esComision && ! hayQueFacturar">
                         Falta el monto: una línea en cero no cobra nada.
                     </p>
                 </template>
@@ -642,9 +783,18 @@ function cantidad(n) {
                             a {{ cliente?.nombre || propuesta?.cliente }},
                             <b>y se manda al SII</b>.
                         </p>
-                        <p class="ayuda" v-if="aOtro">
-                            <b>No es el cliente de la nota de venta.</b> Queda enlazada a la
-                            Nº {{ propuesta?.nota_venta }} y no le descuenta saldo.
+                        <!-- Lo último que se lee antes de gastar un folio
+                             tiene que decir qué documento es, no sólo a quién
+                             va: el efecto sobre el saldo de la venta es lo que
+                             separa los dos, y es lo que no se puede deshacer
+                             sin una nota de crédito. -->
+                        <p class="ayuda" v-if="esComision">
+                            Es la factura de <b>comisión</b>. Queda enlazada a la
+                            Nº {{ propuesta?.nota_venta }} y <b>no le descuenta saldo</b>.
+                        </p>
+                        <p class="ayuda" v-else-if="aOtro">
+                            Son los productos de la nota de venta Nº {{ propuesta?.nota_venta }}
+                            facturados a <b>otro RUT</b>. <b>Le descuenta saldo.</b>
                         </p>
                         <p class="ayuda">
                             Un folio emitido no se devuelve. Lo que salga mal se corrige con una

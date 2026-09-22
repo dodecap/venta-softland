@@ -2343,3 +2343,58 @@ label .etiqueta { margin-left: 6px; vertical-align: 1px; }
     line-height: 1.45;
 }
 .sii-cambio-nota b { font-weight: 700; }
+
+/* ---------- Elegir entre dos documentos, en Facturar ----------
+
+   No es un `.segmentado`: ése mide 34 px de alto y sirve para preferencias que
+   se cambian sin consecuencia. Aquí la elección decide si lo emitido descuenta
+   o no el saldo de una venta, y eso se corrige con una nota de crédito. Va con
+   su explicación al lado y con la fila entera pulsable, como las casillas del
+   SII: la redonda nativa de Android mide 20 px y pedir esa puntería para
+   decidir qué documento se emite es pedir errores. */
+
+.eleccion {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.eleccion-fila {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    /* El `label` general del formulario los pone en mayúsculas y con
+       separación; esto no es un rótulo de campo, es una opción. */
+    margin: 0;
+    padding: 12px;
+    min-height: 44px;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 8px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.eleccion-fila.activa { border-color: var(--cian); border-bottom: 4px solid var(--cian); }
+.eleccion-fila input[type="radio"] { width: 20px; height: 20px; margin-top: 1px; flex: 0 0 auto; }
+.eleccion-fila > span { flex: 1; min-width: 0; }
+
+.eleccion-fila b {
+    display: block;
+    /* Piso de 12 px: 13 por 0,92 da 11,96 y ya no se lee. */
+    font-size: max(12px, calc(13px * var(--d)));
+    font-weight: 700;
+    color: var(--texto);
+    margin-bottom: 4px;
+}
+
+.eleccion-fila small {
+    display: block;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--texto-suave);
+}
+
+.eleccion-fila.activa b { color: var(--indigo); }

@@ -293,6 +293,12 @@ export async function propuestaLocal(numero, receptorEditable = false) {
         centro_costo: nv.centro_costo || null,
         condicion: nv.condicion || null,
         vendedor: nv.vendedor || '',
+        // Lo mismo que manda el servidor, y por el mismo motivo: la factura
+        // hereda lo que describe la venta. `NumOC` es NOT NULL con cero por
+        // defecto en Softland, así que el cero de ahí es «sin orden de compra».
+        oc: nv.oc && nv.oc !== '0' ? nv.oc : null,
+        observacion: nv.observacion || null,
+        bodega: nv.bodega || null,
         estado: nv.estado,
         receptor_editable: receptorEditable,
         conocible: true,

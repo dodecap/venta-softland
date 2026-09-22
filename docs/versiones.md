@@ -42,6 +42,37 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.41.0 — La orden de compra viaja de la venta a la factura
+*2026-09-22*
+
+- **La orden de compra se escribe también en la cotización**, no sólo en la nota
+  de venta: la da el cliente al aceptar, que suele ser antes de convertir. Va
+  sola de una a otra y de ahí a la factura. El campo admite 18 caracteres y
+  letras —`1242028-40-TD26` es una OC real—; la validación del servidor estaba
+  en 15 y rechazaba con un 422 las que no cabían.
+- **La factura nombra en el DTE los papeles de los que viene, y son dos.** La
+  orden de compra del cliente con el código **801** y el número de la nota de
+  venta con el **802**. No son intercambiables: el maestro del ERP los declara
+  como «Orden de Compra/Orden de Servicio» y «Nota de Pedido/Hes/Has», y en los
+  194 documentos reales de INNOVAGES cada uno lleva lo suyo sin una excepción.
+  La factura 232 lleva los dos renglones a la vez, que es lo que ahora hace la
+  app sola. Las dos referencias se pueden apagar por empresa.
+- **Facturar la venta y facturar una comisión son dos documentos, y ahora se
+  elige cuál.** Antes se deducía del receptor: cambiarlo convertía la factura en
+  una comisión y tiraba las líneas de la nota de venta. Eso hacía imposible un
+  caso corriente —los mismos productos facturados a otro RUT, porque quien paga
+  no siempre es quien recibe—, así que se pregunta. La diferencia que importa es
+  el saldo: la venta lo descuenta aunque salga a nombre de otro, y la comisión
+  no lo toca nunca.
+- **La factura hereda lo que describe la venta**, se le facture a quien se le
+  facture: condición de pago, bodega, centro de costo, observación y orden de
+  compra. Las dos últimas se pueden corregir antes de emitir. La observación de
+  una nota de venta cabe en 4.000 caracteres y en la factura en 255: lo que no
+  quepa se enseña antes, nunca se corta en silencio.
+- **`iw_gsaen.Orden` no es el sitio de la orden de compra**, aunque se llame
+  así: es un `int` y está en `'0'` en las 200 facturas. No podría guardar
+  `272-OC00008216` ni queriendo. Se deja como lo deja el ERP.
+
 ### 0.40.0 — Actualizar la ficha del cliente desde el SII
 *2026-09-18*
 

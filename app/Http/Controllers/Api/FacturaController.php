@@ -84,6 +84,13 @@ class FacturaController extends Controller
             'centro_costo' => trim((string) $nv->CodiCC) ?: null,
             'condicion' => trim((string) $nv->CveCod) ?: null,
             'vendedor' => trim((string) $nv->VenCod),
+            // Lo que la factura hereda de la venta. Va todo, se le facture a
+            // quien se le facture: cambiar el pagador no cambia lo que se
+            // vendió, ni con qué orden de compra, ni en qué bodega estaba.
+            'oc' => self::ocDe($nv),
+            'observacion' => trim((string) $nv->nvObser) ?: null,
+            'bodega' => trim((string) $nv->CodBode) ?: null,
+            'fecha' => substr((string) $nv->nvFem, 0, 10),
             // Por usuario, no por empresa: el permiso lo concede Softland a
             // cada uno, y la pantalla tiene que enseñar lo que éste puede.
             'receptor_editable' => $this->reglas->receptorEditable(
@@ -135,7 +142,17 @@ class FacturaController extends Controller
             'fecha' => 'nullable|date',
             'centro_costo' => 'nullable|string|max:8',
             'condicion' => 'nullable|string|max:3',
-            'glosa' => 'nullable|string|max:200',
+            'bodega' => 'nullable|string|max:10',
+            // 255, que es lo que mide `iw_gsaen.Glosa`. La observación de la
+            // nota de venta cabe en 4.000 y aquí no: el teléfono enseña el
+            // recorte antes de emitir, y `Facturacion` lo vuelve a cortar por
+            // si llega de otra parte.
+            'glosa' => 'nullable|string|max:255',
+            // La orden de compra del cliente, que va al DTE como referencia
+            // 801. Sale de la nota de venta; viaja en la petición porque puede
+            // haber llegado después de escribirla, y entonces se corrige aquí
+            // sin tener que volver a tocar la venta.
+            'oc' => 'nullable|string|max:18',
             'lineas' => 'required|array|min:1|max:200',
             'lineas.*.producto' => 'required|string|max:20',
             'lineas.*.cantidad' => 'required|numeric|gt:0',
@@ -148,6 +165,8 @@ class FacturaController extends Controller
             'lineas.*.descuento_pct' => 'nullable|numeric|min:0|max:100',
             'lineas.*.nv_linea' => 'nullable|numeric|min:1',
         ]);
+
+        $nv = null;
 
         if ($data['nota_venta'] ?? null) {
             $nv = $this->notaVenta((int) $data['nota_venta']);
@@ -185,8 +204,10 @@ class FacturaController extends Controller
                 'fecha' => $data['fecha'] ?? null,
                 'centro_costo' => $data['centro_costo'] ?? null,
                 'cond_pago' => $data['condicion'] ?? null,
+                'bodega' => $data['bodega'] ?? null,
                 'glosa' => $data['glosa'] ?? null,
                 'nota_venta' => $data['nota_venta'] ?? null,
+                'referencias' => $this->referenciasDeLaVenta($data, $nv),
                 'lineas' => $data['lineas'],
             ]);
         } catch (Throwable $e) {
@@ -995,6 +1016,71 @@ class FacturaController extends Controller
                 'devuelve_linea' => (float) ($l->FactNumLin ?? 0),
             ])->all(),
         ];
+    }
+
+    /**
+     * La orden de compra de un documento de venta, si la tiene.
+     *
+     * `numOC` es NOT NULL con cero por defecto en Softland: el cero ahí
+     * significa «sin orden de compra», no una OC número cero. Son 43 de 804
+     * notas de venta las que traen una de verdad.
+     */
+    private static function ocDe(object $doc): ?string
+    {
+        $oc = trim((string) ($doc->NumOC ?? $doc->numOC ?? ''));
+
+        return ($oc === '' || $oc === '0') ? null : $oc;
+    }
+
+    /**
+     * De qué papeles viene esta factura, para el `<Referencia>` del DTE.
+     *
+     * Las arma **el servidor**, no el teléfono, y por dos razones: los códigos
+     * del SII no son cosa de una pantalla, y así la factura que estuvo
+     * esperando en la bandeja de salida sale con sus referencias igual que la
+     * que se emitió con señal.
+     *
+     * Son dos, y no son la misma:
+     *
+     *  - **801, Orden de Compra**, con la que dio el cliente. Es la que de
+     *    verdad le sirve a quien recibe la factura para cuadrarla contra lo que
+     *    encargó.
+     *  - **802, Nota de Pedido**, con el número de la nota de venta. Es el
+     *    enlace hacia adentro.
+     *
+     * El ERP las escribe en ese orden —la 232 lleva la 801 en la línea 1 y la
+     * 802 en la 2— y con la fecha del documento referido, no con la de hoy: las
+     * seis referencias 801 de INNOVAGES llevan las seis la fecha de su nota de
+     * venta.
+     *
+     * Las dos se pueden apagar por empresa. Poner el número de la nota de venta
+     * en el DTE es una costumbre de INNOVAGES —188 documentos—, no una regla
+     * del SII, y la app se replica a otras empresas cambiando configuración.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<array<string, mixed>>
+     */
+    private function referenciasDeLaVenta(array $data, ?object $nv): array
+    {
+        $refs = [];
+        $fecha = $nv
+            ? substr((string) $nv->nvFem, 0, 10)
+            : substr((string) ($data['fecha'] ?? date('Y-m-d')), 0, 10);
+
+        // La que viene tecleada manda sobre la de la nota de venta: la OC puede
+        // haber llegado después de escribir la venta, y entonces se corrige al
+        // facturar sin tener que volver atrás.
+        $oc = trim((string) ($data['oc'] ?? '')) ?: ($nv ? self::ocDe($nv) : null);
+
+        if ($oc && $this->reglas->referenciaOrdenCompra()) {
+            $refs[] = ['sii' => 801, 'folio' => $oc, 'fecha' => $fecha];
+        }
+
+        if ($nv && $this->reglas->referenciaNotaVenta()) {
+            $refs[] = ['sii' => 802, 'folio' => (string) $nv->NVNumero, 'fecha' => $fecha];
+        }
+
+        return $refs;
     }
 
     private function notaVenta(int $numero)

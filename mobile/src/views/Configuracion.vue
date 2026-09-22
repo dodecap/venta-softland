@@ -20,7 +20,13 @@ const destinoPrueba = ref('');
  * Cómo factura la empresa. Dos decisiones que no están en Softland y que
  * cambian lo que hace la app, no lo que dice el documento.
  */
-const facturacion = ref({ receptor_editable: false, envio_automatico: true, envio_softland: null });
+const facturacion = ref({
+    receptor_editable: false,
+    envio_automatico: true,
+    referencia_orden_compra: true,
+    referencia_nota_venta: true,
+    envio_softland: null,
+});
 
 /*
  * La orden de compra al proveedor.
@@ -209,6 +215,41 @@ async function probarCorreo() {
                             se respeta: esta llave puede quitarlo para toda la empresa, nunca darlo a
                             quien el ERP se lo negó. Se marca en los perfiles del Softland de
                             escritorio.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Qué papeles nombra la factura en el DTE. Son dos códigos
+                     del SII y no significan lo mismo, así que van separados: el
+                     801 es de la orden de compra del cliente y el 802 del
+                     número de la nota de venta. -->
+                <div class="tarjeta">
+                    <div class="tarjeta-cabecera">Qué nombra la factura</div>
+                    <div class="tarjeta-cuerpo">
+                        <label class="interruptor">
+                            <input type="checkbox" v-model="facturacion.referencia_orden_compra"
+                                   :disabled="guardando === 'facturacion'"
+                                   @change="guardarFacturacion('referencia_orden_compra')">
+                            <span>La orden de compra del cliente</span>
+                        </label>
+                        <p class="ayuda">
+                            Va como referencia <b>Orden de Compra</b> del DTE, y es la que le sirve
+                            a quien recibe la factura para cuadrarla contra lo que encargó. El
+                            renglón sólo sale cuando hay orden de compra que poner, así que
+                            apagarlo sólo tiene sentido si la empresa no trabaja con ellas.
+                        </p>
+
+                        <label class="interruptor">
+                            <input type="checkbox" v-model="facturacion.referencia_nota_venta"
+                                   :disabled="guardando === 'facturacion'"
+                                   @change="guardarFacturacion('referencia_nota_venta')">
+                            <span>El número de la nota de venta</span>
+                        </label>
+                        <p class="ayuda">
+                            Va como referencia <b>Nota de Pedido</b>. Es lo que hace hoy el Softland
+                            de escritorio, y por eso nace encendido. Si la nota de venta es un papel
+                            interno, publicar su número en un documento tributario que lee el
+                            cliente no aporta nada.
                         </p>
                     </div>
                 </div>

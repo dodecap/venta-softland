@@ -58,6 +58,11 @@ class ConfiguracionController extends Controller
                 'receptor_editable' => (new ReglasFactura)->receptorEditableEnLaEmpresa(),
                 // Encendido, emitir manda el documento al SII en el mismo acto.
                 'envio_automatico' => (new ReglasFactura)->envioAutomatico(),
+                // Qué papeles nombra la factura en sus referencias del DTE: la
+                // orden de compra del cliente (801) y el número de la nota de
+                // venta (802). Las dos nacen encendidas.
+                'referencia_orden_compra' => (new ReglasFactura)->referenciaOrdenCompra(),
+                'referencia_nota_venta' => (new ReglasFactura)->referenciaNotaVenta(),
                 // Lo que dice Softland de su propio envío. No decide nada: se
                 // enseña para que quien elige no tenga que abrir el ERP.
                 'envio_softland' => (new ReglasFactura)->envioSegunSoftland(),
@@ -86,6 +91,8 @@ class ConfiguracionController extends Controller
         $data = $request->validate([
             'receptor_editable' => 'nullable|boolean',
             'envio_automatico' => 'nullable|boolean',
+            'referencia_orden_compra' => 'nullable|boolean',
+            'referencia_nota_venta' => 'nullable|boolean',
         ]);
 
         $reglas = new ReglasFactura;
@@ -101,9 +108,19 @@ class ConfiguracionController extends Controller
             $reglas->fijarEnvioAutomatico((bool) $data['envio_automatico']);
         }
 
+        if (array_key_exists('referencia_orden_compra', $data)) {
+            $reglas->fijarReferenciaOrdenCompra((bool) $data['referencia_orden_compra']);
+        }
+
+        if (array_key_exists('referencia_nota_venta', $data)) {
+            $reglas->fijarReferenciaNotaVenta((bool) $data['referencia_nota_venta']);
+        }
+
         return response()->json([
             'receptor_editable' => $reglas->receptorEditableEnLaEmpresa(),
             'envio_automatico' => $reglas->envioAutomatico(),
+            'referencia_orden_compra' => $reglas->referenciaOrdenCompra(),
+            'referencia_nota_venta' => $reglas->referenciaNotaVenta(),
         ]);
     }
 

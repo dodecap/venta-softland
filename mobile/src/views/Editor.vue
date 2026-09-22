@@ -615,10 +615,20 @@ function cantidad(n) {
                 <template v-if="esNV">
                     <label>Bodega</label>
                     <Selector v-model="form.bodega" maestro="bodegas" vacio="— sin elegir —" />
-
-                    <label>Orden de compra del cliente</label>
-                    <input v-model="form.oc" type="text" placeholder="Número de OC">
                 </template>
+
+                <!-- En los dos documentos, no sólo en la nota de venta: la OC
+                     la da el cliente al aceptar, que muchas veces es antes de
+                     convertir. Y viaja sola de la cotización a la nota de venta
+                     y de ahí a la factura, como referencia 801 del DTE. -->
+                <label>Orden de compra del cliente</label>
+                <input v-model="form.oc" type="text" placeholder="Número de OC"
+                       maxlength="18">
+                <p class="ayuda">
+                    Es la del cliente, no un número nuestro. Va al papel y, al
+                    facturar, al DTE como <b>Orden de Compra</b>. Caben 18
+                    caracteres y admite letras: <b>1242028-40-TD26</b> es una OC real.
+                </p>
 
                 <label>Lista de precios</label>
                 <Selector v-model="form.lista" maestro="listas_precio" vacio="— precio del maestro —" />

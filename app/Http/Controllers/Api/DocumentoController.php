@@ -85,7 +85,10 @@ abstract class DocumentoController extends Controller
             'bodega' => 'nullable|string|max:10',
             'fecha' => 'nullable|date',
             'fecha_entrega' => 'nullable|date',
-            'oc' => 'nullable|string|max:15',
+            // 18, que es lo que mide la columna en Softland y lo que admite
+            // el `FolioRef` del DTE. Estaba en 15 y hay OC reales de 18: se
+            // caían con un 422 que no decía por qué.
+            'oc' => 'nullable|string|max:18',
             'observacion' => 'nullable|string|max:400',
             'descuento_pct' => 'nullable|numeric|min:0|max:100',
             'lineas' => 'required|array|min:1|max:200',

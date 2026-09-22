@@ -568,6 +568,87 @@ crédito.
 aviso con su lista, la fila de acciones —que se desplaza, como todas— y la
 etiqueta «A medias» junto a la del estado.
 
+### Paso 7 — Qué factura es, y qué se lleva de la venta ✅ hecho (0.41.0)
+
+El paso 5 dejó una llave para cambiar el receptor, y la pantalla **dedujo de
+ahí** qué documento se estaba emitiendo: receptor distinto, comisión. Se quedó
+corto, porque son dos cosas que se parecen y no son la misma.
+
+| | La venta | La comisión |
+|---|---|---|
+| Qué líneas | las de la nota de venta, con su precio | escritas a mano |
+| `nv_linea` | sí | no |
+| Saldo de la NV | **lo descuenta** | no lo toca |
+| Receptor | el de la venta, o cualquier otro | el mandante |
+| `iw_gsaen.nvnumero` | la nota de venta | la nota de venta |
+
+Deducirlo del receptor hacía imposible la primera columna con otro RUT, que es
+un caso corriente: el mismo pedido facturado a la matriz, a la aseguradora o a
+quien financia. Quien paga no siempre es quien recibe, y eso no convierte la
+venta en una comisión. Así que **se pregunta**, y el receptor pasa a ser
+consecuencia y no causa.
+
+La comprobación, escribiendo los dos documentos contra la nota de venta 2045
+dentro de una transacción que se deshizo:
+
+```
+LA VENTA a otro RUT      línea 1 · nvCorrela 1 → saldo 1 → 0
+LA COMISION a otro RUT   línea 1 · nvCorrela 0 → saldo 1 → 1
+```
+
+Las dos con receptor `89889200` y `nvnumero 2045`. Deshecha la transacción, el
+saldo vuelve a 1 y el folio 238 sigue libre.
+
+**Lo que la factura hereda de la venta.** Condición de pago (`CveCod` →
+`CondPago`), bodega, centro de costo, la observación y la orden de compra. Todo
+viaja se le facture a quien se le facture: cambiar el pagador no cambia qué se
+vendió ni con qué condición. Las dos últimas se pueden corregir antes de
+emitir; el resto no, porque son datos de la venta y corregirlos en la factura
+dejaría dos verdades.
+
+La observación de una nota de venta cabe en 4.000 caracteres y la glosa de la
+factura en 255. Lo que no quepa **se enseña recortado antes de emitir**, nunca
+se corta en silencio — es la misma regla que con lo que el SII recorta en el
+alta de clientes.
+
+### La orden de compra del cliente, que hasta ahora se perdía
+
+`nwcotiza.numOC` y `nw_nventa.NumOC` existen desde siempre y el Softland de
+escritorio los llena: 43 de 804 notas de venta traen una de verdad. Pero **no
+llegaban a la factura**, y el apaño se ve en los datos: la observación de la
+nota de venta 2045 dice, literalmente, `REFERENCIA OC: 1242028-40-TD26`.
+
+Tres cosas medidas antes de escribir nada:
+
+- **`iw_gsaen.Orden` no es el sitio**, aunque se llame así. Es un `int` y está
+  en `'0'` en las 200 facturas: no podría guardar `272-OC00008216` ni queriendo.
+- **El sitio es la tabla de referencias del DTE**, `IW_GSaEn_RefDTE`, con el
+  código **801**. `FolioRef` es `varchar(18)`, igual que `NumOC`.
+- **801 no es 802.** El maestro `DTE_SiiTDocRef` declara 801 «Orden de
+  Compra/Orden de Servicio» y 802 «Nota de Pedido/Hes/Has». En INNOVAGES hay 188
+  referencias 802 y las 188 llevan el **número de la nota de venta**; hay 6 con
+  801 y las 6 llevan la **orden de compra del cliente**, coincidiendo con el
+  `NumOC` de su nota de venta en los 6 casos. Ninguna de las 188 coincide con un
+  `NumOC`. Usar 802 para la orden de compra habría chocado con una costumbre de
+  188 documentos.
+
+Y van **las dos a la vez**, que es lo que hace el ERP: la factura 232 lleva la
+801 con `1368` en la línea 1 y la 802 con `2046` en la línea 2. La fecha de la
+referencia es la del documento referido, no la de hoy — las 6 referencias 801
+llevan la fecha de su nota de venta.
+
+Por eso `Facturacion::referencia()` pasó a ser `referencias()`: escribía una
+sola fila con `LineaRef` fijo en 1. Y `AuxDocNum` —donde Softland repite la
+referencia para su propia ventana— dejó de tomar la primera de la lista y toma
+**la primera que nombra un documento nuestro**: con la orden de compra delante,
+la primera puede ser un papel que no existe en `iw_gsaen`, y dejarla ahí sería
+decir que esta factura corrige una factura número `U36401`.
+
+Las dos referencias se apagan por empresa (`referencia_orden_compra` y
+`referencia_nota_venta` en `ventas.config`, las dos encendidas al nacer).
+Publicar el número de la nota de venta en un documento tributario que lee el
+cliente es una costumbre de INNOVAGES, no una regla del SII.
+
 ## Lo que todavía no se sabe
 
 - **El cruce línea a línea de la nota de crédito.** 84 de 320 traen
