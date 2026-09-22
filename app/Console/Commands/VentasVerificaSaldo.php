@@ -40,7 +40,7 @@ class VentasVerificaSaldo extends Command
         $limite = (int) $this->option('limite');
         $saldo = new Saldo($base);
 
-        $this->line('Base: <options=bold>'.($base ?? 'INNOVAGES').'</>');
+        $this->line('Base: <options=bold>'.($base ?? DB::connection('softland')->getDatabaseName()).'</>');
         $this->newLine();
 
         try {

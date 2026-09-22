@@ -21,6 +21,7 @@ Route::get('/app', [DescargaController::class, 'pagina'])->name('descarga');
 Route::get('/app/qr.svg', [DescargaController::class, 'qr']);
 Route::get('/app/apk', [DescargaController::class, 'apk']);
 
+// Sin conexión guardada, `EnsureConfigured` deriva aquí mismo a /setup.
 Route::get('/', fn () => view('estado', [
     'base' => SoftlandConfig::load()['database'] ?? '',
 ]));

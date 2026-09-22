@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Notificaciones\Notificador;
+use App\Support\Requisitos;
 use App\Support\SoftlandCipher;
 use App\Support\SoftlandConfig;
 use App\Support\SoftlandConnection;
@@ -20,13 +21,32 @@ use Illuminate\Support\Facades\DB;
  */
 class SetupController extends Controller
 {
+    /**
+     * El formulario, precedido de la comprobación del servidor.
+     *
+     * Si falta algo imprescindible no se dibuja el formulario: rellenar siete
+     * campos para que el «Instalar» conteste «could not find driver» es hacerle
+     * perder el tiempo a quien está en el servidor de un cliente sin nada que
+     * consultar.
+     */
     public function show()
     {
-        return view('setup.index');
+        return view('setup.index', [
+            'requisitos' => Requisitos::todas(),
+            'listo' => Requisitos::listo(),
+            'yaConfigurado' => SoftlandConfig::exists(),
+            'baseActual' => SoftlandConfig::load()['database'] ?? null,
+        ]);
     }
 
     public function store(Request $request, Notificador $notificador)
     {
+        if (! Requisitos::listo()) {
+            return back()->withInput()->withErrors([
+                'host' => 'Al servidor le falta algo para poder instalar. Recarga la página y mira la lista.',
+            ]);
+        }
+
         $data = $request->validate([
             'host' => 'required|string|max:120',
             'port' => 'nullable|string|max:10',

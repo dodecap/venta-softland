@@ -42,6 +42,44 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.44.0 — Instalar en otra empresa sin tocar archivos
+*2026-09-22*
+
+Primer paso para que el sistema se instale en cualquier empresa Softland sin
+que nadie edite un archivo a mano. **Un solo repositorio, N instalaciones**: lo
+de cada empresa ya vivía fuera del código —la conexión en `softland.json`, la
+identidad y las reglas en `ventas.config`, los folios y atributos en la propia
+base—, y lo que faltaba era que el arranque se explicara solo.
+
+- **`bin/instalar.cmd`**, para un servidor Windows recién clonado: dependencias,
+  `.env`, clave de cifrado, carpetas de escritura y el Alias de Apache. Es
+  idempotente y **no pide ninguna contraseña** — ésas se escriben en `/setup`,
+  desde el navegador. La línea del `httpd.conf` se deja escrita para que la
+  añada una persona: tocarlo a ciegas puede dejar Apache sin arrancar, y
+  entonces no hay página que explique nada.
+- **`/setup` comprueba el servidor antes de enseñar el formulario**: versión de
+  PHP, ocho extensiones con para qué sirve cada una, la clave de cifrado y las
+  dos carpetas que tienen que ser escribibles. Sin `APP_KEY` el error que salía
+  al pulsar «Instalar» hablaba de un cifrado que nadie había nombrado; sin
+  `pdo_sqlsrv`, de un driver que tampoco.
+- **Detrás de un proxy inverso, `/setup` llevaba a un 404.** Medido:
+  `https://venta.netdomain.cl/setup` redirigía a
+  `…/venta-softland`, que no existe por fuera. Era la primera página que abre
+  quien instala. Ahora las redirecciones van en `Location` **relativo**
+  (`App\Support\Rutas`), que resuelve el navegador contra lo que él tiene en la
+  barra: vale igual dentro de la oficina, en `/venta-softland/…`, que fuera, en
+  `/…`. El formulario se manda a sí mismo por la misma razón.
+- **La instalación se reabre sola si la conexión guardada dejó de servir.**
+  Antes, `/setup` se cerraba para siempre y reconfigurar era cosa de la app —
+  pero para entrar en la app hace falta el token, y el token está en
+  `ventas.api_token`, al otro lado de la conexión rota. Quedarse fuera era
+  cuestión de que a alguien le renombraran la instancia de SQL.
+- **Al terminar, la página lleva al código QR.** Antes decía «instala el APK»
+  sin decir de dónde.
+- **Ningún nombre de empresa en el código ni en el formulario.** `INNOVAGES`
+  estaba escrito como valor por omisión del campo «base de datos», en
+  `config/database.php`, en `.env.example` y en lo que imprimían dos comandos.
+
 ### 0.43.2 — El compromiso sobrevive a la conversión
 *2026-09-22*
 

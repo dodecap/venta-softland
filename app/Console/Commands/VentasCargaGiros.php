@@ -55,7 +55,7 @@ class VentasCargaGiros extends Command
         $escribir = (bool) $this->option('escribir');
         $tabla = $base ? "{$base}.softland.cwtgiro" : 'softland.cwtgiro';
 
-        $this->line('Base: <options=bold>'.($base ?? 'INNOVAGES').'</>   Tabla: '.$tabla);
+        $this->line('Base: <options=bold>'.($base ?? DB::connection('softland')->getDatabaseName()).'</>   Tabla: '.$tabla);
         $this->newLine();
 
         try {

@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.43.2**
+2026-09-22 — versión **0.44.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -207,6 +207,44 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.44.0 — Instalar en otra empresa sin tocar archivos (2026-09-22)
+
+Fase A del plan para replicar el sistema a cualquier empresa Softland. La
+decisión de fondo: **un repositorio y N instalaciones**, no una copia del
+repositorio por cliente. Medido antes de decidirlo — `INNOVAGES` no decidía nada
+en el código, sólo aparecía en comentarios de evidencia y en cuatro valores por
+omisión, que se quitaron.
+
+Lo que se hizo:
+
+- `bin/instalar.cmd`: arranque de un servidor Windows recién clonado
+  (dependencias, `.env`, clave, carpetas, Alias de Apache). Idempotente,
+  probado en `srv` corriéndolo sobre una instalación ya hecha.
+- `App\Support\Requisitos` + la comprobación en `/setup` **antes** del
+  formulario: PHP, ocho extensiones, `APP_KEY` y dos carpetas escribibles.
+- `App\Support\Rutas`: redirecciones en `Location` relativo.
+- `/setup` se reabre cuando la conexión guardada no responde.
+- `/setup/listo` lleva al código QR.
+
+**El defecto que apareció midiendo**, y que se llevaba por delante cualquier
+instalación detrás de un proxy:
+
+```
+antes:  https://venta.netdomain.cl/setup  ->  302  ->  .../venta-softland  ->  404
+ahora:  https://venta.netdomain.cl/setup  ->  302  ->  https://venta.netdomain.cl/  ->  200
+        http://localhost:8086/venta-softland/setup -> 302 -> /venta-softland/ -> 200
+```
+
+El proxy pone la carpeta al reenviar, así que la carpeta que Laravel ve por
+dentro no existe por fuera. Es la misma trampa que ya obligó a que `/app`
+generara su QR con la dirección del navegador, un nivel más abajo: **ahora
+alcanza también a las redirecciones**.
+
+Pendiente de las fases siguientes: la comprobación de compatibilidad de la base
+(Fase B), el certificado del DTE desde la app (Fase C) y la actualización desde
+GitHub Releases (Fase E, medida: 6,4 MB la actualización típica, 17,4 MB el
+paquete de dependencias cuando cambia `composer.lock`).
 
 ### 0.43.2 — El compromiso sobrevive a la conversión (2026-09-22)
 

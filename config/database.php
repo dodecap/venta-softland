@@ -121,7 +121,7 @@ return [
             'driver' => 'sqlsrv',
             'host' => env('SOFTLAND_DB_HOST', 'localhost\\MSSQLSERVER2022'),
             'port' => env('SOFTLAND_DB_PORT') ?: null,
-            'database' => env('SOFTLAND_DB_DATABASE', 'INNOVAGES'),
+            'database' => env('SOFTLAND_DB_DATABASE', ''),
             'username' => env('SOFTLAND_DB_USERNAME', 'sa'),
             'password' => env('SOFTLAND_DB_PASSWORD', ''),
             'charset' => 'utf8',

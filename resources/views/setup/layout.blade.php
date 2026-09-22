@@ -62,6 +62,33 @@
         font-size: 13px; color: var(--indigo);
     }
     .pasos { font-size: 14px; color: var(--gris-texto); line-height: 1.8; padding-left: 20px; }
+    .aviso {
+        background: #fff6e5; border-left: 4px solid #e08a00; color: #7a4b00;
+        padding: 12px 14px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; line-height: 1.6;
+    }
+    /* La comprobación del servidor. El color no es la única señal: cada fila
+       lleva su marca, que se lee igual en blanco y negro o sin distinguirlos. */
+    .requisitos { list-style: none; margin: 0 0 22px; padding: 0; }
+    .requisitos li {
+        display: flex; gap: 10px; align-items: flex-start;
+        padding: 10px 0; border-bottom: 1px solid var(--gris-borde);
+    }
+    .requisitos li:last-child { border-bottom: 0; }
+    .requisitos .marca { font-weight: 700; font-size: 15px; line-height: 1.4; width: 16px; flex: 0 0 16px; }
+    .requisitos li.si .marca { color: var(--verde); }
+    .requisitos li.no .marca { color: var(--rojo); }
+    .requisitos li.no strong { color: var(--rojo); }
+    .requisitos strong { font-size: 14px; }
+    .requisitos .ayuda { margin-top: 3px; }
+    .requisitos .arreglo { color: var(--gris-texto); font-family: ui-monospace, Consolas, monospace; }
+    /* El botón grande que lleva al código QR al terminar de instalar. */
+    .boton-enlace {
+        display: block; text-align: center; text-decoration: none;
+        padding: 13px; font-size: 15px; font-weight: 700; color: #fff;
+        background: var(--indigo); border-bottom: 4px solid var(--cian);
+        border-radius: 6px; margin: 22px 0 0;
+    }
+    .boton-enlace:hover { background: var(--indigo-claro); }
 </style>
 </head>
 <body>

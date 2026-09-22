@@ -1,6 +1,41 @@
 @extends('setup.layout', ['subtitulo' => 'Instalación del servidor'])
 
 @section('contenido')
+    {{-- Lo que el servidor necesita tener, antes que nada. Sólo se enseña la
+         lista entera cuando algo falla: si está todo bien, quien instala no
+         necesita leer ocho líneas verdes para llegar al formulario. --}}
+    @unless ($listo)
+        <div class="errores">
+            <strong>Falta algo en este servidor.</strong>
+            Arregla lo marcado en rojo y recarga esta página.
+        </div>
+
+        <ul class="requisitos">
+            @foreach ($requisitos as $r)
+                <li class="{{ $r['ok'] ? 'si' : 'no' }}">
+                    <span class="marca">{{ $r['ok'] ? '✓' : '✕' }}</span>
+                    <div>
+                        <strong>{{ $r['que'] }}</strong>
+                        <p class="ayuda">{{ $r['detalle'] }}</p>
+                        @unless ($r['ok'])
+                            <p class="ayuda arreglo">{{ $r['arreglo'] }}</p>
+                        @endunless
+                    </div>
+                </li>
+            @endforeach
+        </ul>
+    @endunless
+
+    @if ($yaConfigurado && $listo)
+        <div class="aviso">
+            <strong>Este servidor ya está instalado</strong>
+            @if ($baseActual) sobre la base <code>{{ $baseActual }}</code>@endif.
+            Si sigues, la conexión se reemplaza por la que escribas aquí y los vendedores
+            dejarán de ver sus documentos hasta que vuelvas a dejarla como estaba.
+            Para repartir la app no hace falta esto: está en <a href="app">/app</a>.
+        </div>
+    @endif
+
     @if ($errors->any())
         <div class="errores">
             <ul>
@@ -11,8 +46,11 @@
         </div>
     @endif
 
-    {{-- url() respeta la subcarpeta del Alias: la app vive en /venta-softland, no en la raíz. --}}
-    <form method="POST" action="{{ url('/setup') }}" autocomplete="off">
+    {{-- Se manda a sí misma: `action=""` es la propia dirección que el navegador
+         tiene en la barra, y ésa es siempre la correcta. Escribirla con url()
+         ponía la carpeta interna del Alias, que detrás de un proxy da 404. --}}
+    @if ($listo)
+    <form method="POST" action="" autocomplete="off">
         @csrf
 
         <fieldset>
@@ -29,7 +67,7 @@
                 <div>
                     <label for="database">Base de datos (empresa)</label>
                     <input type="text" id="database" name="database"
-                           value="{{ old('database', 'INNOVAGES') }}" required>
+                           value="{{ old('database') }}" placeholder="Nombre de la empresa" required>
                 </div>
                 <div class="angosto">
                     <label for="port">Puerto</label>
@@ -75,6 +113,7 @@
             </p>
         </fieldset>
 
-        <button type="submit">Instalar</button>
+        <button type="submit">{{ $yaConfigurado ? 'Reemplazar la conexión' : 'Instalar' }}</button>
     </form>
+    @endif
 @endsection

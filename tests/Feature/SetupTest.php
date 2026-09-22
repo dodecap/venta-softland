@@ -13,7 +13,9 @@ class SetupTest extends TestCase
             $this->markTestSkipped('Esta instalación ya está configurada.');
         }
 
-        $this->get('/')->assertRedirect('/setup');
+        // Relativa a propósito: una absoluta lleva la carpeta interna del
+        // Alias dentro, y detrás de un proxy esa carpeta no existe.
+        $this->get('/')->assertStatus(302)->assertHeader('Location', 'setup');
         $this->get('/setup')->assertOk();
     }
 
