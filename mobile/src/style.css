@@ -103,7 +103,7 @@ body {
     background: var(--indigo);
     color: var(--blanco);
     border-bottom: 4px solid var(--cian);
-    padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+    padding: calc(env(safe-area-inset-top, 0px) + 7px) 14px 7px;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -132,7 +132,12 @@ body {
     cursor: pointer;
 }
 
-.barra .icono-barra { color: var(--blanco); }
+/* Los 44 px de área pulsable, que no se negocian. El icono sigue midiendo lo
+   que mide; lo que crece es la caja que recoge el dedo, y el relleno de la
+   barra baja de 10 a 7 px para que la barra siga midiendo los mismos 62. Sólo
+   en la barra: el mismo botón se usa dentro de las filas de líneas, donde
+   44 px sí rompen la rejilla. */
+.barra .icono-barra { color: var(--blanco); min-width: 44px; min-height: 44px; }
 .barra .icono-barra:active { background: rgba(255, 255, 255, .16); }
 .icono-barra:disabled { opacity: .45; }
 

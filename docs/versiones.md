@@ -42,6 +42,23 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.41.2 — El alta de usuarios tenía el botón, pero no se dibujaba
+*2026-09-22*
+
+- **Administración no tenía forma de dar de alta a nadie.** `Usuarios.vue`
+  declaraba su acción con `useAccionCrear()`, que la delega en el botón
+  flotante; y el flotante **sólo sale en las pestañas** —a propósito: en una
+  pantalla de adentro un «+» encima ofrece empezar algo nuevo justo cuando no
+  toca—. `/usuarios` se apila sobre Cuenta, así que la acción quedaba
+  registrada para un botón que nadie iba a ver. Ahora el «+» va **en la barra**,
+  junto al título, como el «actualizar» de Bitácora.
+- **Los botones de las barras pasan de 36 a 44 px de área pulsable**, que es el
+  suelo que el proyecto se fijó y que llevaban incumpliendo desde el principio.
+  El icono sigue midiendo lo mismo; lo que crece es la caja que recoge el dedo,
+  y el relleno vertical de la barra baja de 10 a 7 px para que **la barra siga
+  midiendo los mismos 62 px**. Medido en 360×640 en las tres escalas, y una
+  barra sin botones sigue apoyada en su suelo de 56.
+
 ### 0.41.1 — Quien está en Softland pero no en la app, se entera
 *2026-09-22*
 

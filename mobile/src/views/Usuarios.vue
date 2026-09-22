@@ -3,7 +3,6 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { useCapa } from '../nav';
-import { useAccionCrear } from '../crear';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 
@@ -24,9 +23,10 @@ const form = ref(vacio());
 // la pantalla: es lo que hace el resto del teléfono y lo que espera la mano.
 useCapa(computed(() => editando.value !== null), () => { editando.value = null; });
 
-// El botón de crear vive abajo, flotando, donde alcanza el pulgar: esta
-// pantalla solo declara qué hace. Ver `crear.js`.
-useAccionCrear('Nuevo usuario', nuevo);
+// El botón de crear va **en la barra**, no en el flotante. El flotante sólo
+// sale en las pestañas —ver `BotonCrear.vue`—, y esta pantalla se apila sobre
+// Cuenta: declarar aquí la acción de crear era registrarla para un botón que
+// nadie iba a ver, y dejaba la administración sin forma de dar de alta a nadie.
 
 function vacio() {
     return {
@@ -163,6 +163,9 @@ function color(u) {
         <div class="barra">
             <button class="icono-barra" @click="router.back()"><AppIcon name="atras" :size="24" /></button>
             <h1>Usuarios</h1>
+            <button class="icono-barra" title="Nuevo usuario" @click="nuevo">
+                <AppIcon name="crear" :size="22" />
+            </button>
         </div>
 
         <div class="contenido">

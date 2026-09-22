@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.41.1**
+2026-09-22 — versión **0.41.2**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -207,6 +207,20 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.41.2 — El alta de usuarios tenía el botón, pero no se dibujaba (2026-09-22)
+
+Buscando dónde dar de alta a `preyes` se descubrió que no se podía: el botón de
+crear de `Usuarios.vue` estaba declarado con `useAccionCrear()`, que lo delega
+en el flotante, y el flotante sólo aparece en las pestañas. `/usuarios` es
+pantalla de adentro. Ahora el «+» va en la barra, junto al título.
+
+Era la única pantalla con ese desajuste: Clientes, Documentos y Facturas, que
+también usan `useAccionCrear()`, son las tres pestañas.
+
+De paso, los botones de las barras pasan de 36 a 44 px de área pulsable sin que
+la barra cambie de alto: el relleno vertical baja de 10 a 7 px y la barra sigue
+en 62. Comprobado en 360×640 en las tres escalas.
 
 ### 0.41.1 — Quien está en Softland pero no en la app, se entera (2026-09-22)
 

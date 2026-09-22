@@ -98,6 +98,10 @@ apilan con `push` sobre una pestaña y se salen con «atrás».
 
 Una pestaña es un lugar al que se vuelve, no una acción que se hace: crear
 cuelga del botón flotante y cotizaciones o productos son acciones del panel.
+**El flotante es de las pestañas y de nadie más.** Una pantalla de adentro que
+también crea —Usuarios— pone su «+» en la barra: declarar la acción con
+`useAccionCrear()` fuera de una pestaña es registrarla para un botón que no se
+dibuja, y la pantalla se queda sin forma de crear nada.
 Desde la fase 2 las pestañas son cuatro — **Panel · Clientes · Avisos ·
 Cuenta** — y ahí se cierra la lista: con la activa desplegada, en 360 px no
 cabe una quinta sin bajar de los 44 px de área pulsable.
@@ -663,7 +667,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.41.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.41.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado
