@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.42.0**
+2026-09-22 — versión **0.43.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -207,6 +207,19 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.43.0 — Los compromisos también cambian con el ámbito (2026-09-22)
+
+El selector Yo · Equipo · Empresa mandaba sobre la venta y el rendimiento, pero
+los compromisos se quedaban a medias: los números sí se filtraban, el rótulo
+decía «Mis compromisos» siempre, y las tarjetas abrían la lista sin filtrar. De
+90 cotizaciones abiertas en INNOVAGES, 85 son de un vendedor y 5 de otra, así
+que tocar «5 sin próximo paso» y ver 89 no era un matiz.
+
+Ahora el ámbito viaja en la dirección (`?ambito=yo`), la lista lo aplica y lo
+enseña en un chip que se quita, y el chip de cola de la propia lista cuenta con
+el mismo ámbito. La regla de «¿de quién es esto?», que estaba copiada cinco
+veces, vive ahora en `mobile/src/alcance.js`.
 
 ### 0.42.0 — Repartir la app (2026-09-22)
 

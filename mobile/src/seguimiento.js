@@ -1,4 +1,5 @@
 import { idb } from './idb.js';
+import { deVendedores } from './alcance.js';
 
 /*
  * Los compromisos con el cliente: qué se quedó de hacer y cuándo.
@@ -104,7 +105,7 @@ export function estado(cotizacion, vivo, hoy) {
 export async function resumen({ cotizaciones, vendedores = null, hoy }) {
     const vivos = await compromisosVivos();
     const cuenta = { atrasado: 0, hoy: 0, proximo: 0, sin_compromiso: 0 };
-    const suyo = (c) => ! vendedores || vendedores.includes((c.vendedor || '').trim());
+    const suyo = deVendedores(vendedores);
 
     for (const c of cotizaciones || []) {
         if (! suyo(c)) continue;

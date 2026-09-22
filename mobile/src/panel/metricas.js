@@ -27,6 +27,8 @@
  *   un pendiente. En INNOVAGES hay una cotización de 2022 en `A`.
  */
 
+import { deVendedores } from '../alcance.js';
+
 /** Nulo en los dos documentos. Es «nula», no «nueva». */
 const ANULADO = 'N';
 
@@ -109,8 +111,9 @@ function diasEntre(desde, hasta) {
  * el servidor le dejó ver, así que el filtro de aquí acota dentro de eso, no
  * abre nada.
  */
+
 export function calcular({ cotizaciones = [], notas = [], facturas = [], rango, vendedores = null }) {
-    const suyo = (f) => ! vendedores || vendedores.includes((f.vendedor || '').trim());
+    const suyo = deVendedores(vendedores);
 
     const cot = cotizaciones.filter((f) => suyo(f) && est(f) !== ANULADO);
     const nv = notas.filter((f) => suyo(f) && est(f) !== ANULADO);
@@ -201,7 +204,7 @@ export function calcular({ cotizaciones = [], notas = [], facturas = [], rango, 
  * fecha del documento es un día, sin hora, y en un día se escriben varios.
  */
 export function ultimos(filas, { vendedores = null, cuantos = 5 } = {}) {
-    const suyo = (f) => ! vendedores || vendedores.includes((f.vendedor || '').trim());
+    const suyo = deVendedores(vendedores);
     // La cotización y la nota de venta se numeran con `numero`; la factura, con
     // `folio`. Es el mismo correlativo que sólo sube, y sirve igual para
     // desempatar dentro del día.
@@ -252,7 +255,7 @@ export function situacion(f, { hoy, vigencia = 30, avisoDias = AVISO_VENCIMIENTO
  * ocho meses sigue abierta hoy, mire uno el mes que mire.
  */
 export function pendientes({ cotizaciones = [], vendedores = null, hoy, vigencia = 30, avisoDias = AVISO_VENCIMIENTO_DIAS }) {
-    const suyo = (f) => ! vendedores || vendedores.includes((f.vendedor || '').trim());
+    const suyo = deVendedores(vendedores);
     const abiertas = cotizaciones.filter((f) => suyo(f) && est(f) === 'P');
 
     const tramos = { reciente: [], mes: [], trimestre: [], viejas: [] };

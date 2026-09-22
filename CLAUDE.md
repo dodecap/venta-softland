@@ -404,6 +404,13 @@ de Softland que cambian las fórmulas. Tres que se olvidan:
 - **La regla se escribe una vez.** `situacion()` decide si una cotización está
   por vencer, y la usan el panel para contar y la lista para filtrar. Dos
   copias de la misma regla es un panel que dice «6» y una lista que muestra 7.
+  Lo mismo con «¿de quién es esto?», que vive en `mobile/src/alcance.js`:
+  `null` es **todos**, no ninguno.
+- **El ámbito no se queda en el panel.** Lo que el panel cuenta con el selector
+  Yo · Equipo · Empresa tiene que abrirse con el mismo ámbito, y por eso viaja
+  en la dirección (`?ambito=yo`). Sólo viaja «yo»: «equipo» es el estado
+  natural de la lista, que ya viene acotada por el alcance del usuario desde el
+  servidor.
 - **El color dice si la noticia es buena; la flecha, hacia dónde se movió el
   número.** No son lo mismo: el tiempo de cierre que baja es una flecha hacia
   abajo y una buena noticia. Esa lectura la pone la pantalla (`tono()`), no el
@@ -699,7 +706,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.42.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.43.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

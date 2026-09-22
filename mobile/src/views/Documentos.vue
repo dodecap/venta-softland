@@ -6,6 +6,7 @@ import { idb } from '../idb';
 import { monto, fecha, nombre as nombreDe } from '../catalogos';
 import { dia } from '../panel/periodo';
 import { situacion } from '../panel/metricas';
+import { deVendedores } from '../alcance';
 import { TIPOS, estado } from '../documentos';
 import { parciales, porFacturar } from '../saldo';
 import { compromisosVivos, cuando as cuandoTexto, estado as estadoCompromiso, hora as horaDe, resumen as resumenCompromisos } from '../seguimiento';
@@ -88,6 +89,23 @@ const DE_COMPROMISO = {
 };
 
 const atencion = computed(() => (ATENCION[route.query.atencion] ? route.query.atencion : ''));
+
+/*
+ * «Lo mío», que también llega del panel.
+ *
+ * El panel cuenta por ámbito —Yo · Equipo· Empresa— desde que existe el
+ * selector, pero la lista no lo sabía: tocar «5 sin próximo paso» en «Yo» y
+ * aterrizar en las 89 del equipo es el mismo problema que ya tenía resuelto
+ * `atencion`, un nivel más abajo. Medido en INNOVAGES: de 90 cotizaciones
+ * abiertas, 85 son de un vendedor y 5 de otra.
+ *
+ * Sólo viaja «yo». «Equipo» es el estado natural de la lista —enseña todo lo
+ * que el servidor dejó bajar a este teléfono, que ya viene acotado por el
+ * alcance del usuario—, así que marcarlo sería poner un filtro que no filtra.
+ */
+const soloMias = computed(() => route.query.ambito === 'yo');
+const miVenCod = ref('');
+const mias = computed(() => (soloMias.value && miVenCod.value ? miVenCod.value : ''));
 const documentos = ref([]);
 /* El compromiso vivo de cada cotización de la lista, para pintarlo. */
 const compromisos = ref(new Map());
@@ -164,6 +182,7 @@ const cuando = computed(() => {
 
 onMounted(async () => {
     vigencia.value = (await db.getServidorInfo())?.vigencia_cotizacion_dias || 30;
+    miVenCod.value = String((await db.getUsuario())?.ven_cod || '').trim();
     await cargar();
     await leerRefrescado();
 });
@@ -182,7 +201,7 @@ watch(() => route.query.estado, (v) => {
 
     if (def.value.estados[pedido]) filtroEstado.value = pedido;
 }, { immediate: true });
-watch([busqueda, filtroEstado, tipo, atencion, soloPorFacturar], cargar);
+watch([busqueda, filtroEstado, tipo, atencion, soloPorFacturar, mias], cargar);
 // La bandeja se vacía sola al volver la red, estando en otra pantalla: sin esto
 // el documento seguiría apareciendo como «sin enviar» después de haber salido.
 watch(porEnviar, cargar);
@@ -206,6 +225,8 @@ async function cargar() {
         const filtros = [];
 
         if (filtroEstado.value) filtros.push((d) => d.estado === filtroEstado.value);
+
+        if (mias.value) filtros.push(deVendedores([mias.value]));
 
         if (atencion.value && ! DE_COMPROMISO[atencion.value]) {
             filtros.push((d) => situacion(d, regla) === atencion.value);
@@ -308,13 +329,17 @@ const hoyTexto = () => dia(new Date());
 
 async function contarCola(regla) {
     if (esCotizacion.value) {
+        // Con el mismo ámbito que la lista: un chip que dice «1 compromiso
+        // para hoy» sobre una lista que sólo enseña las mías es la misma
+        // cuenta contada dos veces y con dos resultados.
         const r = await resumenCompromisos({
             cotizaciones: await idb.todos('cotizaciones'), hoy: regla.hoy,
+            vendedores: mias.value ? [mias.value] : null,
         });
         const n = r.atrasado + r.hoy;
 
         cola.value = n ? { n, rotulo: n === 1 ? 'compromiso para hoy' : 'compromisos para hoy',
-            ruta: '/cotizaciones?atencion=compromiso_hoy' } : null;
+            ruta: rutaCompromiso('compromiso_hoy') } : null;
 
         return;
     }
@@ -336,8 +361,24 @@ function etiquetaCompromiso(d) {
     return e === 'atrasado' ? 'roja' : (e === 'hoy' ? 'amarillo' : 'cian');
 }
 
+/** La ruta de un filtro de compromiso, sin perder el ámbito que se está viendo. */
+function rutaCompromiso(cual) {
+    const q = new URLSearchParams({ atencion: cual });
+    if (soloMias.value) q.set('ambito', 'yo');
+
+    return `/cotizaciones?${q}`;
+}
+
 function quitarAtencion() {
-    router.replace({ path: route.path });
+    // Se va el filtro que trajo el panel; el ámbito se queda, que tiene su
+    // propio chip y se quita aparte.
+    router.replace({ path: route.path, query: soloMias.value ? { ambito: 'yo' } : {} });
+}
+
+function quitarAmbito() {
+    const q = { ...route.query };
+    delete q.ambito;
+    router.replace({ path: route.path, query: q });
 }
 </script>
 
@@ -378,6 +419,11 @@ function quitarAtencion() {
             <!-- El filtro que trajo el vendedor desde el panel, a la vista y
                  con su salida: un filtro que no se ve es una lista incompleta
                  sin explicación. -->
+            <button class="filtro-traido" v-if="soloMias" @click="quitarAmbito">
+                <AppIcon name="cuenta" :size="16" color="currentColor" />
+                Sólo mías
+                <AppIcon name="cerrar" :size="16" color="currentColor" />
+            </button>
             <button class="filtro-traido" v-if="atencion" @click="quitarAtencion">
                 <AppIcon name="cotizacion" :size="16" color="currentColor" />
                 {{ ATENCION[atencion] }}

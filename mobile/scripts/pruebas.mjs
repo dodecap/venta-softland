@@ -11,6 +11,7 @@ import { calcular, pendientes, situacion, ultimos } from '../src/panel/metricas.
 import { calcularSaldo } from '../src/saldo.js';
 import { estado as estadoCompromiso, cuando, hora, sumarDias } from '../src/seguimiento.js';
 import { comparar, esMasNueva } from '../src/version.js';
+import { deVendedores } from '../src/alcance.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -423,5 +424,19 @@ es(esMasNueva('0.41.1', '0.41.2'), false, 'el servidor va atrasado: no se ofrece
 es(esMasNueva('0.41.2', '0.41.2'), false, 'iguales');
 es(esMasNueva(null, '0.41.2'), false, 'sin APK publicado no se ofrece nada');
 es(esMasNueva('0.41.3', null), false, 'sin saber la del teléfono tampoco');
+
+// ---- de quién es un documento: la regla que comparten el panel y las listas
+const deJorge = deVendedores(['2']);
+es(deJorge({ vendedor: '2' }), true, 'el suyo');
+es(deJorge({ vendedor: '19' }), false, 'el de otra');
+es(deJorge({ vendedor: ' 2 ' }), true, 'Softland guarda con espacios: char(4)');
+es(deJorge({ vendedor: '' }), false, 'sin vendedor no es de nadie');
+es(deJorge({}), false, 'ni sin el campo');
+es(deJorge({ vendedor: null }), false, 'ni en nulo');
+es(deVendedores(null)({ vendedor: '19' }), true, 'nulo es «todos», no «ninguno»');
+es(deVendedores(null)({}), true, 'todos, incluso lo que no tiene vendedor');
+es(deVendedores([])({ vendedor: '2' }), false, 'lista vacía sí es «ninguno»');
+es(deVendedores(['2', '19'])({ vendedor: '19' }), true, 'varios códigos');
+es(deVendedores([2])({ vendedor: '2' }), true, 'el código puede llegar como número');
 
 console.log(`OK — ${hechas} comprobaciones`);

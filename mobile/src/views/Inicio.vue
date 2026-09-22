@@ -131,6 +131,35 @@ const tituloRendimiento = computed(() => {
     return esAdmin.value ? 'Rendimiento de la empresa' : 'Rendimiento del equipo';
 });
 
+/*
+ * Los compromisos se contaban por ámbito desde el principio —`resumen()`
+ * recibe `vendedores`—, pero el rótulo decía «Mis compromisos» mirara lo que
+ * mirara, y las tarjetas abrían la lista entera. Un número que cambia bajo un
+ * título que no cambia se lee como un número que no cambió.
+ */
+const tituloCompromisos = computed(() => {
+    if (ambito.value === 'yo') return 'Mis compromisos';
+
+    return esAdmin.value ? 'Compromisos de la empresa' : 'Compromisos del equipo';
+});
+
+const subCompromisos = computed(() =>
+    (ambito.value === 'yo' ? 'lo que quedaste de hacer' : 'lo que se quedó de hacer'));
+
+/**
+ * La lista de compromisos, abierta con el mismo ámbito que el panel.
+ *
+ * Sin esto, tocar «5 sin próximo paso» desde «Yo» aterrizaba en las 89 del
+ * equipo. Es la misma regla que ya cuida `atencion`: el panel y la lista tienen
+ * que contar lo mismo, o el vendedor deja de creerse los dos.
+ */
+function verCompromisos(cual) {
+    const q = new URLSearchParams({ atencion: cual });
+    if (ambito.value === 'yo') q.set('ambito', 'yo');
+
+    router.push(`/cotizaciones?${q}`);
+}
+
 /* ----------------------------------------------------------------- período */
 const periodo = ref(POR_DEFECTO);
 const eligiendoPeriodo = ref(false);
@@ -371,7 +400,7 @@ const atencion = computed(() => {
             nivel: 'urgente',
             titulo: `${comp.atrasado} ${comp.atrasado === 1 ? 'compromiso atrasado' : 'compromisos atrasados'}`,
             sub: comp.atrasado === 1 ? 'Quedaste de hacerlo y ya pasó la fecha' : 'Quedaste de hacerlos y ya pasó la fecha',
-            ir: () => router.push('/cotizaciones?atencion=compromiso_atrasado'),
+            ir: () => verCompromisos('compromiso_atrasado'),
         });
     }
 
@@ -382,7 +411,7 @@ const atencion = computed(() => {
             nivel: 'aviso',
             titulo: `${comp.hoy} ${comp.hoy === 1 ? 'compromiso para hoy' : 'compromisos para hoy'}`,
             sub: 'Es lo que hay que hacer antes de que termine el día',
-            ir: () => router.push('/cotizaciones?atencion=compromiso_hoy'),
+            ir: () => verCompromisos('compromiso_hoy'),
         });
     }
 
@@ -397,7 +426,7 @@ const atencion = computed(() => {
             sub: comp.sin_compromiso === 1
                 ? 'Está abierta y nadie quedó de volver a tocarla'
                 : 'Están abiertas y nadie quedó de volver a tocarlas',
-            ir: () => router.push('/cotizaciones?atencion=sin_compromiso'),
+            ir: () => verCompromisos('sin_compromiso'),
         });
     }
 
@@ -638,23 +667,23 @@ const pct = computed(() => {
                      mañana, y antes del embudo porque es de hoy. -->
                 <template v-if="hayCompromisos">
                     <div class="seccion">
-                        <h2>Mis compromisos</h2>
-                        <span class="sub">lo que quedaste de hacer</span>
+                        <h2>{{ tituloCompromisos }}</h2>
+                        <span class="sub">{{ subCompromisos }}</span>
                     </div>
 
                     <div class="compromisos">
                         <button class="tarjeta-compromiso" :class="{ apagada: ! m.compromisos.atrasado }"
-                                @click="m.compromisos.atrasado && router.push('/cotizaciones?atencion=compromiso_atrasado')">
+                                @click="m.compromisos.atrasado && verCompromisos('compromiso_atrasado')">
                             <span class="n" :class="{ rojo: m.compromisos.atrasado }">{{ m.compromisos.atrasado }}</span>
                             <span class="rot">atrasados</span>
                         </button>
                         <button class="tarjeta-compromiso" :class="{ apagada: ! m.compromisos.hoy }"
-                                @click="m.compromisos.hoy && router.push('/cotizaciones?atencion=compromiso_hoy')">
+                                @click="m.compromisos.hoy && verCompromisos('compromiso_hoy')">
                             <span class="n" :class="{ ambar: m.compromisos.hoy }">{{ m.compromisos.hoy }}</span>
                             <span class="rot">para hoy</span>
                         </button>
                         <button class="tarjeta-compromiso" :class="{ apagada: ! m.compromisos.proximo }"
-                                @click="m.compromisos.proximo && router.push('/cotizaciones?atencion=compromiso_proximo')">
+                                @click="m.compromisos.proximo && verCompromisos('compromiso_proximo')">
                             <span class="n">{{ m.compromisos.proximo }}</span>
                             <span class="rot">esta semana</span>
                         </button>

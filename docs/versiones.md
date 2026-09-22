@@ -42,6 +42,33 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.43.0 — Los compromisos también cambian con el ámbito
+*2026-09-22*
+
+- **El panel contaba los compromisos por ámbito, pero no lo parecía.** El
+  rótulo decía «Mis compromisos» mirara lo que mirara, así que un número que sí
+  cambiaba al pasar de Yo a Equipo se leía como un número que no cambió. Ahora
+  el título y el subtítulo cambian con el selector, como ya hacían los de venta
+  y rendimiento.
+- **Y las tarjetas abrían la lista entera.** Tocar «5 sin próximo paso» desde
+  «Yo» aterrizaba en las 89 del equipo. Es la misma trampa que ya tenía
+  resuelta `atencion` un nivel más arriba: el panel y la lista tienen que
+  contar lo mismo o el vendedor deja de creerse los dos. Medido en INNOVAGES:
+  de **90 cotizaciones abiertas, 85 son de un vendedor y 5 de otra**, así que
+  el salto no era de matiz. El ámbito viaja en la dirección
+  (`?ambito=yo`) y la lista lo enseña en un chip que se quita como el otro.
+- **Sólo viaja «yo».** «Equipo» es el estado natural de la lista —enseña todo
+  lo que el servidor dejó bajar a este teléfono, que ya viene acotado por el
+  alcance del usuario—, así que marcarlo sería poner un filtro que no filtra.
+- **El chip de cola contaba por su cuenta.** Dentro de la lista de
+  cotizaciones, «1 compromiso para hoy» se calculaba sobre todas aunque la
+  lista enseñara sólo las mías. Ahora recibe el mismo ámbito.
+- **La regla de «¿de quién es esto?» estaba escrita cinco veces** —tres en
+  `panel/metricas.js`, una en `seguimiento.js` y la que iba a añadir la lista—.
+  Ahora está una vez, en `mobile/src/alcance.js`, con once comprobaciones
+  propias: `null` es «todos» y no «ninguno», el código llega con espacios
+  porque en Softland es `char(4)`, y un documento sin vendedor no es de nadie.
+
 ### 0.42.0 — Repartir la app: código QR en el servidor y aviso de versión nueva
 *2026-09-22*
 
