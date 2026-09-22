@@ -42,6 +42,19 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.41.1 — Quien está en Softland pero no en la app, se entera
+*2026-09-22*
+
+- **El login distinguía mal dos fallos que no se parecen en nada.** Aquí todo el
+  mundo existe en `wisusuarios`, así que el vendedor recién incorporado teclea
+  su usuario y su clave de Softland de siempre —las buenas— y le contestaban
+  «usuario o contraseña incorrectos». Lo que le faltaba no era la clave, era la
+  ficha en `ventas.usuario`, que la crea un administrador. Ahora, **y sólo
+  cuando la clave de Softland es la correcta**, el mensaje lo dice: «tu usuario
+  de Softland es correcto, pero todavía no tiene acceso». A quien no sabe la
+  clave se le sigue diciendo lo de antes, que es lo que impide averiguar quién
+  existe probando nombres.
+
 ### 0.41.0 — La orden de compra viaja de la venta a la factura
 *2026-09-22*
 

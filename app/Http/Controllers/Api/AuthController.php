@@ -55,7 +55,12 @@ class AuthController extends Controller
 
         // Mismo mensaje para usuario inexistente y clave mala: no revelamos cuál falló.
         if (! $u || ! $u->activo || ! $this->claveValida($u, $data['password'])) {
-            return response()->json(['message' => 'Usuario o contraseña incorrectos.'], 422);
+            $mensaje = $this->sinAlta($data['usuario'], $data['password'])
+                ? 'Tu usuario de Softland es correcto, pero todavía no tiene acceso a '
+                    .config('app.name').'. Pídele a un administrador que te dé de alta.'
+                : 'Usuario o contraseña incorrectos.';
+
+            return response()->json(['message' => $mensaje], 422);
         }
 
         if (! $u->habilitado) {
@@ -168,6 +173,33 @@ class AuthController extends Controller
         $request->attributes->get('api_token')?->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * ¿Es alguien de Softland con su clave buena, pero sin alta en esta app?
+     *
+     * Aquí todo el mundo existe en `wisusuarios`, así que el vendedor nuevo
+     * teclea su usuario y su clave de siempre, le contestan «usuario o
+     * contraseña incorrectos» y las cambia tres veces antes de llamar. Lo que
+     * le falta no es la clave, es la ficha en `ventas.usuario`.
+     *
+     * Se pregunta sólo cuando el login ya falló, y **sólo se contesta que sí
+     * con la clave de Softland correcta**: a quien no la sabe se le sigue
+     * diciendo lo mismo de antes, que es lo que impide averiguar quién existe
+     * probando nombres.
+     */
+    private function sinAlta(string $usuario, string $password): bool
+    {
+        if (Usuario::on('softland')->where('softland_user', $usuario)->exists()) {
+            return false;
+        }
+
+        $row = DB::connection('softland')->selectOne(
+            'SELECT PassWord FROM softland.wisusuarios WHERE Usuario = ?',
+            [$usuario]
+        );
+
+        return $row && SoftlandCipher::verify($row->PassWord ?? '', $password);
     }
 
     private function claveValida(Usuario $u, string $password): bool

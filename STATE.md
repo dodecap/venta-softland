@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.41.0**
+2026-09-22 — versión **0.41.1**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -207,6 +207,30 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.41.1 — Quien está en Softland pero no en la app, se entera (2026-09-22)
+
+`preyes` —Priscila Reyes, vendedora 19— no podía entrar y el mensaje culpaba a
+la clave. La clave estaba bien: le faltaba la ficha en `ventas.usuario`, que
+sólo tenía tres filas (`softland`, `jpalomin`, `ddecap`) frente a los 15
+usuarios de `softland.wisusuarios`. El alta la hace un administrador desde
+**Cuenta → Usuarios**, eligiendo el usuario de Softland del desplegable.
+
+Lo que se arregló en el código es el mensaje, que hacía perder el tiempo
+cambiando una clave que no estaba mal. `AuthController::sinAlta()` se pregunta
+**sólo después de que el login falla** y **sólo contesta que sí con la clave de
+Softland correcta**: a quien no la sabe se le sigue diciendo «usuario o
+contraseña incorrectos», así que no se puede averiguar quién existe probando
+nombres. Comprobado contra la base real en sus cuatro ramas — usuario del ERP
+sin ficha con su clave buena, el mismo con una clave inventada, un usuario que
+sí tiene ficha, y un nombre que no existe.
+
+Descartado por medición, para que no se vuelva a mirar ahí: no hay ningún
+límite de 8 caracteres en el nombre de usuario. `softland.wisusuarios.Usuario`
+es `varchar(8)` y por eso ningún nombre del ERP pasa de 8, pero `preyes` tiene
+6; `ventas.usuario.softland_user` admite 20 y el login, 60. El 8 que se veía
+era el **largo de su contraseña**, que es lo que guarda el primer byte del
+cifrado de Softland.
 
 ### 0.41.0 — La orden de compra viaja de la venta a la factura (2026-09-22)
 
