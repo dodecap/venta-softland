@@ -28,6 +28,7 @@ export class ErrorApi extends Error {
  */
 const PLAZO = 30000;
 const PLAZO_LARGO = 60000;
+const PLAZO_ACTUALIZAR = 300000;
 
 /** El mismo error, dicho por su nombre: se acabó el tiempo, no es que no haya red. */
 function errorDeRed(e) {
@@ -36,7 +37,7 @@ function errorDeRed(e) {
         : new ErrorApi('No se pudo llegar al servidor. Revisa la conexión.', 0);
 }
 
-async function pedir(ruta, { method = 'GET', body = null, auth = true } = {}) {
+async function pedir(ruta, { method = 'GET', body = null, auth = true, plazo = PLAZO } = {}) {
     const servidor = await db.getServidor();
     if (!servidor) throw new ErrorApi('Falta configurar la dirección del servidor.', 0);
 
@@ -53,7 +54,7 @@ async function pedir(ruta, { method = 'GET', body = null, auth = true } = {}) {
             method,
             headers,
             body: body ? JSON.stringify(body) : null,
-            signal: AbortSignal.timeout(PLAZO),
+            signal: AbortSignal.timeout(plazo),
         });
     } catch (e) {
         throw errorDeRed(e);
@@ -293,6 +294,17 @@ export const api = {
     subirCertificado: (archivo, clave) =>
         subir('/admin/configuracion/certificado', 'certificado', archivo, { clave }),
     borrarCertificado: () => pedir('/admin/configuracion/certificado', { method: 'DELETE' }),
+
+    // La versión del servidor. Mirar es barato; instalar tarda lo que tarde
+    // bajar 6 MB y descomprimirlos, así que el plazo es otro —y aun así puede
+    // acabarse: si se acaba, el trabajo sigue en el servidor y se ve volviendo
+    // a preguntar por el estado, que se anota en disco.
+    actualizacion: () => pedir('/admin/actualizacion'),
+    actualizar: (version) => pedir('/admin/actualizacion', {
+        method: 'POST',
+        body: version ? { version } : {},
+        plazo: PLAZO_ACTUALIZAR,
+    }),
 
     notificaciones: () => pedir('/admin/notificaciones'),
     guardarNotificacion: (evento, r) =>

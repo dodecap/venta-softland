@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.46.0**
+2026-09-22 — versión **0.47.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -208,6 +208,55 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
 
+### 0.47.0 — Actualizarse desde GitHub Releases (2026-09-22)
+
+Fase E, y con ella el círculo se cierra: instalar ya no pedía editar archivos
+(fase A), ni adivinar si la base servía (B), ni copiar el certificado a mano
+(C). Faltaba **la segunda vez y todas las siguientes**, que hasta ahora eran
+clonar el repositorio o copiar carpetas por escritorio remoto.
+
+`ventas:actualizar` y Configuración → Versión del servidor bajan la última
+publicación de GitHub y la ponen. Tres piezas por publicación:
+
+| Pieza | Pesa | Cuándo se baja |
+|---|---|---|
+| `venta-softland-<v>-servidor.tar.gz` | 1,4 MB | siempre |
+| `vendor-<sha256 del composer.lock>.tgz` | 17 MB | sólo si el `composer.lock` cambió |
+| `venta-softland-<v>.apk` | 5,0 MB | siempre, y queda listo en `/app` |
+
+El sha256 del `composer.lock` **va dentro del nombre** del paquete de
+dependencias: así el servidor decide sin una segunda llamada ni un manifiesto
+que pueda mentir. La actualización corriente son 6,4 MB de 24.
+
+Lo que da forma al resto:
+
+- **Nada se escribe hasta que está todo bajado y comprobado**, con el sha256
+  que calcula GitHub al subir cada archivo. Sin eso, la página de error de un
+  proxy con código 200 acabaría descomprimida encima del servidor.
+- **`PharData` y no `tar`**, para no exigirle `exec` a un cliente. Cuesta un
+  requisito en el empaquetado: `PharData` se niega a extraer la entrada «.»,
+  así que `bin/publicar-version.sh` nombra las carpetas una a una.
+- **El remate va en un PHP recién arrancado.** El proceso que descomprimió
+  lleva en memoria el cargador de clases de la versión vieja y no sabría
+  encontrar un paquete recién llegado.
+- **Volver atrás es parte de actualizar.** `--a=0.46.0` instala la anterior,
+  que sigue publicada. (Es `--a` porque `--version` lo tiene cogido artisan.)
+- **Lo que tarda se sigue preguntando, no esperando.** El estado se anota en
+  `storage/app/private/actualizacion.json` y la pantalla lo relee: si el plazo
+  del teléfono se acaba, el servidor sigue trabajando y se ve en qué quedó.
+
+Ensayado de punta a punta contra `srv`, con una publicación de mentira servida
+por el propio Apache: bajada de las tres piezas, sha256 comprobado, salto de
+las dependencias cuando el hash coincide, descompresión encima del árbol vivo,
+`migrate`, APK guardado, y vuelta atrás de la 0.99.0 a la 0.46.0. Después se
+borró todo rastro del ensayo y el servidor quedó como estaba.
+
+**Lo único que no se ha hecho es publicar de verdad**: `gh` no tiene sesión
+iniciada en esta máquina y no hay token de GitHub, así que `bin/publicar-version.sh`
+está escrito y comprobado hasta la línea del `gh release create`, que nunca se
+ha ejecutado. El repositorio `dodecap/venta-softland` es público y no tiene
+ninguna publicación todavía.
+
 ### 0.46.0 — El certificado digital se sube desde la app (2026-09-22)
 
 Fase C, y con ella se acaban los secretos que obligaban a abrir una sesión en
@@ -322,7 +371,8 @@ alcanza también a las redirecciones**.
 
 Pendiente de las fases siguientes: la actualización desde GitHub Releases
 (Fase E, medida: 6,4 MB la actualización típica, 17,4 MB el paquete de
-dependencias cuando cambia `composer.lock`).
+dependencias cuando cambia `composer.lock`). **Hecha en la 0.47.0**, y las dos
+medidas se confirmaron.
 
 ### 0.43.2 — El compromiso sobrevive a la conversión (2026-09-22)
 
@@ -521,6 +571,13 @@ desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
 
 ## Pendiente / próximos pasos
+- [ ] **Publicar la primera versión en GitHub.** `bin/publicar-version.sh` está
+      escrito y comprobado hasta la línea del `gh release create`, que no se ha
+      ejecutado nunca: `gh` no tiene sesión iniciada en esta máquina y no hay
+      token. Hasta que exista una publicación, `ventas:actualizar` contesta
+      «todavía no hay ninguna versión publicada», que es lo correcto.
+- [ ] **Fase D** — `bin/deploy.sh` con la máquina de destino como argumento, y
+      un `appId` por empresa sólo si hace falta de verdad.
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
       admin: el alcance por vendedor está probado contra la base, pero no con
       alguien usando el teléfono. El usuario `softland` no tiene `ven_cod`

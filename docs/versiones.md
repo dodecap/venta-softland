@@ -42,6 +42,35 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.47.0 — Actualizarse desde GitHub Releases
+*2026-09-22*
+
+- El servidor se actualiza solo desde **GitHub Releases**, sin que nadie clone
+  nada ni copie archivos a mano. Desde la app, en Configuración → Versión del
+  servidor, o desde la consola con `php artisan ventas:actualizar`.
+- Cada publicación lleva tres piezas: el código (1,4 MB), las dependencias
+  (17 MB) y el APK (5 MB). Las dependencias **no se bajan siempre**: el nombre
+  del paquete lleva dentro el sha256 del `composer.lock`, así que el servidor
+  sabe sin preguntar nada si el `vendor` que tiene ya es el que le toca. La
+  actualización corriente pesa 6,4 MB.
+- Lo que llega se comprueba con el **sha256 que calcula GitHub** al subir cada
+  archivo. Nada se descomprime hasta que está entero y cuadra: media descarga
+  aplicada es un servidor que no arranca.
+- **Se puede volver atrás.** `ventas:actualizar --a=0.46.0` instala una versión
+  anterior, que sigue publicada. Sin eso, actualizar sería una puerta de una
+  sola dirección, y una versión mala en casa de un cliente habría que esperarla
+  a que se arreglara.
+- No se toca `.env` ni `storage/`: ahí viven la conexión cifrada, el
+  certificado del DTE, los PDF y los APK repartidos. El paquete trae exactamente
+  las mismas carpetas que `bin/deploy.sh`.
+- `bin/publicar-version.sh` construye las tres piezas y las sube con `gh release
+  create`. El `vendor` se empaqueta **en el servidor**, que es la única máquina
+  con Composer.
+- Ensayado de punta a punta contra `srv` con una publicación de mentira servida
+  por Apache: bajada, comprobación del sha256, salto de las dependencias,
+  descompresión encima del árbol vivo, `migrate`, guardado del APK y vuelta
+  atrás a la versión anterior.
+
 ### 0.46.0 — El certificado digital se sube desde la app
 *2026-09-22*
 

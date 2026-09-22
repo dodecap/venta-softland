@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvisoController;
 use App\Http\Controllers\Api\CatalogoController;
 use App\Http\Controllers\Api\ClienteController;
+use App\Http\Controllers\Api\ActualizacionController;
 use App\Http\Controllers\Api\ConfiguracionController;
 use App\Http\Controllers\Api\CotizacionController;
 use App\Http\Controllers\Api\FacturaController;
@@ -146,6 +147,13 @@ Route::middleware('auth.api')->group(function () {
         // dentro de /configuracion, y el archivo y su clave no salen de aquí.
         Route::post('/configuracion/certificado', [ConfiguracionController::class, 'subirCertificado']);
         Route::delete('/configuracion/certificado', [ConfiguracionController::class, 'borrarCertificado']);
+
+        // La versión del servidor: mirar si hay una nueva en GitHub, y ponerla.
+        // El POST tarda —baja y descomprime— y por eso el cliente espera de
+        // más; quedarse sin respuesta no deja nada a medias: el estado se
+        // anota en disco y se vuelve a leer con el GET.
+        Route::get('/actualizacion', [ActualizacionController::class, 'index']);
+        Route::post('/actualizacion', [ActualizacionController::class, 'aplicar']);
 
         // Identidad corporativa: datos de la empresa, logo y condiciones que
         // salen impresos en cotizaciones, notas de venta y lo que venga después.

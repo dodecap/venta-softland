@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { definidos as atributosDefinidos } from '../atributos';
@@ -52,11 +52,26 @@ const certificado = ref({ hay: false, subido: false });
 const certArchivo = ref(null);
 const certClave = ref('');
 
+/*
+ * La versión del servidor, y si hay una más nueva publicada.
+ *
+ * Se pide **aparte** del resto de la configuración: preguntárselo a GitHub
+ * tarda y puede fallar —un servidor sin salida a internet es una instalación
+ * perfectamente válida—, y eso no puede dejar sin pantalla a quien venía a
+ * cambiar el SMTP.
+ */
+const version = ref(null);
+const actualizando = ref(false);
+const pasoActual = ref('');
+const actualizado = ref('');
+let vigilancia = null;
+
 /** Los de fecha sólo pueden llenar el hueco de fecha; los demás, los otros dos. */
 const atributosFecha = computed(() => atributos.value.filter((a) => a.control === 'fecha'));
 const atributosTexto = computed(() => atributos.value.filter((a) => a.control !== 'fecha'));
 
-onMounted(cargar);
+onMounted(() => { cargar(); mirarVersion(); });
+onUnmounted(parar);
 
 async function cargar() {
     cargando.value = true;
@@ -73,6 +88,74 @@ async function cargar() {
     } finally {
         cargando.value = false;
     }
+}
+
+async function mirarVersion() {
+    try {
+        version.value = await api.actualizacion();
+    } catch (e) {
+        version.value = { problema: e.message };
+    }
+}
+
+async function actualizar() {
+    if (!confirm(`Se va a instalar la ${version.value.publicada} en este servidor. `
+        + 'Mientras dura, la app puede quedarse sin responder un momento. ¿Seguir?')) return;
+
+    limpiar();
+    actualizando.value = true;
+    actualizado.value = '';
+    pasoActual.value = 'Empezando…';
+
+    try {
+        const r = await api.actualizar();
+        acabo(r.version);
+    } catch (e) {
+        // Que se acabe el plazo no es que haya fallado: el servidor sigue
+        // trabajando al otro lado. Lo que se sabe de él está anotado en disco,
+        // así que se le pregunta hasta que diga en qué quedó.
+        if (e.status === 0) await seguirla();
+        else { error.value = e.message; actualizando.value = false; }
+    }
+}
+
+/** Preguntar por el estado hasta que el servidor diga que acabó, o que no pudo. */
+async function seguirla() {
+    pasoActual.value = 'El servidor sigue trabajando…';
+
+    return new Promise((listo) => {
+        let intentos = 0;
+        vigilancia = setInterval(async () => {
+            intentos += 1;
+            let e = null;
+            try {
+                e = (await api.actualizacion()).ultimo_intento;
+            } catch { /* mientras se recompila, el servidor puede no contestar */ }
+
+            if (e?.paso) pasoActual.value = e.paso;
+
+            if (e?.estado === 'listo') { parar(); acabo(e.version); listo(); }
+            else if (e?.estado === 'error') { parar(); error.value = e.error; actualizando.value = false; listo(); }
+            else if (intentos > 90) {
+                parar();
+                error.value = 'El servidor tarda más de lo razonable. Mira cómo quedó '
+                    + 'desde la consola:  php artisan ventas:actualizar --comprobar';
+                actualizando.value = false;
+                listo();
+            }
+        }, 4000);
+    });
+}
+
+function parar() {
+    if (vigilancia) { clearInterval(vigilancia); vigilancia = null; }
+}
+
+function acabo(v) {
+    actualizando.value = false;
+    pasoActual.value = '';
+    actualizado.value = v;
+    mirarVersion();
 }
 
 async function guardarFacturacion(campo) {
@@ -231,6 +314,62 @@ async function probarCorreo() {
             <div class="cargando" v-if="cargando">Cargando…</div>
 
             <template v-else>
+                <!-- La versión va primero porque no configura nada: dice en qué
+                     estado está esta instalación, y de ahí depende que lo de
+                     abajo signifique lo que parece. -->
+                <div class="tarjeta" v-if="version">
+                    <div class="tarjeta-cabecera">
+                        Versión del servidor
+                        <span class="etiqueta" :class="version.hay ? 'amarillo' : 'verde'"
+                              v-if="!version.problema" style="float:right;">
+                            {{ version.hay ? 'hay una nueva' : 'al día' }}
+                        </span>
+                    </div>
+                    <div class="tarjeta-cuerpo">
+                        <dl class="datos">
+                            <dt>Puesta</dt><dd>{{ version.version }}</dd>
+                            <template v-if="version.publicada">
+                                <dt>Publicada</dt><dd>{{ version.publicada }}</dd>
+                            </template>
+                            <dt>Se baja de</dt><dd>{{ version.repositorio }}</dd>
+                        </dl>
+
+                        <!-- No poder preguntar no es estar roto: un servidor sin
+                             salida a internet es una instalación válida, y sigue
+                             actualizándose a mano. -->
+                        <Aviso tipo="info" v-if="version.problema">
+                            No se pudo preguntar si hay versión nueva. {{ version.problema }}
+                        </Aviso>
+
+                        <Aviso tipo="ok" v-else-if="actualizado">
+                            Servidor en la {{ actualizado }}. Cierra la app y vuelve a
+                            abrirla para que el teléfono hable con la versión nueva.
+                        </Aviso>
+
+                        <template v-else-if="version.hay">
+                            <p class="ayuda" v-if="version.nueva?.notas"
+                               style="white-space:pre-line;">{{ version.nueva.notas }}</p>
+
+                            <p class="ayuda">
+                                Se bajan el código y, si han cambiado, las dependencias.
+                                No se toca ni la conexión a Softland, ni el certificado, ni
+                                los documentos guardados.
+                            </p>
+
+                            <button class="boton" :disabled="actualizando" @click="actualizar">
+                                <AppIcon name="descargar" :size="18" color="currentColor" />
+                                {{ actualizando ? 'Actualizando…' : `Instalar la ${version.publicada}` }}
+                            </button>
+
+                            <p class="ayuda" v-if="pasoActual">{{ pasoActual }}</p>
+                        </template>
+
+                        <p class="ayuda" v-else-if="!version.publicada">
+                            Todavía no hay ninguna versión publicada en ese repositorio.
+                        </p>
+                    </div>
+                </div>
+
                 <div class="tarjeta">
                     <div class="tarjeta-cabecera">Facturación</div>
                     <div class="tarjeta-cuerpo">

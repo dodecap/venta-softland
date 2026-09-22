@@ -64,3 +64,4 @@ Thumbs.db
 *.mov
 *.m4a
 *.ogg
+/dist/
