@@ -42,6 +42,22 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.43.2 — El compromiso sobrevive a la conversión
+*2026-09-22*
+
+- **Un compromiso anotado en una cotización ya convertida no se veía.** La
+  cotización 8555 está en `V` con un «llamar el 24 a las 12» anotado, y no salía
+  ni en el panel, ni en la lista, ni en el chip de cola. `estado()` descartaba de
+  entrada toda cotización que no estuviera abierta, con lo que la app aceptaba la
+  promesa, la ofrecía al calendario del teléfono y después no la enseñaba en
+  ninguna parte.
+- **Son dos preguntas y ahora se contestan por separado.** «Sin próximo paso»
+  sigue siendo cosa de las cotizaciones abiertas —a una vendida no hay que
+  inventarle una llamada—, pero un compromiso **anotado** cuenta esté la
+  cotización como esté: lo escribió una persona con su fecha. La única excepción
+  es la **nula**, donde se cayó el documento entero. En INNOVAGES esto saca a la
+  luz 2 compromisos de esta semana que estaban escondidos.
+
 ### 0.43.1 — El panel de un jefe abre en su equipo
 *2026-09-22*
 

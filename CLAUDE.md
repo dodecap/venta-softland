@@ -369,6 +369,12 @@ propia hoja (`documentos/dte.blade.php`). Lo que hay que saber:
 - **La app no interpreta los códigos de `nwttcomp`**: los lee y los muestra.
   Cuáles se ofrecen lo dice `ventas.config`, y los viejos no se borran nunca —
   `nwtsegui` tiene clave foránea al maestro.
+- **«Sin próximo paso» y «el compromiso» no se filtran igual.** Lo primero es de
+  las cotizaciones **abiertas**: a una vendida no hay que inventarle una llamada.
+  Lo segundo vale esté la cotización como esté —lo anotó una persona con su fecha
+  y la ficha lo ofrece al calendario—, salvo en la **nula**, donde se cayó el
+  documento. Descartar por estado antes de mirar si hay compromiso escondía las
+  promesas hechas sobre cotizaciones ya convertidas.
 - **No hay columna de «cumplido».** El compromiso vivo de una cotización es el
   de su **última** anotación, y anotar la siguiente cierra la anterior. Una
   anotación sin próxima fecha la deja sin compromiso, que es el «ya está hecho».
@@ -716,7 +722,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.43.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.43.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

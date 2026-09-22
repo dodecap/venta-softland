@@ -84,14 +84,25 @@ export async function compromisosVivos() {
 /**
  * En qué situación está el seguimiento de una cotización.
  *
- * `null` cuando la cotización no está abierta: una vendida o perdida no espera
- * ninguna llamada, y contarla sería inflar la lista con trabajo que no existe.
+ * Son **dos preguntas distintas**, y contestarlas con la misma condición
+ * escondía trabajo de verdad:
+ *
+ * - **«Sin próximo paso» es de las cotizaciones abiertas.** A una vendida o
+ *   perdida no hay que inventarle una llamada, y contarlas sería inflar la
+ *   lista con trabajo que no existe.
+ * - **Un compromiso anotado vale esté la cotización como esté.** Lo escribió
+ *   una persona, con su fecha y su hora, y la ficha hasta lo ofrece al
+ *   calendario del teléfono: esconderlo porque la cotización ya pasó a nota de
+ *   venta es quedarse con la promesa y no enseñarla. Pasaba con la 8555, en
+ *   `V` con un «llamar el 24 a las 12» que no salía por ninguna parte. La
+ *   excepción es la **nula**: ahí se cayó el documento entero.
  */
 export function estado(cotizacion, vivo, hoy) {
-    const abierta = ['P', ''].includes(String(cotizacion?.estado || '').trim().toUpperCase());
+    const est = String(cotizacion?.estado || '').trim().toUpperCase();
+    const abierta = ['P', ''].includes(est);
 
-    if (! abierta) return null;
-    if (! vivo) return 'sin_compromiso';
+    if (! vivo) return abierta ? 'sin_compromiso' : null;
+    if (est === 'N') return null;
 
     const cuando = dia(vivo.cuando);
 

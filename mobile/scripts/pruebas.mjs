@@ -354,10 +354,24 @@ es(estadoCompromiso(abierta, { cuando: '2026-11-30' }, DIA_COMPROMISO), null,
 es(estadoCompromiso(abierta, { cuando: '2026-09-16 23:00:00' }, DIA_COMPROMISO), 'hoy',
     'con hora sigue siendo hoy');
 
-// Una cotización vendida o perdida no espera ninguna llamada, y contarla sería
-// inflar la lista con trabajo que no existe.
-es(estadoCompromiso({ estado: 'V' }, { cuando: '2026-09-15' }, DIA_COMPROMISO), null, 'vendida no cuenta');
-es(estadoCompromiso({ estado: 'R' }, null, DIA_COMPROMISO), null, 'perdida no cuenta');
+// A una cotización vendida o perdida no hay que inventarle una llamada: no
+// entra en «sin próximo paso».
+es(estadoCompromiso({ estado: 'V' }, null, DIA_COMPROMISO), null, 'vendida no pide próximo paso');
+es(estadoCompromiso({ estado: 'R' }, null, DIA_COMPROMISO), null, 'perdida no pide próximo paso');
+
+// Pero un compromiso **anotado** vale igual: lo escribió una persona con su
+// fecha. Es el caso de la 8555, en «V» con un «llamar el 24 a las 12» que la
+// app aceptó, ofreció al calendario y después no enseñaba en ninguna parte.
+es(estadoCompromiso({ estado: 'V' }, { cuando: '2026-09-15' }, DIA_COMPROMISO), 'atrasado',
+    'la promesa sobrevive a la conversión en nota de venta');
+es(estadoCompromiso({ estado: 'V' }, { cuando: '2026-09-18' }, DIA_COMPROMISO), 'proximo',
+    'y se clasifica por su fecha, como cualquier otra');
+es(estadoCompromiso({ estado: 'R' }, { cuando: '2026-09-18' }, DIA_COMPROMISO), 'proximo',
+    'volver a llamar a una perdida es trabajo, no ruido');
+// La nula es la excepción: ahí se cayó el documento entero.
+es(estadoCompromiso({ estado: 'N' }, { cuando: '2026-09-15' }, DIA_COMPROMISO), null,
+    'la nula se lleva su compromiso');
+es(estadoCompromiso({ estado: 'N' }, null, DIA_COMPROMISO), null, 'y tampoco pide próximo paso');
 // Las cotizaciones viejas de INNOVAGES no tienen estado escrito, y están
 // abiertas: tratarlas como cerradas las escondería.
 es(estadoCompromiso({ estado: '' }, null, DIA_COMPROMISO), 'sin_compromiso', 'sin estado es abierta');
@@ -475,9 +489,8 @@ es(deVendedores([2])({ vendedor: '2' }), true, 'el código puede llegar como nú
     es(suyos.atrasado, 1, 'ámbito de un vendedor: sólo lo suyo');
     es(suyos.sin_compromiso, 1, 'ámbito de un vendedor: una sin próximo paso');
 
-    // Una cotización cerrada con compromiso vivo no cuenta: 8554 está vendida.
-    const proximos = await resumenCompromisos({ cotizaciones: cots, vendedores: ['2'], hoy, vivos });
-    es(proximos.proximo, 0, 'la vendida no espera ninguna llamada');
+    // La 8554 está vendida y tiene compromiso para el 27: sigue contando.
+    es(suyos.proximo, 1, 'el compromiso de una vendida se clasifica por su fecha');
 }
 
 console.log(`OK — ${hechas} comprobaciones`);

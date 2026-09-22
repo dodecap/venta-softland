@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.43.1**
+2026-09-22 — versión **0.43.2**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -207,6 +207,36 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.43.2 — El compromiso sobrevive a la conversión (2026-09-22)
+
+La cotización **8555** tiene dos anotaciones —`PRO` sin fecha y `LLA` para el
+2026-09-24 a las 12:00— y su compromiso no salía por ninguna parte. No era la
+descarga: el seguimiento está en el teléfono. Era `estado()`, que empezaba
+descartando toda cotización que no estuviera en `P`, y la 8555 está en `V`.
+
+Reproducido con el código real sobre los datos reales de `ddecap`:
+
+```
+cot 8552  estado=P  prox=2026-09-17 09:00  ->  atrasado
+cot 8553  estado=N  prox=—                 ->  NO SALE
+cot 8554  estado=V  prox=2026-09-27 12:00  ->  NO SALE   <-- escondido
+cot 8555  estado=V  prox=2026-09-24 12:00  ->  NO SALE   <-- el reportado
+```
+
+La regla estaba contestando dos preguntas con una sola condición:
+
+- **«Sin próximo paso» es de las abiertas.** A una vendida o perdida no hay que
+  inventarle una llamada; contarlas sería inflar la lista.
+- **Un compromiso anotado vale esté la cotización como esté.** Lo escribió una
+  persona, con fecha y hora, y la ficha hasta lo ofrece al calendario de Android:
+  aceptarlo y luego no enseñarlo es quedarse con la promesa. La excepción es la
+  **nula**, donde se cayó el documento entero.
+
+Con eso el equipo de `ddecap` pasa de `{atrasado 1, próximo 0}` a
+`{atrasado 1, próximo 2}`. La regla sigue viviendo en un solo sitio
+(`mobile/src/seguimiento.js`), así que el panel, el filtro de la lista y el chip
+de cola cambian a la vez.
 
 ### 0.43.1 — El panel de un jefe abre en su equipo (2026-09-22)
 
