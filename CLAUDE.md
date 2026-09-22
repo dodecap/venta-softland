@@ -226,6 +226,41 @@ cd mobile && npm run dev                 # probar la UI en el navegador
 ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan ventas:probe"
 ```
 
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan ventas:compatibilidad --todo"
+```
+
+## Instalar en otra empresa
+
+El sistema es **un repositorio y N instalaciones**, no una copia del repositorio
+por cliente: lo de cada empresa vive fuera del código —la conexión en
+`softland.json`, la identidad y las reglas en `ventas.config`, los folios y los
+atributos en la propia base—. Lo que hay que saber antes de tocar nada:
+
+- **Ninguna dirección absoluta que escriba el servidor sirve.** Detrás de un
+  proxy inverso, `url()` da el esquema y la carpeta equivocados: medido,
+  `https://venta.netdomain.cl/setup` redirigía a `.../venta-softland`, que da
+  404. Las redirecciones van en `Location` **relativo** (`App\Support\Rutas`),
+  los formularios con `action=""` y los enlaces relativos. Quien sabe la
+  dirección buena es el navegador.
+- **Lo que falta se dice antes, no después.** `App\Support\Requisitos` mira el
+  servidor —PHP, extensiones, `APP_KEY`, carpetas— antes de dibujar el
+  formulario de `/setup`, y `App\Services\Softland\Compatibilidad` mira la
+  base antes de guardar la conexión. Sin lo segundo, una base incompleta se
+  instala igual y el problema sale el día que alguien intenta facturar.
+- **Lo que la app lee de Softland no se enumera dos veces.** La comprobación de
+  compatibilidad **deduce** tabla, clave y columnas de `Maestros::recursos()`;
+  sólo se escribe a mano lo que el catálogo no nombra —las tablas que se leen
+  fuera de él y las columnas que se escriben sin leerse nunca—. Un maestro nuevo
+  queda comprobado sin tocar nada, que es la misma regla del catálogo.
+- **Que falte algo no siempre impide instalar.** Cada tabla cuelga de un grupo y
+  el grupo dice qué se pierde. Sólo entrar/leer la empresa y cotizar/vender son
+  imprescindibles: una base sin las tablas del DTE sirve para vender, y lo
+  honesto es decir que no va a poder facturar, no negarse a instalar.
+- **`bin/instalar.cmd` no pide ninguna contraseña.** Deja el servidor en
+  condiciones de que `/setup` funcione y para ahí; las contraseñas se escriben
+  en el navegador, una sola vez.
+
 ## Escribir en Softland
 
 Desde la fase 3 la app escribe el flujo de venta. Lo que hay que saber antes de
@@ -756,7 +791,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.44.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.45.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

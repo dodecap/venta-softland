@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Services\Notificaciones\Notificador;
+use App\Services\Softland\Compatibilidad;
 use App\Support\Requisitos;
 use App\Support\SoftlandCipher;
 use App\Support\SoftlandConfig;
 use App\Support\SoftlandConnection;
+use App\Support\Rutas;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +38,9 @@ class SetupController extends Controller
             'listo' => Requisitos::listo(),
             'yaConfigurado' => SoftlandConfig::exists(),
             'baseActual' => SoftlandConfig::load()['database'] ?? null,
+            // Sólo viene puesto cuando un intento anterior se topó con una base
+            // a la que le falta algo. Ver `store()`.
+            'compatibilidad' => session('compatibilidad'),
         ]);
     }
 
@@ -100,14 +105,29 @@ class SetupController extends Controller
             ]);
         }
 
-        // 3) Guardar cifrado y aplicar en caliente.
+        // 3) ¿Tiene esta base lo que la app usa?
+        //
+        // Se pregunta **antes** de guardar, porque guardar una conexión a una
+        // base incompleta deja el servidor instalado y roto a la vez: la app
+        // arranca, el vendedor entra, y el problema sale el día que alguien
+        // intenta facturar. Cada empresa corre la versión de Softland que le
+        // tocó y entre versiones cambian tablas y columnas.
+        $informe = (new Compatibilidad('softland_probe'))->informe();
+
+        if (! $informe['esenciales']) {
+            return back()->withInput()
+                ->with('compatibilidad', $informe)
+                ->withErrors(['database' => 'A la base «'.$data['database'].'» le falta algo que la app necesita para funcionar. Abajo está el detalle.']);
+        }
+
+        // 4) Guardar cifrado y aplicar en caliente.
         SoftlandConfig::save($cfg);
         SoftlandConnection::apply($cfg);
 
-        // 4) Crear el esquema `ventas` y correr las migraciones.
+        // 5) Crear el esquema `ventas` y correr las migraciones.
         Artisan::call('ventas:install');
 
-        // 5) Registrar al administrador y dejar las reglas de notificación sembradas.
+        // 6) Registrar al administrador y dejar las reglas de notificación sembradas.
         DB::connection('softland')->table('ventas.usuario')->updateOrInsert(
             ['softland_user' => 'softland'],
             [
@@ -121,13 +141,26 @@ class SetupController extends Controller
         );
         $notificador->sembrarReglas();
 
-        return redirect('/setup/listo');
+        // Lo que falta sin ser imprescindible no impide instalar, pero sí tiene
+        // que decirse: una base sin las tablas del DTE sirve para cotizar y
+        // vender, y quien instala necesita saber que no va a poder facturar
+        // antes de que alguien lo descubra facturando.
+        //
+        // La redirección va relativa, como todas las que escribe el servidor:
+        // `redirect('/setup/listo')` genera una dirección absoluta y detrás de
+        // un proxy inverso sale con el esquema y la carpeta equivocados. Ver
+        // `Rutas`. El flash sobrevive igual: la sesión se guarda al salir, sea
+        // cual sea la respuesta.
+        $request->session()->flash('limita', $informe['limita']);
+
+        return Rutas::irA($request, 'setup/listo');
     }
 
     public function listo()
     {
         return view('setup.listo', [
             'base' => SoftlandConfig::load()['database'] ?? '',
+            'limita' => session('limita', []),
         ]);
     }
 

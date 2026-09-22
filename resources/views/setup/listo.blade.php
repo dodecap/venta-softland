@@ -6,6 +6,25 @@
         <code>{{ $base }}</code> y el usuario <code>softland</code> registrado como administrador.
     </div>
 
+    {{-- Lo que falta sin ser imprescindible no impide instalar, pero callarlo
+         sería dejar que se descubriera el día que alguien intente usarlo. --}}
+    @if ($limita)
+        <div class="aviso">
+            <strong>Con esta base no va a poder hacerse todo.</strong>
+            A la base <code>{{ $base }}</code> le faltan tablas o columnas, así que esto
+            queda fuera:
+            <ul style="margin:8px 0 0 18px;">
+                @foreach ($limita as $que)
+                    <li>{{ $que }}</li>
+                @endforeach
+            </ul>
+            <p class="ayuda" style="margin-top:8px;">
+                El detalle, desde el servidor:
+                <code>php artisan ventas:compatibilidad</code>
+            </p>
+        </div>
+    @endif
+
     {{-- Lo siguiente que hay que hacer es instalar la app, así que el enlace va
          aquí y grande. Antes esta página decía «instala el APK» sin decir de
          dónde, y quien instalaba tenía que adivinar que existía /app. --}}

@@ -46,6 +46,33 @@
         </div>
     @endif
 
+    {{-- Lo que le falta a la base que se acaba de probar. Sólo sale cuando un
+         intento anterior se topó con ello: es el detalle del error de arriba,
+         y sin él «le falta algo» no le sirve a nadie. --}}
+    @if ($compatibilidad)
+        <div class="errores">
+            <p><strong>Esto es lo que le falta a esa base:</strong></p>
+            <ul class="requisitos">
+                @foreach ($compatibilidad['filas'] as $f)
+                    @unless ($f['ok'])
+                        <li class="no">
+                            <span class="marca">{{ $f['esencial'] ? '✕' : '!' }}</span>
+                            <div>
+                                <strong>{{ $f['que'] }}</strong>
+                                <p class="ayuda">{{ $f['detalle'] }}</p>
+                            </div>
+                        </li>
+                    @endunless
+                @endforeach
+            </ul>
+            <p class="ayuda arreglo">
+                Comprueba que sea la base de la empresa y no otra, y que la versión de
+                Softland instalada sea la que usa esta empresa. Desde el servidor se
+                vuelve a mirar con <code>php artisan ventas:compatibilidad</code>.
+            </p>
+        </div>
+    @endif
+
     {{-- Se manda a sí misma: `action=""` es la propia dirección que el navegador
          tiene en la barra, y ésa es siempre la correcta. Escribirla con url()
          ponía la carpeta interna del Alias, que detrás de un proxy da 404. --}}

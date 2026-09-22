@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.44.0**
+2026-09-22 — versión **0.45.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -208,6 +208,46 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
 
+### 0.45.0 — Comprobar que la base sirva antes de instalar (2026-09-22)
+
+Fase B. `/setup` ya comprobaba el servidor y que la base fuera de Softland; lo
+que no comprobaba era si esa base **tiene lo que la app usa**. Cada empresa
+corre la versión de Softland que le tocó.
+
+`App\Services\Softland\Compatibilidad` mira `INFORMATION_SCHEMA` en tres
+consultas —tablas, columnas, procedimientos—, sin importar cuántas tablas sean:
+**46 tablas, un procedimiento y 731 columnas**.
+
+Dos decisiones que explican su forma:
+
+- **Lo que la app lee no se escribe aquí, se deduce de `Maestros::recursos()`.**
+  Los treinta maestros ya declaran tabla, clave y columnas; una segunda lista
+  serían dos verdades esperando a diferenciarse. Un maestro nuevo queda
+  comprobado sin tocar el archivo. Sólo se escribe a mano lo que el catálogo no
+  nombra: las tablas que se leen fuera de él (`wisusuarios`, `soempre`, los
+  permisos, `nwparam`…) y las columnas que se **escriben** pero nunca se leen.
+- **Lo que falta no siempre es fatal.** Cada tabla cuelga de un grupo y el grupo
+  dice qué se pierde: entrar y leer la empresa · cotizar y vender · maestros del
+  catálogo · seguimiento · facturar · DTE. Sólo los dos primeros impiden
+  instalar. Negarse a instalar porque falta `iw_encpicking` sería mentira; una
+  base sin las tablas del DTE sirve para cotizar y vender, y eso se dice en vez
+  de descubrirse facturando.
+
+Dónde se usa: en `/setup`, **antes de guardar la conexión** y contra la
+conexión de prueba —guardar una conexión a una base incompleta deja el servidor
+instalado y roto a la vez—, y a mano con `ventas:compatibilidad`.
+
+Medido: contra `INNOVAGES`, los 47 objetos presentes. Contra `master` —que no es
+una base Softland—, los 47 ausentes y los seis grupos caídos. De paso, los ocho
+nombres de columna que yo había deducido mal del código (`soempre.EmpRut` es
+`RutE`, los permisos van por `Formulario`/`Control`, el número de nota de venta
+en los atributos es `Codigo`) los encontró la primera corrida contra la base
+real, que es exactamente para lo que sirve esto.
+
+También: la redirección a `/setup/listo` era la última absoluta que quedaba, y
+detrás del proxy salía con el esquema y la carpeta equivocados. Ahora usa
+`Rutas`.
+
 ### 0.44.0 — Instalar en otra empresa sin tocar archivos (2026-09-22)
 
 Fase A del plan para replicar el sistema a cualquier empresa Softland. La
@@ -241,10 +281,10 @@ dentro no existe por fuera. Es la misma trampa que ya obligó a que `/app`
 generara su QR con la dirección del navegador, un nivel más abajo: **ahora
 alcanza también a las redirecciones**.
 
-Pendiente de las fases siguientes: la comprobación de compatibilidad de la base
-(Fase B), el certificado del DTE desde la app (Fase C) y la actualización desde
-GitHub Releases (Fase E, medida: 6,4 MB la actualización típica, 17,4 MB el
-paquete de dependencias cuando cambia `composer.lock`).
+Pendiente de las fases siguientes: el certificado del DTE desde la app (Fase C)
+y la actualización desde GitHub Releases (Fase E, medida: 6,4 MB la
+actualización típica, 17,4 MB el paquete de dependencias cuando cambia
+`composer.lock`).
 
 ### 0.43.2 — El compromiso sobrevive a la conversión (2026-09-22)
 

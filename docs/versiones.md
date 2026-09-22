@@ -42,6 +42,37 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.45.0 — Comprobar que la base de Softland sirva antes de instalar
+*2026-09-22*
+
+Segundo paso de la instalación genérica. `/setup` ya sabía comprobar el
+servidor y que la base fuera de Softland; lo que no sabía era si esa base tiene
+lo que la app usa. Cada empresa corre la versión de Softland que le tocó, y
+entre versiones cambian tablas y columnas: sin esto, una base a la que le falte
+algo se instala igual y el problema sale a la luz el día que alguien intenta
+facturar, que es el peor día posible.
+
+- **`App\Services\Softland\Compatibilidad`**: 46 tablas y un procedimiento,
+  **731 columnas** comprobadas contra `INFORMATION_SCHEMA` en tres consultas,
+  sin importar cuántas tablas sean.
+- **Lo que la app lee no se escribe dos veces: se deduce de `Maestros`.** Los
+  treinta maestros del catálogo ya declaran tabla, clave y columnas; repetir esa
+  lista sería tener dos verdades esperando a diferenciarse. Un maestro nuevo
+  queda comprobado sin tocar nada.
+- **Lo que falta no siempre es fatal.** Cada tabla cuelga de un grupo y el grupo
+  dice qué se pierde. Sin las tablas del DTE se cotiza y se vende igual; lo que
+  no se puede es facturar, y eso se dice. Sólo lo imprescindible —entrar, leer
+  la empresa, y los maestros sin los que no se puede escribir un documento—
+  impide instalar. Negarse a instalar porque falta `iw_encpicking` sería mentira.
+- **Se pregunta antes de guardar la conexión**, contra la conexión de prueba: una
+  conexión guardada a una base incompleta deja el servidor instalado y roto a la
+  vez. Lo que limita sin impedir sale en la página final de `/setup`.
+- **`php artisan ventas:compatibilidad`**, con `--todo` para ver también lo que
+  está bien. Contra `INNOVAGES`: los 47 objetos presentes. Contra `master`, que
+  no es una base Softland: los 47 ausentes y los seis grupos caídos.
+- La redirección a `/setup/listo` iba absoluta y detrás del proxy salía con el
+  esquema y la carpeta equivocados. Ahora usa `Rutas`, como las demás.
+
 ### 0.44.0 — Instalar en otra empresa sin tocar archivos
 *2026-09-22*
 
