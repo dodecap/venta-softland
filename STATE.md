@@ -1504,3 +1504,38 @@ ciudad en 29 de 29—, y razón social y giro en 17 de 29. El grueso de lo que
 esta pantalla propone son justo los campos donde pisar es peligroso, y por eso
 el valor por omisión de las casillas no es un detalle de interfaz: es la
 decisión principal del paso.
+
+### El historial, auditado antes de subirlo (2026-09-19)
+La rama lleva **59 commits sin subir** a `origin/main` y las etiquetas `v0.36.0`
+a `v0.40.0` tampoco están subidas. Antes de empujar nada se revisó el historial
+entero, porque lo que entra en un `git push` ya no se saca:
+
+- [x] **Ningún padrón del SII entró nunca.** El blob más grande que ha existido
+      son 1,2 MB (`mobile/recursos/icono_vs.png`); los padrones son 331 MB con
+      datos personales de cientos de miles de personas. El `.gitignore` de la
+      0.37.0 llegó después de descargarlos, así que había que comprobarlo y no
+      suponerlo.
+- [x] **Ningún secreto, en ninguna versión de ningún archivo.** Rastreado el
+      contenido de los 59 commits buscando la llave del SII, contraseñas de base
+      de datos, `APP_KEY`, certificados y llaves privadas. Lo único que aparece
+      son cadenas literales de cabecera PEM en `Caf.php` y variables `$clave`
+      que son claves de caché.
+- [x] **Las cuatro versiones del `.env.example` van con los valores vacíos.**
+      `APP_KEY` y `SOFTLAND_DB_PASSWORD` sin rellenar en las cuatro.
+- [x] **La llave de `TimbreTest.php` es de juguete**: RSA de 512 bits generada
+      para la prueba, inservible fuera de ella, y así está documentada.
+- [x] **Los APK no están rastreados**, los dos de la raíz caen en `.gitignore`.
+
+Dos cosas que sí se publican y conviene decidir a sabiendas, no descubrir
+después. Ninguna es una filtración: son datos de forma, no llaves.
+
+- `.env.example` lleva `SOFTLAND_DB_USERNAME=sa`, el nombre de instancia y el de
+  la base. La contraseña no, pero el nombre de usuario administrador sí.
+- `docs/alta-clientes-sii.md` nombra el servidor de la API (`sii-aux.netdomain.cl`).
+  La llave va elidida con `key=…` en los dos sitios donde aparece la URL.
+
+Comprobado además, el mismo día: sintaxis PHP de los nueve archivos tocados en
+0.36.0–0.40.0, las diez migraciones corridas en producción, la versión que sirve
+el servidor igual a la del repo (0.40.0), la ruta nueva contestando 401 por el
+proxy —el guardia corre antes que la validación del RUT, que es el orden bueno—
+y ningún script de sondeo olvidado en el web root.
