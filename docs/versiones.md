@@ -42,6 +42,48 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.42.0 — Repartir la app: código QR en el servidor y aviso de versión nueva
+*2026-09-22*
+
+- **`/app`: la segunda y última página HTML del proyecto.** Enseña la versión
+  publicada, un código QR y un botón, los dos al mismo sitio. La dirección **no
+  lleva la versión dentro**: entrega siempre el último APK publicado, así el
+  código impreso o guardado en favoritos no caduca nunca. Existe por la misma
+  razón que `/setup`: instalar la app pasa **antes** de que la app exista en el
+  teléfono, así que no puede estar dentro de la app.
+- **El código QR lo dibuja el servidor, pero la dirección la pone el
+  navegador.** Detrás del proxy IIS, Laravel no sabe por dónde le hablaron:
+  medido, genera `http://venta.netdomain.cl/venta-softland`, con el esquema y la
+  carpeta equivocados, y un QR con eso dentro no abre nada. Quien sí lo sabe es
+  el navegador que está mirando la página, así que se la pasa a `qr.svg`. La
+  dirección que llega se comprueba contra el `Host` de la petición: esto dibuja
+  códigos de esta instalación, no es un generador de QR abierto a internet.
+  Comprobado: el código sale **idéntico módulo a módulo** —841 de 841— a uno
+  generado por otra implementación para la misma dirección.
+- **El generador de códigos ya estaba**: `tecnickcom/tc-lib-barcode`, el mismo
+  que dibuja el timbre PDF417 de los DTE. Ninguna dependencia nueva.
+- **En Cuenta, cuando el servidor reparte una versión posterior, aparece
+  «Actualizar la app».** Distinta y más nueva no son lo mismo: un APK nuevo
+  contra una API vieja también desfasa, y ahí volver a bajar el instalable no
+  arregla nada —lo que falta es desplegar—. Por eso la fila sólo sale cuando la
+  publicada es **posterior**, comparando número a número: `'0.9.0' < '0.41.0'`
+  es cierto en castellano y mentira como texto.
+- **Fuera la redirección de la barra final de `public/.htaccess`**, que no era
+  una limpieza: detrás del proxy rompía la página. Redirigía a la ruta tal como
+  la ve Apache —con `/venta-softland` dentro—, así que `…/app/` contestaba un
+  301 a una dirección que el proxy no sabe mapear, y un 404. Le pasaba lo mismo
+  a `/setup/` desde el principio. Sin la regla llega al front controller y
+  Laravel la resuelve, que es lo que hace con la barra final de todas formas.
+- **El APK se sube aparte**, con `bin/publicar-apk.sh`, a
+  `storage/app/private/apk`. Fuera de `public/` para que la entrega pase por una
+  ruta que sabe cuál es el más nuevo y le pone el tipo MIME que Android
+  necesita —con `application/octet-stream` Android guarda un archivo y no
+  ofrece instalar—, y fuera del tar de `deploy.sh`, que no toca `storage/`:
+  desplegar el servidor no se lleva por delante lo publicado. La versión que se
+  ofrece sale del **nombre del archivo que existe**, no de `VERSION`: entre
+  desplegar y publicar pasan minutos, y durante esos minutos `VERSION` promete
+  un archivo que todavía no está.
+
 ### 0.41.2 — El alta de usuarios tenía el botón, pero no se dibujaba
 *2026-09-22*
 

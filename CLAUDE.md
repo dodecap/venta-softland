@@ -218,6 +218,7 @@ tocar nada de esto:
 ssh srv                                  # entrar al servidor
 bin/deploy.sh                            # desplegar la API a srv
 bash mobile/build-apk.sh                 # compilar el APK
+bin/publicar-apk.sh                      # y repartirlo desde /app
 cd mobile && npm run dev                 # probar la UI en el navegador
 ```
 
@@ -654,6 +655,37 @@ antes de tocar nada:
   quien factura por el portal gratuito del SII, y es el correcto. Son el 78,4 %
   de los facturadores electrónicos del país. No se filtra.
 
+## Repartir la app
+
+Desde la 0.42.0 el servidor entrega su propio instalable, en `/app` — la
+segunda y última página HTML del proyecto, por la misma razón que `/setup`:
+instalar la app pasa antes de que la app exista en el teléfono.
+
+- **La dirección no lleva la versión dentro.** `/app/apk` entrega siempre el
+  último publicado, para que el código QR impreso no caduque. La versión que se
+  ofrece sale del **nombre del archivo que existe** (`Reparto\Apk`), no de
+  `VERSION`: el servidor se despliega y el APK se sube aparte, y entre una cosa
+  y la otra pasan minutos.
+- **Detrás del proxy, ninguna dirección que escriba el servidor sirve.**
+  `url()` genera `http://venta.netdomain.cl/venta-softland`: esquema y carpeta
+  equivocados. Quien sabe la buena es el navegador, y se la pasa a `qr.svg`;
+  esa dirección se comprueba contra el `Host` de la petición, que es lo que
+  impide que sea un generador de códigos QR abierto a internet.
+- **El APK vive fuera de `public/` y fuera del tar de `deploy.sh`**, en
+  `storage/app/private/apk`. Lo primero para que la entrega pase por una ruta
+  nuestra, que sabe cuál es el último y le pone el tipo MIME que Android
+  necesita —con `application/octet-stream` Android guarda un archivo y no
+  ofrece instalar—; lo segundo para que desplegar no se lleve por delante lo
+  publicado. Se sube con `bin/publicar-apk.sh`.
+- **`/app` es público, a propósito.** El instalable no lleva credenciales
+  dentro y la dirección del servidor se escribe al abrirlo por primera vez;
+  exigir sesión haría imposible el caso que esto resuelve, que es el vendedor
+  nuevo que todavía no tiene cuenta.
+- **Distinta no es más nueva.** Cuenta ofrece «Actualizar la app» sólo cuando
+  lo publicado es **posterior** a lo que tiene el teléfono (`version.js`): un
+  APK nuevo contra una API vieja también desfasa, y ahí lo que falta es
+  desplegar, no descargar.
+
 ## La versión
 
 Vive en **un solo archivo**, `VERSION`, en la raíz. De ahí la leen la SPA
@@ -667,7 +699,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.41.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.42.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.41.2**
+2026-09-22 — versión **0.42.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -207,6 +207,34 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.42.0 — Repartir la app (2026-09-22)
+
+Hasta ahora el APK se pasaba a mano. Ahora el servidor lo reparte:
+
+- **`/app`** — versión, código QR y botón, los dos al mismo archivo. La
+  dirección no lleva la versión dentro: entrega siempre el último publicado.
+- **`bin/publicar-apk.sh`** — sube el APK compilado a
+  `storage/app/private/apk` en `srv`. Se compila y se publica en dos pasos
+  distintos a propósito: no todo lo que se compila se reparte.
+- **Cuenta** ofrece «Actualizar la app» cuando el servidor tiene una versión
+  **posterior** a la del teléfono, y abre la descarga en el navegador del
+  sistema: instalar un APK es cosa de Android, no de la vista web.
+
+Lo que costó medir: **detrás del proxy, ninguna dirección que escriba el
+servidor sirve**. `url()` genera `http://venta.netdomain.cl/venta-softland`, con
+el esquema y la carpeta equivocados, porque el proxy termina el TLS y quita la
+carpeta. La página se apaña con rutas relativas —que salen bien por los dos
+caminos mientras se pida sin barra final, que es como está declarada— y le pasa
+al servidor, desde `location`, la dirección que tiene que meter dentro del
+código QR.
+
+**`/app` es público**: cualquiera que alcance `venta.netdomain.cl` puede bajar
+el APK. Es una decisión, no un descuido — el instalable no lleva credenciales
+dentro, la dirección del servidor se escribe al abrirlo por primera vez, y
+exigir sesión para descargarlo haría imposible lo que esto viene a resolver:
+que un vendedor nuevo, que todavía no tiene cuenta, lo instale escaneando un
+código.
 
 ### 0.41.2 — El alta de usuarios tenía el botón, pero no se dibujaba (2026-09-22)
 

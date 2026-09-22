@@ -17,11 +17,14 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
-
+    # La redirección de la barra final que trae Laravel de fábrica va aquí
+    # quitada, y no es una limpieza: detrás del proxy **rompía la página**.
+    # Redirigía a `%1`, que es la ruta tal como la ve Apache —con la carpeta
+    # `/venta-softland` dentro—, así que pedir `https://venta.netdomain.cl/app/`
+    # contestaba un 301 a `http://venta.netdomain.cl/venta-softland/app`: una
+    # dirección que el proxy no sabe mapear, y un 404. Sin la regla, `/app/`
+    # llega al front controller y Laravel la resuelve, que es lo que hace con
+    # la barra final de todas formas.
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f

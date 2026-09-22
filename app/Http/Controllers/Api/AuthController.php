@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ApiToken;
 use App\Models\Usuario;
+use App\Services\Reparto\Apk;
 use App\Services\Softland\Catalogos;
 use App\Support\SoftlandCipher;
 use App\Support\SoftlandConfig;
@@ -31,6 +32,10 @@ class AuthController extends Controller
             'version' => (string) config('app.version'),
             'configurado' => $cfg !== null,
             'base' => $cfg['database'] ?? null,
+            // El instalable que este servidor reparte por `/app`. Es lo que la
+            // pantalla Cuenta compara con la versión del teléfono para ofrecer
+            // la descarga; `null` mientras no se haya publicado ninguno.
+            'apk' => (new Apk)->resumen(),
         ]);
     }
 
@@ -107,6 +112,10 @@ class AuthController extends Controller
                 // coinciden, media hora de soporte se ahorra en una
                 // línea.
                 'version' => (string) config('app.version'),
+                // El instalable publicado, que no tiene por qué coincidir con
+                // la versión del servidor: se despliegan por separado y entre
+                // uno y otro pasan minutos. Ver `Reparto\Apk`.
+                'apk' => (new Apk)->resumen(),
                 'base' => SoftlandConfig::load()['database'] ?? null,
                 'rut_emisor' => $this->catalogos->rutEmisor(),
                 // Dos números que el teléfono necesita para calcular un total

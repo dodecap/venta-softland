@@ -10,6 +10,7 @@ import { rango, anterior, largoEnDias, dia } from '../src/panel/periodo.js';
 import { calcular, pendientes, situacion, ultimos } from '../src/panel/metricas.js';
 import { calcularSaldo } from '../src/saldo.js';
 import { estado as estadoCompromiso, cuando, hora, sumarDias } from '../src/seguimiento.js';
+import { comparar, esMasNueva } from '../src/version.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -409,5 +410,18 @@ es(sinFiltro.facturado.monto, 5844, 'sin filtro de vendedor entra también la de
 
 es(calcular({ cotizaciones: [], notas: [], rango: RANGO }).facturado.monto, 0,
     'sin facturas la cifra es cero, no un error');
+
+// ---- versiones: comparar números, no texto
+es(comparar('0.41.2', '0.41.1'), 1, 'parche mayor');
+es(comparar('0.41.1', '0.41.2'), -1, 'parche menor');
+es(comparar('0.41.2', '0.41.2'), 0, 'la misma');
+es(comparar('0.41.0', '0.9.0'), 1, 'el 41 va después del 9, que como texto sería al revés');
+es(comparar('1.0.0', '0.99.99'), 1, 'sube el mayor');
+es(comparar('0.41', '0.41.0'), 0, 'lo que falta es cero');
+es(esMasNueva('0.41.3', '0.41.2'), true, 'el servidor trae una más nueva');
+es(esMasNueva('0.41.1', '0.41.2'), false, 'el servidor va atrasado: no se ofrece bajar');
+es(esMasNueva('0.41.2', '0.41.2'), false, 'iguales');
+es(esMasNueva(null, '0.41.2'), false, 'sin APK publicado no se ofrece nada');
+es(esMasNueva('0.41.3', null), false, 'sin saber la del teléfono tampoco');
 
 console.log(`OK — ${hechas} comprobaciones`);

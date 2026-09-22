@@ -9,6 +9,7 @@ import { conectado } from '../red';
 import { abrirSoporte, NUMERO_VISIBLE } from '../soporte';
 import { contarRegistros, corridas, inventarioLocal, progreso, sincronizando, sincronizar as sincronizarMaestros } from '../sync';
 import { confirmarPendiente, contarPendientes, descartar, enviarPendientes, porEnviar } from '../pendientes';
+import { esMasNueva } from '../version.js';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import FilaAjuste from '../components/FilaAjuste.vue';
@@ -42,6 +43,19 @@ const version = __VERSION__;
  */
 const versionServidor = computed(() => info.value?.version || null);
 const desfasado = computed(() => !! versionServidor.value && versionServidor.value !== version);
+
+/*
+ * El instalable que el servidor reparte, que no es lo mismo que su versión: el
+ * servidor se despliega y el APK se sube aparte, así que durante unos minutos
+ * la API puede ir por delante del archivo. Se ofrece lo que se puede entregar.
+ *
+ * Y «distinta» no es «más nueva». Un APK nuevo contra una API vieja también
+ * desfasa, y ahí bajarse el instalable otra vez no arregla nada: lo que falta
+ * es desplegar. Por eso la fila de descargar sólo sale cuando la del servidor
+ * es **posterior** a la del teléfono. Ver `version.js`.
+ */
+const versionApk = computed(() => info.value?.apk?.version || null);
+const hayNueva = computed(() => esMasNueva(versionApk.value, version));
 
 const esAdmin = computed(() => !!usuario.value?.es_admin);
 
@@ -80,11 +94,29 @@ async function refrescarVersionServidor() {
 
         if (! r?.version) return;
 
-        info.value = { ...(info.value || {}), version: r.version };
+        // También el instalable: si sólo se refrescara la versión, el
+        // teléfono no se enteraría de un APK publicado después de su último
+        // inicio de sesión, que es justo cuando hay que ofrecerlo.
+        info.value = { ...(info.value || {}), version: r.version, apk: r.apk ?? null };
         await db.setServidorInfo(info.value);
     } catch {
         // El servidor no contesta: lo guardado sigue siendo lo último que se supo.
     }
+}
+
+/**
+ * Bajar el instalable.
+ *
+ * Va al navegador del sistema a propósito: instalar un APK es cosa de Android
+ * —descarga, permiso de «orígenes desconocidos», instalador—, y nada de eso
+ * ocurre dentro de la vista web de la app. La dirección se arma con la del
+ * servidor que el vendedor ya tiene guardada, que es la única que se sabe
+ * buena: es por la que está hablando la API ahora mismo.
+ */
+function descargarApp() {
+    const base = (servidor.value || '').replace(/\/+$/, '');
+    if (! base) return;
+    window.open(`${base}/app/apk`, '_blank');
 }
 
 async function refrescar() {
@@ -344,6 +376,10 @@ async function salir() {
                 <FilaAjuste icono="servidor" rotulo="Versión del servidor"
                             :valor="versionServidor || '—'"
                             :detalle="desfasado ? 'No coincide con la del teléfono' : null" />
+                <FilaAjuste v-if="hayNueva" icono="descargar" rotulo="Actualizar la app"
+                            :valor="versionApk"
+                            detalle="Hay una versión más nueva para instalar" lleva
+                            @click="descargarApp" />
                 <FilaAjuste icono="configuracion" rotulo="Cambiar de servidor"
                             detalle="Vuelve a pedir la dirección y la sesión" lleva
                             @click="router.push('/servidor')" />
