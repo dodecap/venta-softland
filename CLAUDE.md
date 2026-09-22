@@ -260,6 +260,13 @@ atributos en la propia base—. Lo que hay que saber antes de tocar nada:
 - **`bin/instalar.cmd` no pide ninguna contraseña.** Deja el servidor en
   condiciones de que `/setup` funcione y para ahí; las contraseñas se escriben
   en el navegador, una sola vez.
+- **Ningún secreto obliga ya a editar un archivo en el servidor.** El
+  certificado del DTE se sube desde la app (`AlmacenCertificado`) y queda con su
+  clave cifrada; `DTE_CERT_RUTA` y `DTE_CERT_CLAVE` son el respaldo de lo que ya
+  estaba puesto así, y lo subido manda. Guarda con nombre propio
+  —`certificado-app.pfx`— porque el del `.env` suele llamarse `certificado.pfx`
+  en esa misma carpeta, y con el mismo nombre «quitar el subido» se llevaba por
+  delante el respaldo.
 
 ## Escribir en Softland
 
@@ -635,8 +642,13 @@ esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
   boleta, y los de NETDOMAIN son de otro RUT.
 
 La llave privada del CAF **no sale de la base**: `Caf::firmar()` es lo único que
-se expone. El certificado digital va en `storage/app/private/`, fuera de git, y
-su clave en el `.env`.
+se expone. El certificado digital va en `storage/app/private/`, fuera de git;
+desde la 0.46.0 se **sube desde la app** y su clave queda cifrada con `APP_KEY`
+(`AlmacenCertificado`), con el `.env` de respaldo. Ni el archivo ni la clave
+tienen ruta de vuelta: lo que la app enseña es la ficha, **deducida del
+archivo** y nunca tecleada. Se comprueba abriendo el PKCS#12 y **en memoria**,
+antes de escribir: subir un archivo equivocado no puede dejar a la empresa sin
+poder emitir.
 
 Para comprobar sin emitir ni gastar un folio:
 
@@ -743,6 +755,11 @@ instalar la app pasa antes de que la app exista en el teléfono.
   lo publicado es **posterior** a lo que tiene el teléfono (`version.js`): un
   APK nuevo contra una API vieja también desfasa, y ahí lo que falta es
   desplegar, no descargar.
+- **La campana también lo dice, y es el teléfono quien lo sabe.** «Hay una
+  versión nueva» no puede ser una notificación del servidor: el servidor no sabe
+  qué versión tiene cada aparato. Entra en el buzón como aviso sintético, y lo
+  que se apunta al verlo es **la versión** de la que se avisó, no un «ya lo vi»
+  — así la siguiente vuelve a encender el punto rojo sola.
 
 ## Instalar en otra empresa
 
@@ -791,7 +808,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.45.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.46.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

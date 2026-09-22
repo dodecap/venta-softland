@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\Documentos\ReglasOrdenCompra;
+use App\Services\Dte\AlmacenCertificado;
+use App\Services\Dte\Certificado;
 use App\Services\Dte\ReglasFactura;
 use App\Services\Notificaciones\Eventos;
 use App\Services\Notificaciones\Notificador;
@@ -74,6 +76,110 @@ class ConfiguracionController extends Controller
             'orden_compra' => (new ReglasOrdenCompra)->valores() + [
                 'proveedor_nombre' => (new ReglasOrdenCompra)->proveedor()['nombre'] ?? null,
             ],
+            'certificado' => $this->fichaCertificado(),
+        ]);
+    }
+
+    /**
+     * Quién firma los documentos de esta empresa ante el SII.
+     *
+     * La ficha se lee **del archivo que hay**, no de lo que alguien tecleó al
+     * subirlo: un dato escrito a mano puede discrepar del certificado, y el día
+     * que discrepa nadie se entera. Nunca lleva la clave ni el archivo.
+     *
+     * Con el certificado del `.env` —una instalación anterior a esto— la ficha
+     * sale igual, marcada como tal: lo que se enseña es la realidad del
+     * servidor, no el estado de una pantalla.
+     *
+     * @return array<string, mixed>
+     */
+    private function fichaCertificado(): array
+    {
+        $subido = AlmacenCertificado::hay();
+
+        try {
+            $cert = Certificado::desdeConfiguracion();
+        } catch (\Throwable $e) {
+            return [
+                'hay' => false,
+                'subido' => $subido,
+                'problema' => $e->getMessage(),
+            ];
+        }
+
+        return [
+            'hay' => true,
+            // Falso = viene del `.env`, puesto a mano en el servidor. Se dice,
+            // porque explica por qué «Quitar» no lo deja sin certificado.
+            'subido' => $subido,
+            'sujeto' => $cert->sujeto,
+            'rut' => $cert->rut,
+            'vence' => $cert->vence,
+            'dias' => $cert->diasRestantes(),
+            'vencido' => $cert->vencido(),
+            'aviso' => $cert->avisaVencimiento(),
+        ] + (AlmacenCertificado::resumen() ?? []);
+    }
+
+    /**
+     * Sube el certificado digital de la empresa.
+     *
+     * Es lo último de la instalación que obligaba a abrir una sesión en el
+     * servidor y editar el `.env`. Y no es cosa de una vez: el certificado se
+     * renueva todos los años.
+     *
+     * Lo que llega se **comprueba abriéndolo** antes de escribir nada —mirar la
+     * extensión no protege de nada— y lo que se guarda es el archivo más la
+     * clave cifrada con `APP_KEY`, igual que la conexión a SQL Server. No hay
+     * ruta que devuelva ninguna de las dos cosas.
+     */
+    public function subirCertificado(Request $request)
+    {
+        $request->validate([
+            // 512 KB de sobra: un PKCS#12 con una firma avanzada pesa 4 KB.
+            'certificado' => 'required|file|max:512',
+            'clave' => 'required|string|max:200',
+        ], [
+            'certificado.required' => 'Falta el archivo del certificado (.pfx o .p12).',
+            'certificado.max' => 'Ese archivo es demasiado grande para ser un certificado.',
+            'clave.required' => 'Falta la clave con que se abre el certificado.',
+        ]);
+
+        try {
+            $ficha = AlmacenCertificado::guardar(
+                $request->file('certificado'),
+                (string) $request->input('clave'),
+                (string) ($request->user()->softland_user ?? $request->user()->email ?? '')
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'errors' => ['certificado' => [$e->getMessage()]],
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Certificado guardado: '.$ficha['sujeto'].', vence el '.$ficha['vence'].'.',
+            'certificado' => $this->fichaCertificado(),
+        ]);
+    }
+
+    /**
+     * Quita el certificado subido.
+     *
+     * No es «dejar de emitir»: si el servidor tiene uno puesto en el `.env`,
+     * vuelve a mandar ése. Por eso la respuesta devuelve la ficha otra vez, que
+     * puede no venir vacía.
+     */
+    public function borrarCertificado()
+    {
+        AlmacenCertificado::olvidar();
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Certificado quitado.',
+            'certificado' => $this->fichaCertificado(),
         ]);
     }
 

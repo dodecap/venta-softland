@@ -42,6 +42,48 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.46.0 — El certificado digital se sube desde la app
+*2026-09-22*
+
+Tercer paso de la instalación genérica, y el último secreto que obligaba a
+abrir una sesión en el servidor. El certificado digital —el que firma el DTE y
+el sobre— se copiaba a mano y su clave se escribía en el `.env`. No es cosa de
+una vez: **el certificado se renueva todos los años**.
+
+- **`App\Services\Dte\AlmacenCertificado`**: el `.pfx` en
+  `certificado-app.pfx` y **la clave cifrada con `APP_KEY`** en
+  `certificado-app.json`, igual que la conexión a SQL Server en `softland.json`.
+- **Nada vuelve a bajar.** No hay ruta que devuelva el archivo ni la clave, y la
+  ficha que la app enseña —quién firma, su RUT, cuándo vence— **se deduce del
+  archivo**, no se teclea: un dato escrito a mano puede discrepar del
+  certificado, y el día que discrepa nadie se entera.
+- **Se comprueba abriéndolo**, no mirando la extensión, y **en memoria antes de
+  escribir nada**: subir un archivo equivocado no puede dejar a la empresa sin
+  poder emitir. Probado: con la clave cambiada, el que estaba funcionando sigue
+  en su sitio.
+- **El nombre lleva `-app` a propósito.** El del `.env` suele llamarse
+  `certificado.pfx` y estar en la misma carpeta; con el mismo nombre, «quitar el
+  subido» borraba el archivo al que apunta `DTE_CERT_RUTA` y el respaldo
+  desaparecía justo cuando hace falta.
+- El `.env` sigue valiendo de respaldo: una instalación que ya lo tenía puesto
+  emite sin que nadie haga nada. Lo subido manda, porque es lo que alguien
+  decidió después.
+- **`php artisan dte:certificado`** para verlo y cambiarlo desde el servidor,
+  para el día en que la app todavía no se puede abrir. **La clave no se pasa
+  como argumento**: se pregunta, y no queda en el historial del intérprete.
+- Medido contra producción: importado al almacén, `dte:token` sigue trayendo
+  token de palena y el SII reconoce el certificado.
+
+Y en la campana:
+
+- **El buzón avisa de que hay una versión nueva.** Antes sólo lo sabía quien
+  entrara a Cuenta. No es una notificación del servidor y no podría serlo —el
+  servidor no sabe qué versión tiene cada aparato—, así que entra como un aviso
+  sintético que el teléfono calcula. Se apunta **la versión** de la que se avisó
+  y no un «ya lo vi», para que la siguiente vuelva a encender el punto rojo sola.
+  Distinta sigue sin ser más nueva: con la API por delante lo que falta es
+  desplegar, y eso lo explica Cuenta.
+
 ### 0.45.0 — Comprobar que la base de Softland sirva antes de instalar
 *2026-09-22*
 

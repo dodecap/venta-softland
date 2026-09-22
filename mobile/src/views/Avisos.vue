@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { avisos, cargando, familias, marcarVistos, refrescarAvisos } from '../avisos';
+import { avisos, cargando, familias, marcarVistos, refrescarAvisos, versionNueva } from '../avisos';
 import AppIcon from '../components/AppIcon.vue';
 import Vacio from '../components/Vacio.vue';
 
@@ -37,6 +37,17 @@ const pestanas = computed(() => [
 const lista = computed(() => (filtro.value === 'todo'
     ? avisos.value
     : avisos.value.filter((a) => a.familia === filtro.value)));
+
+/*
+ * El aviso de versión nueva no es una notificación del servidor: es una
+ * comparación que sólo puede hacer el teléfono. Va arriba y sólo en «Todo» —
+ * filtrando por familia, un cartel que no pertenece a ninguna es ruido.
+ */
+const avisaVersion = computed(() => filtro.value === 'todo' && !! versionNueva.value);
+
+function irAActualizar() {
+    router.push('/cuenta');
+}
 
 function icono(a) {
     if (a.estado === 'error') return 'correoFallido';
@@ -75,12 +86,23 @@ function cuando(a) {
         <div class="contenido">
             <div class="cargando" v-if="cargando && !avisos.length">Cargando…</div>
 
-            <Vacio v-else-if="!lista.length" icono="sinNotificaciones" titulo="Sin avisos">
+            <!-- Lleva a Cuenta y no descarga desde aquí: allá están las dos
+                 versiones a la vista y el botón que ya existía. -->
+            <button class="aviso-version" v-if="avisaVersion" @click="irAActualizar">
+                <AppIcon name="descargar" :caja="36" :size="18" />
+                <div class="texto">
+                    <div class="titulo">Hay una versión nueva de la app</div>
+                    <div class="sub">La {{ versionNueva }} ya está publicada. Toca para actualizar.</div>
+                </div>
+                <AppIcon name="avanzar" :size="18" />
+            </button>
+
+            <Vacio v-if="!lista.length && !avisaVersion" icono="sinNotificaciones" titulo="Sin avisos">
                 Aquí van a aparecer los correos del flujo de ventas en los que
                 figures: cotizaciones, notas de venta y documentos.
             </Vacio>
 
-            <div class="actividad" v-else>
+            <div class="actividad" v-else-if="lista.length">
                 <div class="fila" v-for="a in lista" :key="a.id">
                     <AppIcon :name="icono(a)" :caja="36" :size="18" />
                     <div class="texto">

@@ -106,6 +106,21 @@ export const db = {
         await Preferences.set({ key: 'aviso_visto', value: String(id || 0) });
     },
 
+    /*
+     * La última versión de la que ya se avisó en este teléfono.
+     *
+     * Va por versión y no por un id: el aviso de que hay una nueva no es una
+     * fila del servidor —el servidor no sabe qué versión tiene cada aparato—,
+     * así que lo que hay que recordar es de cuál se avisó, para que la
+     * siguiente vuelva a encender el punto rojo y ésta no.
+     */
+    async getVersionAvisada() {
+        return (await Preferences.get({ key: 'version_avisada' })).value || '';
+    },
+    async setVersionAvisada(v) {
+        await Preferences.set({ key: 'version_avisada', value: String(v || '') });
+    },
+
     /** Cierra sesión pero conserva la dirección del servidor: no se reconfigura cada vez. */
     async olvidarSesion() {
         for (const k of ['token', 'usuario', 'catalogos', 'servidor_info', 'sincronizado_at', 'aviso_visto']) {

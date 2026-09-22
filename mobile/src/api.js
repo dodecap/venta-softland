@@ -112,13 +112,18 @@ async function pedirPdf(ruta) {
  * Sube un archivo. No pasa por `pedir` porque el cuerpo es multipart: la
  * cabecera `Content-Type` la tiene que poner el navegador, con el `boundary`
  * que él elige, y fijarla a mano rompe la subida en silencio.
+ *
+ * `campos` son los que acompañan al archivo en el mismo envío — la clave del
+ * certificado, por ejemplo. Van en el cuerpo y no en la dirección: lo que viaja
+ * en la URL acaba en el registro del servidor y en el del proxy.
  */
-async function subir(ruta, campo, archivo) {
+async function subir(ruta, campo, archivo, campos = {}) {
     const servidor = await db.getServidor();
     if (!servidor) throw new ErrorApi('Falta configurar la dirección del servidor.', 0);
 
     const cuerpo = new FormData();
     cuerpo.append(campo, archivo);
+    for (const [k, v] of Object.entries(campos)) cuerpo.append(k, v);
 
     const t = await db.getToken();
 
@@ -282,6 +287,12 @@ export const api = {
     guardarFacturacion: (c) => pedir('/admin/configuracion/facturacion', { method: 'PUT', body: c }),
     guardarOrdenCompra: (c) => pedir('/admin/configuracion/orden-compra', { method: 'PUT', body: c }),
     probarCorreo: (c) => pedir('/admin/configuracion/correo/probar', { method: 'POST', body: c }),
+
+    // El certificado digital sube y no baja: no hay forma de pedirlo de vuelta,
+    // ni a él ni a su clave. Lo que se lee de él viene dentro de /configuracion.
+    subirCertificado: (archivo, clave) =>
+        subir('/admin/configuracion/certificado', 'certificado', archivo, { clave }),
+    borrarCertificado: () => pedir('/admin/configuracion/certificado', { method: 'DELETE' }),
 
     notificaciones: () => pedir('/admin/notificaciones'),
     guardarNotificacion: (evento, r) =>

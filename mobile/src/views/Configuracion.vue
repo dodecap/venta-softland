@@ -42,6 +42,16 @@ const ordenCompra = ref({
 
 const atributos = ref([]);
 
+/*
+ * El certificado digital: quién firma los documentos de esta empresa ante el
+ * SII. Lo que llega del servidor es la ficha del archivo que hay —nunca el
+ * archivo ni su clave—, y `hay: false` significa que este servidor todavía no
+ * puede emitir nada.
+ */
+const certificado = ref({ hay: false, subido: false });
+const certArchivo = ref(null);
+const certClave = ref('');
+
 /** Los de fecha sólo pueden llenar el hueco de fecha; los demás, los otros dos. */
 const atributosFecha = computed(() => atributos.value.filter((a) => a.control === 'fecha'));
 const atributosTexto = computed(() => atributos.value.filter((a) => a.control !== 'fecha'));
@@ -56,6 +66,7 @@ async function cargar() {
         correo.value = { ...c.correo, password: '' };
         facturacion.value = { ...facturacion.value, ...(c.facturacion || {}) };
         ordenCompra.value = { ...ordenCompra.value, ...(c.orden_compra || {}) };
+        certificado.value = c.certificado || { hay: false, subido: false };
         atributos.value = await atributosDefinidos();
     } catch (e) {
         error.value = e.message;
@@ -137,6 +148,51 @@ async function guardarCorreo() {
         aviso.value = r.message;
         correo.value.password = '';
         await cargar();
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        guardando.value = '';
+    }
+}
+
+function elegirCertificado(e) {
+    certArchivo.value = e.target.files?.[0] ?? null;
+}
+
+async function subirCertificado() {
+    limpiar();
+
+    if (!certArchivo.value) {
+        error.value = 'Elige el archivo del certificado (.pfx o .p12).';
+        return;
+    }
+    if (!certClave.value) {
+        error.value = 'Falta la clave con que se abre el certificado.';
+        return;
+    }
+
+    guardando.value = 'certificado';
+    try {
+        const r = await api.subirCertificado(certArchivo.value, certClave.value);
+        aviso.value = r.message;
+        certificado.value = r.certificado;
+        // La clave no se queda escrita en la pantalla ni un minuto de más.
+        certClave.value = '';
+        certArchivo.value = null;
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        guardando.value = '';
+    }
+}
+
+async function quitarCertificado() {
+    limpiar();
+    guardando.value = 'certificado';
+    try {
+        const r = await api.borrarCertificado();
+        aviso.value = r.message;
+        certificado.value = r.certificado;
     } catch (e) {
         error.value = e.message;
     } finally {
@@ -360,6 +416,77 @@ async function probarCorreo() {
 
                         <button class="boton" :disabled="guardando === 'conexion'" @click="guardarConexion">
                             {{ guardando === 'conexion' ? 'Probando y guardando…' : 'Guardar conexión' }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tarjeta">
+                    <div class="tarjeta-cabecera">
+                        Certificado digital
+                        <span class="etiqueta" :class="certificado.hay && !certificado.vencido ? 'verde' : 'roja'"
+                              style="float:right;">
+                            {{ certificado.hay ? (certificado.vencido ? 'vencido' : 'vigente') : 'sin certificado' }}
+                        </span>
+                    </div>
+                    <div class="tarjeta-cuerpo">
+                        <!-- Sin certificado no se emite nada: ni factura, ni
+                             boleta, ni nota de crédito. Es lo primero que hay
+                             que decir, y antes de cualquier formulario. -->
+                        <Aviso tipo="error" v-if="!certificado.hay">
+                            Este servidor no puede emitir documentos tributarios hasta que
+                            se suba el certificado.
+                            <template v-if="certificado.problema"><br>{{ certificado.problema }}</template>
+                        </Aviso>
+
+                        <template v-else>
+                            <dl class="datos">
+                                <dt>Firma</dt><dd>{{ certificado.sujeto }}</dd>
+                                <dt>RUT</dt><dd>{{ certificado.rut || '—' }}</dd>
+                                <dt>Vence</dt>
+                                <dd>{{ certificado.vence }}
+                                    <span class="ayuda">({{ certificado.dias }} días)</span></dd>
+                                <template v-if="certificado.subido_por">
+                                    <dt>Lo subió</dt>
+                                    <dd>{{ certificado.subido_por }}, el {{ certificado.subido_en }}</dd>
+                                </template>
+                            </dl>
+
+                            <Aviso tipo="error" v-if="certificado.vencido">{{ certificado.aviso }}</Aviso>
+                            <Aviso tipo="info" v-else-if="certificado.aviso">{{ certificado.aviso }}</Aviso>
+
+                            <!-- Quien instaló este servidor antes de que esto
+                                 existiera lo tiene puesto en el .env. Funciona
+                                 igual, pero explica por qué no hay nada que
+                                 quitar. -->
+                            <p class="ayuda" v-if="!certificado.subido">
+                                Está puesto a mano en el servidor, no subido desde aquí.
+                                Al subir uno, manda el que se suba.
+                            </p>
+                        </template>
+
+                        <label class="boton-archivo">
+                            <AppIcon name="subir" :size="18" color="currentColor" />
+                            {{ certArchivo ? certArchivo.name : (certificado.hay ? 'Elegir el certificado nuevo' : 'Elegir el certificado') }}
+                            <input type="file" accept=".pfx,.p12"
+                                   :disabled="guardando === 'certificado'" @change="elegirCertificado">
+                        </label>
+
+                        <label style="margin-top:12px;">Clave del certificado</label>
+                        <input v-model="certClave" type="password" autocapitalize="off" spellcheck="false">
+                        <p class="ayuda">
+                            La misma con que lo abre el Softland de escritorio. Se comprueba
+                            abriendo el archivo: si no es ésa, no se guarda nada y el que está
+                            funcionando se queda como está. El archivo y la clave quedan
+                            cifrados en el servidor y no vuelven a salir de ahí.
+                        </p>
+
+                        <button class="boton" :disabled="guardando === 'certificado'" @click="subirCertificado">
+                            {{ guardando === 'certificado' ? 'Comprobando…' : 'Subir certificado' }}
+                        </button>
+
+                        <button class="boton-texto peligro" v-if="certificado.subido"
+                                :disabled="guardando === 'certificado'" @click="quitarCertificado">
+                            Quitar el certificado subido
                         </button>
                     </div>
                 </div>

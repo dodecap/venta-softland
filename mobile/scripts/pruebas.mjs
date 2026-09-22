@@ -10,7 +10,7 @@ import { rango, anterior, largoEnDias, dia } from '../src/panel/periodo.js';
 import { calcular, pendientes, situacion, ultimos } from '../src/panel/metricas.js';
 import { calcularSaldo } from '../src/saldo.js';
 import { estado as estadoCompromiso, cuando, hora, sumarDias, resumen as resumenCompromisos } from '../src/seguimiento.js';
-import { comparar, esMasNueva } from '../src/version.js';
+import { avisaDeVersion, comparar, esMasNueva } from '../src/version.js';
 import { deVendedores } from '../src/alcance.js';
 
 let hechas = 0;
@@ -438,6 +438,15 @@ es(esMasNueva('0.41.1', '0.41.2'), false, 'el servidor va atrasado: no se ofrece
 es(esMasNueva('0.41.2', '0.41.2'), false, 'iguales');
 es(esMasNueva(null, '0.41.2'), false, 'sin APK publicado no se ofrece nada');
 es(esMasNueva('0.41.3', null), false, 'sin saber la del teléfono tampoco');
+
+// ---- el punto rojo de la campana por una versión nueva
+es(avisaDeVersion('0.46.0', '0.45.0', ''), true, 'nunca se avisó: se enciende');
+es(avisaDeVersion('0.46.0', '0.45.0', '0.46.0'), false, 'ya se avisó de ésta: no se repite');
+es(avisaDeVersion('0.47.0', '0.45.0', '0.46.0'), true, 'la siguiente vuelve a encenderlo');
+es(avisaDeVersion('0.45.0', '0.45.0', ''), false, 'la misma que ya tiene no es novedad');
+es(avisaDeVersion('0.44.0', '0.45.0', ''), false, 'distinta no es más nueva: un servidor atrasado no avisa');
+es(avisaDeVersion(null, '0.45.0', ''), false, 'sin APK publicado no hay nada que avisar');
+es(avisaDeVersion('0.9.0', '0.41.0', ''), false, 'se comparan números, no texto');
 
 // ---- de quién es un documento: la regla que comparten el panel y las listas
 const deJorge = deVendedores(['2']);

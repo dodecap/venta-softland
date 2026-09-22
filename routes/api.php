@@ -142,6 +142,11 @@ Route::middleware('auth.api')->group(function () {
         Route::put('/configuracion/orden-compra', [ConfiguracionController::class, 'guardarOrdenCompra']);
         Route::post('/configuracion/correo/probar', [ConfiguracionController::class, 'probarCorreo']);
 
+        // El certificado digital: se sube, no se baja. No hay GET — la ficha va
+        // dentro de /configuracion, y el archivo y su clave no salen de aquí.
+        Route::post('/configuracion/certificado', [ConfiguracionController::class, 'subirCertificado']);
+        Route::delete('/configuracion/certificado', [ConfiguracionController::class, 'borrarCertificado']);
+
         // Identidad corporativa: datos de la empresa, logo y condiciones que
         // salen impresos en cotizaciones, notas de venta y lo que venga después.
         Route::put('/identidad', [IdentidadController::class, 'guardar']);

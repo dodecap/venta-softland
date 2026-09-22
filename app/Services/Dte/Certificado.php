@@ -24,9 +24,10 @@ use RuntimeException;
  *
  * ## La clave no se queda en ningún lado
  *
- * Se lee del `.env` del servidor, se usa para abrir el PKCS#12 y se descarta.
- * Como con el CAF, aquí no hay un método que devuelva la llave privada: hay uno
- * que firma.
+ * Se lee de donde esté guardada —`AlmacenCertificado` si lo subieron desde la
+ * app, el `.env` del servidor si no—, se usa para abrir el PKCS#12 y se
+ * descarta. Como con el CAF, aquí no hay un método que devuelva la llave
+ * privada: hay uno que firma.
  */
 class Certificado
 {
@@ -42,14 +43,29 @@ class Certificado
         public readonly array $rsa,
     ) {}
 
+    /**
+     * El certificado que esta instalación está usando.
+     *
+     * Manda el que se subió desde la app: es el que alguien decidió después. El
+     * `.env` queda de respaldo para las instalaciones que ya lo tenían puesto,
+     * que siguen emitiendo sin que nadie haga nada.
+     */
     public static function desdeConfiguracion(): self
     {
+        if (AlmacenCertificado::hay()) {
+            return self::desdeArchivo(
+                AlmacenCertificado::rutaArchivo(),
+                (string) AlmacenCertificado::clave()
+            );
+        }
+
         $ruta = (string) config('dte.certificado.ruta');
         $clave = (string) config('dte.certificado.clave');
 
         if ($ruta === '' || ! is_file($ruta)) {
             throw new RuntimeException(
-                "No está el certificado digital en «{$ruta}». Se configura con DTE_CERT_RUTA."
+                'No hay certificado digital en este servidor. Se sube desde la app, '
+                .'en Configuración → Certificado digital.'
             );
         }
 
@@ -64,6 +80,17 @@ class Certificado
             throw new RuntimeException("No se pudo leer el certificado en «{$ruta}».");
         }
 
+        return self::desdeContenido($pkcs12, $clave);
+    }
+
+    /**
+     * Desde los bytes, sin pasar por el disco.
+     *
+     * Es lo que permite comprobar una subida **antes** de escribirla: si el
+     * archivo no sirve, el que está funcionando se queda donde está.
+     */
+    public static function desdeContenido(string $pkcs12, string $clave): self
+    {
         $bolsa = [];
 
         if (! openssl_pkcs12_read($pkcs12, $bolsa, $clave)) {

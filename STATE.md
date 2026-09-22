@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.45.0**
+2026-09-22 — versión **0.46.0**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -208,6 +208,45 @@ vendibles, 12 meses de documentos y solo los del vendedor).
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
 
+### 0.46.0 — El certificado digital se sube desde la app (2026-09-22)
+
+Fase C, y con ella se acaban los secretos que obligaban a abrir una sesión en
+el servidor. El certificado digital se copiaba a mano y su clave se escribía en
+el `.env`; y no es cosa de una vez, porque **se renueva todos los años**.
+
+`AlmacenCertificado` guarda el `.pfx` en `certificado-app.pfx` y **la clave
+cifrada con `APP_KEY`** en `certificado-app.json` — el mismo trato que la
+conexión a SQL Server en `softland.json`, y por la misma razón.
+
+Tres reglas que dan forma a todo:
+
+- **Nada vuelve a bajar.** No hay ruta que devuelva el archivo ni la clave. La
+  ficha que la app enseña —quién firma, RUT, vencimiento— **se deduce del
+  archivo**: un dato tecleado puede discrepar del certificado, y el día que
+  discrepa nadie se entera.
+- **Se comprueba abriéndolo**, no mirando la extensión, y **antes de escribir
+  nada**. Probado: con la clave cambiada, el que estaba funcionando sigue
+  emitiendo.
+- **El nombre lleva `-app`.** El del `.env` suele llamarse `certificado.pfx` en
+  esa misma carpeta; compartiendo nombre, «quitar el subido» borraba el archivo
+  al que apunta `DTE_CERT_RUTA` — el respaldo desaparecía justo cuando hace
+  falta. Lo encontró la prueba que lo comprueba.
+
+El `.env` queda de respaldo y `srv` sigue sobre él a propósito: subirlo desde la
+app es la única parte que no puedo probar yo —hay que entrar con contraseña— y
+es la que hay que estrenar. `php artisan dte:certificado` lo hace desde el
+servidor cuando la app todavía no se puede abrir; la clave se pregunta, no se
+pasa como argumento, para que no quede en el historial.
+
+Medido contra producción: con el certificado importado al almacén, `dte:token`
+sigue trayendo token de palena y el SII lo reconoce.
+
+**Y en la campana**: el buzón avisa de que hay una versión nueva, que antes sólo
+sabía quien entrara a Cuenta. No es una notificación del servidor y no podría
+serlo —el servidor no sabe qué versión tiene cada aparato—, así que es un aviso
+sintético que calcula el teléfono. Se apunta **la versión** de la que se avisó y
+no un «ya lo vi»: así la siguiente vuelve a encender el punto rojo sola.
+
 ### 0.45.0 — Comprobar que la base sirva antes de instalar (2026-09-22)
 
 Fase B. `/setup` ya comprobaba el servidor y que la base fuera de Softland; lo
@@ -281,10 +320,9 @@ dentro no existe por fuera. Es la misma trampa que ya obligó a que `/app`
 generara su QR con la dirección del navegador, un nivel más abajo: **ahora
 alcanza también a las redirecciones**.
 
-Pendiente de las fases siguientes: el certificado del DTE desde la app (Fase C)
-y la actualización desde GitHub Releases (Fase E, medida: 6,4 MB la
-actualización típica, 17,4 MB el paquete de dependencias cuando cambia
-`composer.lock`).
+Pendiente de las fases siguientes: la actualización desde GitHub Releases
+(Fase E, medida: 6,4 MB la actualización típica, 17,4 MB el paquete de
+dependencias cuando cambia `composer.lock`).
 
 ### 0.43.2 — El compromiso sobrevive a la conversión (2026-09-22)
 

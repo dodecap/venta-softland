@@ -31,3 +31,17 @@ export function esMasNueva(candidata, actual) {
     if (! candidata || ! actual) return false;
     return comparar(candidata, actual) > 0;
 }
+
+/**
+ * Si el punto rojo de la campana tiene que encenderse por una versión nueva.
+ *
+ * Dos condiciones, y las dos hacen falta. Que la publicada sea **posterior** a
+ * la de este teléfono —distinta no basta: un APK nuevo contra una API vieja
+ * también desfasa, y ahí lo que falta es desplegar—, y que no sea la misma de
+ * la que ya se avisó. Sin lo segundo el buzón se quedaría con un punto rojo
+ * que no se apaga nunca; y como se guarda **la versión** y no un «ya lo vi»,
+ * la siguiente vuelve a encenderlo sola.
+ */
+export function avisaDeVersion(publicada, actual, avisada) {
+    return esMasNueva(publicada, actual) && publicada !== avisada;
+}

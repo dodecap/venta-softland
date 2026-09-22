@@ -9,16 +9,22 @@ return [
      * Softland; el certificado acredita quién emite y vive en un archivo, fuera
      * de git, junto al `softland.json`.
      *
-     * La clave va en el `.env` del servidor y en ningún otro sitio. Estuvo
-     * dentro del nombre del archivo, que es cómodo y es un problema: cualquiera
-     * que liste la carpeta la lee.
+     * **Desde la 0.46.0 se sube desde la app**, en Configuración → Certificado
+     * digital, y queda en `almacen` con su clave cifrada (`AlmacenCertificado`).
+     * Era lo único de toda la instalación que obligaba a abrir una sesión en el
+     * servidor y editar un archivo, y no una vez: el certificado se renueva
+     * todos los años.
      *
-     * El de INNOVAGES vence el 26 de diciembre de 2026. Renovarlo tiene que ser
-     * copiar un archivo, no tocar código: por eso la ruta es configurable.
+     * `ruta` y `clave` quedan de **respaldo**, para las instalaciones que ya lo
+     * tenían puesto así: siguen emitiendo sin que nadie haga nada. Lo subido
+     * manda sobre esto, porque es lo que alguien decidió después.
      */
     'certificado' => [
         'ruta' => env('DTE_CERT_RUTA', storage_path('app/private/certificado.pfx')),
         'clave' => env('DTE_CERT_CLAVE'),
+        // Dónde guarda `AlmacenCertificado` lo que se sube. Configurable para
+        // poder probarlo sin escribir donde está el de verdad.
+        'almacen' => storage_path('app/private'),
     ],
 
     /*
