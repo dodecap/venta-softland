@@ -68,11 +68,26 @@ const porAprobar = ref(0);
 
 /* Si hay algo que enseñar del seguimiento. Sin compromisos definidos en el ERP
    —o sin ninguno anotado todavía— el bloque no aparece: un panel con cuatro
-   ceros no informa, ocupa. */
-const hayCompromisos = computed(() => {
-    const c = m.value?.compromisos;
+   ceros no informa, ocupa.
 
-    return !! c && (c.atrasado || c.hoy || c.proximo || c.sin_compromiso);
+   Pero «no hay ninguno» y «no hay ninguno tuyo» no son lo mismo, y ahí el
+   bloque sí aparece: un supervisor cuyo código de vendedor no vende —que es
+   lo normal— abría el panel en «Yo», se encontraba sin sección de compromisos
+   y concluía que la app no sabía nada de su equipo. El bloque se queda, con
+   sus ceros, y debajo dice lo que hay al otro lado. */
+function algunCompromiso(c) {
+    return !! c && !! (c.atrasado || c.hoy || c.proximo || c.sin_compromiso);
+}
+
+const hayCompromisos = computed(() =>
+    algunCompromiso(m.value?.compromisos) || algunCompromiso(m.value?.compromisos_todos));
+
+/* Lo del equipo, sólo cuando lo propio está vacío: si el vendedor ya tiene
+   compromisos suyos, el número del equipo no le añade nada a esta pantalla. */
+const compromisosDelEquipo = computed(() => {
+    if (algunCompromiso(m.value?.compromisos)) return null;
+
+    return algunCompromiso(m.value?.compromisos_todos) ? m.value.compromisos_todos : null;
 });
 
 /* Cambia lo que significa una factura sin enviar: avería o tarea pendiente. */
@@ -145,6 +160,26 @@ const tituloCompromisos = computed(() => {
 
 const subCompromisos = computed(() =>
     (ambito.value === 'yo' ? 'lo que quedaste de hacer' : 'lo que se quedó de hacer'));
+
+/** «1 atrasado y 89 sin próximo paso»: lo que hay al otro lado del selector. */
+const fraseEquipo = computed(() => {
+    const c = compromisosDelEquipo.value;
+
+    if (! c) return '';
+
+    const partes = [];
+
+    if (c.atrasado) partes.push(`${c.atrasado} ${c.atrasado === 1 ? 'atrasado' : 'atrasados'}`);
+    if (c.hoy) partes.push(`${c.hoy} para hoy`);
+    if (c.proximo) partes.push(`${c.proximo} esta semana`);
+    if (c.sin_compromiso) partes.push(`${c.sin_compromiso} sin próximo paso`);
+
+    return partes.length > 1
+        ? `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`
+        : partes[0] || '';
+});
+
+const rotuloEquipo = computed(() => (esAdmin.value ? 'La empresa' : 'Tu equipo'));
 
 /**
  * La lista de compromisos, abierta con el mismo ámbito que el panel.
@@ -468,10 +503,14 @@ onMounted(async () => {
     const periodoGuardado = await db.getPanelPeriodo();
     if (periodoGuardado && PERIODOS.some((p) => p.id === periodoGuardado)) periodo.value = periodoGuardado;
 
+    // Un jefe abre en su equipo, no en sí mismo: su código de vendedor suele
+    // no vender —ddecap no tiene ninguna cotización en doce meses— y el panel
+    // arrancaba en ceros, que se lee como «la app no trajo nada».
     const ambitoGuardado = await db.getPanelAmbito();
+    const porDefecto = esJefe.value ? 'todos' : (ambitos.value[0]?.id ?? 'todos');
     ambito.value = (ambitoGuardado && ambitos.value.some((a) => a.id === ambitoGuardado))
         ? ambitoGuardado
-        : ambitos.value[0]?.id ?? 'todos';
+        : porDefecto;
 
     await releerAlmacen();
     // El punto rojo de la barra inferior sale de aquí: si se pidiera recién al
@@ -693,6 +732,11 @@ const pct = computed(() => {
                         Y hay <b>{{ m.compromisos.sin_compromiso }}</b>
                         {{ m.compromisos.sin_compromiso === 1 ? 'cotización abierta' : 'cotizaciones abiertas' }}
                         sin próximo paso.
+                    </p>
+
+                    <p class="ayuda" v-if="compromisosDelEquipo">
+                        Tú no tienes ninguno. {{ rotuloEquipo }} tiene <b>{{ fraseEquipo }}</b>.
+                        <button class="enlace" @click="ambito = 'todos'">Verlos</button>
                     </p>
                 </template>
 

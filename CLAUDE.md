@@ -411,6 +411,16 @@ de Softland que cambian las fórmulas. Tres que se olvidan:
   en la dirección (`?ambito=yo`). Sólo viaja «yo»: «equipo» es el estado
   natural de la lista, que ya viene acotada por el alcance del usuario desde el
   servidor.
+- **Un jefe abre mirando a su equipo.** El código de vendedor de un supervisor
+  casi nunca vende —el de `ddecap` no tiene ni una cotización en doce meses—, así
+  que el panel en «Yo» le daba ceros, y el bloque de compromisos, que se esconde
+  cuando está vacío, desaparecía sin dejar pista de que al otro lado había 1
+  atrasado y 89 sin próximo paso. Sin ámbito guardado, un jefe arranca en su
+  equipo; el guardado sigue mandando.
+- **«No hay ninguno» y «no hay ninguno tuyo» no son lo mismo.** Un bloque que se
+  esconde por estar vacío tiene que comprobar si está vacío **el almacén** o sólo
+  el trozo que se está mirando; en el segundo caso se queda y dice qué hay al
+  otro lado del selector.
 - **El color dice si la noticia es buena; la flecha, hacia dónde se movió el
   número.** No son lo mismo: el tiempo de cierre que baja es una flecha hacia
   abajo y una buena noticia. Esa lectura la pone la pantalla (`tono()`), no el
@@ -706,7 +716,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.43.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.43.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

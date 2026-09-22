@@ -42,6 +42,24 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.43.1 — El panel de un jefe abre en su equipo
+*2026-09-22*
+
+- **Un supervisor no veía los compromisos de sus vendedores.** Medido en
+  INNOVAGES: el código de vendedor de `ddecap` no tiene **ninguna** cotización
+  en doce meses, que es lo normal en un jefe. El panel abría en «Yo», los cuatro
+  contadores daban cero y el bloque de compromisos —que se esconde cuando está
+  vacío, para no ocupar sitio con ceros— **desaparecía entero**. Sin bloque no
+  hay pista de que al otro lado del selector hubiera 1 compromiso atrasado y 89
+  cotizaciones sin próximo paso. Ahora el panel de un jefe **abre en su equipo**
+  si no eligió otra cosa, y el ámbito guardado sigue mandando.
+- **«No hay ninguno» y «no hay ninguno tuyo» dejan de ser lo mismo.** Cuando lo
+  propio está vacío pero el almacén no, el bloque se queda con sus ceros y
+  debajo dice qué hay al otro lado —«Tu equipo tiene 1 atrasado y 89 sin próximo
+  paso»— con un enlace que cambia el ámbito. El panel cuenta las dos cosas en la
+  misma pasada: `compromisosVivos()` se lee una vez y `resumen()` acepta el mapa
+  ya hecho.
+
 ### 0.43.0 — Los compromisos también cambian con el ámbito
 *2026-09-22*
 

@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.43.0**
+2026-09-22 — versión **0.43.1**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -207,6 +207,35 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.43.1 — El panel de un jefe abre en su equipo (2026-09-22)
+
+`ddecap` es supervisor y no veía ningún compromiso de sus vendedores. No era el
+alcance: el servidor le sirve **186 cotizaciones** y **5 seguimientos** —lo suyo
+más lo de los vendedores 2 y 19—, medido llamando a `Maestros::pagina()` con su
+propio contexto. Era la pantalla.
+
+Su código de vendedor es el **5**, y el 5 no tiene **ninguna** cotización en doce
+meses. El panel abría en «Yo», los cuatro contadores daban cero, y el bloque de
+compromisos se esconde cuando está vacío —para no ocupar sitio con ceros—, así
+que desaparecía entero. Sin bloque no hay pista de que al otro lado del selector
+había 1 compromiso atrasado y 89 cotizaciones sin próximo paso. Reproducido con
+el código real sobre los datos reales:
+
+```
+YO (ven 5)  : {atrasado:0, hoy:0, proximo:0, sin_compromiso:0}   bloque visible=false
+EQUIPO      : {atrasado:1, hoy:0, proximo:0, sin_compromiso:89}  bloque visible=true
+```
+
+Dos cambios:
+
+- **Un jefe arranca mirando a su equipo.** Sin ámbito guardado, `admin` y
+  `supervisor` abren en «todos»; el guardado sigue mandando.
+- **El bloque distingue «no hay ninguno» de «no hay ninguno tuyo».** Si lo propio
+  está vacío y el almacén no, se queda con sus ceros y debajo dice qué hay al
+  otro lado —«Tu equipo tiene 1 atrasado y 89 sin próximo paso»— con un enlace
+  que cambia el ámbito. Las dos cuentas salen de una sola lectura de
+  `seguimientos`: `resumen()` ahora acepta el mapa de compromisos vivos ya hecho.
 
 ### 0.43.0 — Los compromisos también cambian con el ámbito (2026-09-22)
 

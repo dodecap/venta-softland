@@ -9,7 +9,7 @@ import {
 import { rango, anterior, largoEnDias, dia } from '../src/panel/periodo.js';
 import { calcular, pendientes, situacion, ultimos } from '../src/panel/metricas.js';
 import { calcularSaldo } from '../src/saldo.js';
-import { estado as estadoCompromiso, cuando, hora, sumarDias } from '../src/seguimiento.js';
+import { estado as estadoCompromiso, cuando, hora, sumarDias, resumen as resumenCompromisos } from '../src/seguimiento.js';
 import { comparar, esMasNueva } from '../src/version.js';
 import { deVendedores } from '../src/alcance.js';
 
@@ -438,5 +438,46 @@ es(deVendedores(null)({}), true, 'todos, incluso lo que no tiene vendedor');
 es(deVendedores([])({ vendedor: '2' }), false, 'lista vacía sí es «ninguno»');
 es(deVendedores(['2', '19'])({ vendedor: '19' }), true, 'varios códigos');
 es(deVendedores([2])({ vendedor: '2' }), true, 'el código puede llegar como número');
+
+/* ---------------------------------------------------- compromisos por ámbito
+ *
+ * El caso medido en INNOVAGES: un supervisor cuyo código de vendedor no tiene
+ * ninguna cotización abierta, con el equipo lleno de trabajo. Contado por su
+ * ámbito da cuatro ceros; contado por el almacén entero, uno atrasado y el
+ * resto sin próximo paso. Si la pantalla sólo mira lo primero, el jefe no ve
+ * nada de su equipo — que es exactamente lo que se reportó.
+ */
+{
+    const cots = [
+        { numero: 8552, vendedor: '2', estado: 'P' },
+        { numero: 8553, vendedor: '2', estado: 'N' },   // anulada: no espera nada
+        { numero: 8554, vendedor: '2', estado: 'V' },   // vendida: tampoco
+        { numero: 8600, vendedor: '2', estado: 'P' },
+        { numero: 8601, vendedor: '19', estado: 'P' },
+        { numero: 9000, vendedor: '5', estado: 'V' },   // lo único del jefe, cerrado
+    ];
+    const vivos = new Map([
+        [8552, { numero: 1, cuando: '2026-09-17' }],
+        [8554, { numero: 1, cuando: '2026-09-27' }],
+    ]);
+    const hoy = '2026-09-22';
+
+    const mio = await resumenCompromisos({ cotizaciones: cots, vendedores: ['5'], hoy, vivos });
+    es(mio.atrasado, 0, 'ámbito «yo» del jefe: ningún atrasado');
+    es(mio.sin_compromiso, 0, 'ámbito «yo» del jefe: ninguna sin próximo paso');
+
+    const todos = await resumenCompromisos({ cotizaciones: cots, vendedores: null, hoy, vivos });
+    es(todos.atrasado, 1, 'almacén entero: el atrasado del equipo');
+    es(todos.hoy, 0, 'almacén entero: ninguno para hoy');
+    es(todos.sin_compromiso, 2, 'almacén entero: las dos abiertas sin anotación');
+
+    const suyos = await resumenCompromisos({ cotizaciones: cots, vendedores: ['2'], hoy, vivos });
+    es(suyos.atrasado, 1, 'ámbito de un vendedor: sólo lo suyo');
+    es(suyos.sin_compromiso, 1, 'ámbito de un vendedor: una sin próximo paso');
+
+    // Una cotización cerrada con compromiso vivo no cuenta: 8554 está vendida.
+    const proximos = await resumenCompromisos({ cotizaciones: cots, vendedores: ['2'], hoy, vivos });
+    es(proximos.proximo, 0, 'la vendida no espera ninguna llamada');
+}
 
 console.log(`OK — ${hechas} comprobaciones`);

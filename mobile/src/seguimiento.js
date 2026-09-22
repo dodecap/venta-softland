@@ -101,9 +101,15 @@ export function estado(cotizacion, vivo, hoy) {
     return cuando <= sumarDias(hoy, VENTANA_DIAS) ? 'proximo' : null;
 }
 
-/** Los cuatro contadores del panel, de una sola pasada. */
-export async function resumen({ cotizaciones, vendedores = null, hoy }) {
-    const vivos = await compromisosVivos();
+/**
+ * Los cuatro contadores del panel, de una sola pasada.
+ *
+ * `vivos` se puede pasar hecho: el panel cuenta dos veces —lo del vendedor y
+ * lo del equipo— y leer `seguimientos` de IndexedDB dos veces para sacar el
+ * mismo mapa es trabajo regalado.
+ */
+export async function resumen({ cotizaciones, vendedores = null, hoy, vivos = null }) {
+    vivos = vivos || await compromisosVivos();
     const cuenta = { atrasado: 0, hoy: 0, proximo: 0, sin_compromiso: 0 };
     const suyo = deVendedores(vendedores);
 
