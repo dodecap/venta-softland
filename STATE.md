@@ -311,11 +311,11 @@ las dependencias cuando el hash coincide, descompresión encima del árbol vivo,
 `migrate`, APK guardado, y vuelta atrás de la 0.99.0 a la 0.46.0. Después se
 borró todo rastro del ensayo y el servidor quedó como estaba.
 
-**Lo único que no se ha hecho es publicar de verdad**: `gh` no tiene sesión
-iniciada en esta máquina y no hay token de GitHub, así que `bin/publicar-version.sh`
-está escrito y comprobado hasta la línea del `gh release create`, que nunca se
-ha ejecutado. El repositorio `dodecap/venta-softland` es público y no tiene
-ninguna publicación todavía.
+**Publicado de verdad el 2026-09-23**, con la 0.47.2: `bin/publicar-version.sh`
+subió las tres piezas —código 358 KB, `vendor-9ea5350edab5.tgz` 17 MB y el APK
+de 5 MB— y `ventas:actualizar --comprobar` en `srv` ya contesta «ya está en la
+última» leyendo GitHub. Hasta ese día el camino estaba escrito y ensayado pero
+la línea del `gh release create` no se había ejecutado nunca.
 
 ### 0.46.0 — El certificado digital se sube desde la app (2026-09-22)
 
@@ -631,11 +631,12 @@ desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
 
 ## Pendiente / próximos pasos
-- [ ] **Publicar la primera versión en GitHub.** `bin/publicar-version.sh` está
-      escrito y comprobado hasta la línea del `gh release create`, que no se ha
-      ejecutado nunca: `gh` no tiene sesión iniciada en esta máquina y no hay
-      token. Hasta que exista una publicación, `ventas:actualizar` contesta
-      «todavía no hay ninguna versión publicada», que es lo correcto.
+- [x] **Publicar la primera versión en GitHub.** Hecha el 2026-09-23: la
+      `v0.47.2`, con las tres piezas. `gh release create` devolvió un 422
+      —«Release.tag_name already exists»— al publicar su borrador, porque la
+      release ya había quedado creada; se comprobó que no quedara ningún
+      borrador suelto y que los tres adjuntos coincidieran byte a byte con los
+      locales. Si vuelve a pasar, mirar antes `gh release list` que repetir.
 - [ ] **Fase D** — `bin/deploy.sh` con la máquina de destino como argumento, y
       un `appId` por empresa sólo si hace falta de verdad.
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea
