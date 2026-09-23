@@ -230,6 +230,10 @@ ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan venta
 ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan ventas:compatibilidad --todo"
 ```
 
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan ventas:huella"
+```
+
 ## Instalar en otra empresa
 
 El sistema es **un repositorio y N instalaciones**, no una copia del repositorio
