@@ -13,6 +13,13 @@ idempotentes a propósito.
 > identidad y las reglas en `ventas.config`, y los folios, atributos y giros en
 > la propia base Softland.
 
+> **Qué le hace esto a la base.** La pregunta que hace siempre quien administra
+> el SQL Server del cliente, y conviene tener la respuesta antes de que la
+> haga: **no se modifica ninguna tabla del ERP.** Ni una columna añadida, ni un
+> trigger, ni un índice. La app crea un **esquema propio `ventas`** dentro de
+> la misma base y vive ahí. El detalle, con números, está en el
+> [apéndice](#apéndice--la-huella-en-la-base).
+
 ---
 
 ## 0. Antes de ir: lo que hay que pedirle al cliente
@@ -351,6 +358,14 @@ C:\xampp\php\php.exe artisan ventas:actualizar --comprobar
 ```
 Confirma que el servidor sabe dónde buscar las versiones nuevas.
 
+```
+C:\xampp\php\php.exe artisan ventas:huella
+```
+Qué creó la app en la base y qué ha escrito en las tablas del ERP. Es la
+respuesta imprimible para quien administra el SQL Server, y sirve también para
+ver de un vistazo si las migraciones quedaron todas puestas. **No escribe
+nada.**
+
 ### Desde el teléfono
 
 - El panel carga con números que no son cero.
@@ -470,6 +485,99 @@ Conviene decirlo el día uno, no el día que alguien lo busca:
 
 ---
 
+## Apéndice · La huella en la base
+
+Esto es lo que hay que poder contestar cuando el cliente pregunta qué se le
+instaló dentro de la base donde factura. Todo lo de aquí se vuelve a sacar en
+cualquier momento, del servidor y sin escribir nada:
+
+```
+C:\xampp\php\php.exe artisan ventas:huella
+```
+
+### La estructura del ERP no se toca
+
+Ni una tabla de Softland modificada. Ni una columna añadida, ni un trigger, ni
+un índice, ni una clave foránea. Las diez migraciones del proyecto crean
+objetos **sólo** en el esquema `ventas`; ninguna hace `ALTER` sobre `softland`.
+
+Eso incluye la única vista del proyecto: `ventas.nv_atributo_valor` **lee**
+`softland.nw_nventa` y sus tres tablas de atributos, pero vive en `ventas`. El
+esquema del ERP no se toca ni para añadir una vista.
+
+Y no hay **ninguna clave foránea que cruce** entre los dos esquemas, también a
+propósito: `ventas.giro_sii` apunta a `softland.cwtgiro` por el código, sin
+restricción declarada. La consecuencia es la que importa — quitar la app es
+borrar el esquema `ventas`, y eso no puede arrastrar nada del ERP.
+
+### Lo que sí se crea: un esquema propio, 13 tablas y una vista
+
+| Objeto | Cols | Qué guarda |
+|---|---|---|
+| `ventas.usuario` | 20 | Los vendedores de la app y su código de Softland |
+| `ventas.api_token` | 8 | Las sesiones de los teléfonos |
+| `ventas.config` | 4 | Identidad de la empresa y reglas de negocio |
+| `ventas.notificacion_regla` | 10 | Qué se avisa y a quién |
+| `ventas.notificacion` | 11 | El buzón de la campana |
+| `ventas.documento_app` | 8 | `client_uuid` → documento. Es la idempotencia |
+| `ventas.aprobacion` | 13 | Quién aprobó qué, y cuándo |
+| `ventas.documento_emision` | 15 | Cada versión de PDF entregada al cliente |
+| `ventas.linea_origen` | 10 | Cotización → nota de venta, línea a línea |
+| `ventas.cotizacion_avance` | 7 | El avance comercial, que en Softland no existe |
+| `ventas.giro_sii` | 5 | ACTECO del SII → giro histórico de Softland |
+| `ventas.sii_auxiliar` | 6 | Caché de las consultas al padrón del SII |
+| `ventas.migrations` | 3 | Control de versiones del propio esquema |
+| `ventas.nv_atributo_valor` | 7 | **Vista.** Los atributos de la nota de venta, unificados |
+
+Se crean solas al instalar —lo hace `/setup`, paso 4— y volver a correrlo no
+duplica nada.
+
+### Filas: la app sí escribe en tablas del ERP
+
+No es una modificación de estructura, pero es lo que de verdad cambia la base
+del cliente, y conviene decirlo con el mismo detalle:
+
+| Dónde | Cuándo | Cuenta |
+|---|---|---|
+| `nwcotiza` · `nwdetcot` | Al crear una cotización | `ventas.documento_app` |
+| `nw_nventa` · `nw_detnv` | Al crear una nota de venta | `ventas.documento_app` |
+| `nwtsegui` | Al anotar un compromiso | — |
+| `iw_gsaen` · `iw_gmovi` · `dte_*` | Al emitir una factura o nota de crédito | `Proceso = 'Venta Softland'` |
+| `cwtauxi` | Al dar de alta un cliente | Por RUT |
+| `cwtgiro` | Sólo si se corre `ventas:carga-giros --escribir` | Ver abajo |
+
+Son documentos y maestros de la empresa, escritos como los escribe el Softland
+de escritorio: indistinguibles, y se anulan o se borran desde el ERP como
+cualquier otro.
+
+La cotización y la nota de venta **no estampan** la columna `Proceso`, así que
+filtrar por `Proceso = 'Venta Softland'` sólo sirve para el documento de venta.
+Quién creó qué lo dice `ventas.documento_app`, que es el mapa de idempotencia y
+la cuenta buena.
+
+### El caso aparte: el catálogo de giros
+
+`ventas:carga-giros --escribir` inserta en `softland.cwtgiro` los ACTECO
+vigentes que falten —674 códigos, de los que en una base típica ya están unos
+pocos—. Es la **única escritura de la app en un maestro del ERP fuera del flujo
+de venta**, y por eso es un comando manual y no parte de la instalación: lo que
+se mete ahí lo ve el administrativo en su desplegable del escritorio, y que ese
+maestro crezca tiene que ser una decisión de alguien, no el efecto colateral de
+que un vendedor tecleara un RUT.
+
+**No pisa ni una fila que ya exista**, ni siquiera la descripción: un giro en
+uso lleva el texto que sus clientes reconocen y que sale impreso en el
+`GiroRecep` de sus DTE. Y no borra nunca, porque `cwtauxi.GirAux` tiene clave
+foránea contra esa tabla.
+
+### Si hubiera que quitarlo
+
+Se borra el esquema `ventas` entero y la base queda como estaba. Los documentos
+que la app haya escrito en las tablas del ERP se quedan, que es lo correcto: son
+documentos de la empresa.
+
+---
+
 ## Resumen en una pantalla
 
 ```
@@ -480,7 +588,7 @@ Conviene decirlo el día uno, no el día que alguien lo busca:
 5.  php artisan ventas:actualizar --apk
 6.  Escanear el QR de /app, instalar, escribir la dirección, entrar
 7.  Cuenta → Usuarios · Identidad · Configuración (correo, certificado, facturación)
-8.  ventas:probe · ventas:compatibilidad --todo · dte:token
+8.  ventas:probe · ventas:compatibilidad --todo · ventas:huella · dte:token
 ```
 
 Nada de esto pide editar un archivo en el servidor, y ninguna contraseña se

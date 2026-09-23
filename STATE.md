@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-23 — versión **0.47.1**
+2026-09-23 — versión **0.47.2**
 
 ## Resumen del estado actual
-**Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.47.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -207,6 +207,43 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.47.2 — La huella en la base se puede enseñar (2026-09-23)
+
+La pregunta salió al revisar qué había quedado escrito en `INNOVAGES`: **¿se
+modificó alguna tabla, se creó alguna tabla nueva?** La respuesta estaba, pero
+repartida entre diez migraciones y la memoria de quien las escribió — y es la
+primera que hace quien administra el SQL Server de un cliente donde se factura.
+Instalar dentro de esa base y no poder contestarla en treinta segundos es pedir
+un acto de fe.
+
+`ventas:huella` la contesta con la base delante: las 13 tablas y la vista del
+esquema `ventas` con sus columnas y sus filas, si las migraciones están todas
+puestas, si hay alguna clave foránea que cruce a `softland` —tiene que haber
+cero— y cuántas filas ha escrito la app en tablas del ERP. No escribe nada.
+
+Dos decisiones que importan:
+
+- **Lee `sys.objects`, no una lista escrita en el comando.** Una lista a mano
+  se queda corta en la primera migración que alguien añada, y entonces el
+  comando miente justo en lo que vino a contestar. Es el error que ya tiene
+  `ventas:probe`, que enseña 5 de las 13 tablas.
+- **No intenta demostrar que nadie tocó el ERP.** Eso no se deduce de la base:
+  cualquiera pudo hacerlo desde el escritorio, y Softland crea tablas suyas de
+  nombre raro sin parar —22 con el mismo patrón, entre 2009 y 2026—. Se deduce
+  del código, y ahí está escrito una vez: ninguna migración hace `ALTER` sobre
+  `softland`. Lo que la base **sí** contesta es la consecuencia práctica: sin
+  claves foráneas cruzadas, quitar la app es borrar un esquema.
+
+Y un cero que parecía una respuesta: contar lo escrito en el ERP por
+`Proceso = 'Venta Softland'` daba 0 cotizaciones y 0 notas de venta, porque esa
+columna sólo la estampa `Facturacion`. La cuenta buena es `ventas.documento_app`,
+que es el mapa de idempotencia. Medido hoy en INNOVAGES: 3 cotizaciones, 1 nota
+de venta, 0 facturas, y 674 de 674 actecos cargados en `cwtgiro` sobre 2.667
+filas.
+
+En el manual queda el apéndice **«La huella en la base»**, anunciado arriba del
+todo para que se lea antes de que el cliente pregunte.
 
 ### 0.47.1 — El servidor se trae su propio instalable (2026-09-23)
 

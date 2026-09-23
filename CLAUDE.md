@@ -799,6 +799,20 @@ nadie edite un archivo. Lo que hay que saber antes de tocar nada:
   token, y el token está en `ventas.api_token`, al otro lado de la conexión rota.
   No debilita nada — para guardar siguen haciendo falta el usuario SQL y la
   contraseña del administrador de Softland.
+- **La huella en la base se enseña, no se jura.** Instalar algo dentro de la
+  base donde un cliente factura y no poder contestar «¿qué me tocaste?» en
+  treinta segundos es pedir un acto de fe: eso es `ventas:huella`. La app crea
+  un esquema propio `ventas` —13 tablas y una vista— y **ninguna migración hace
+  `ALTER` sobre `softland`**; eso se deduce del código, no de la base. Lo que la
+  base sí puede contestar, y el comando comprueba, es que **ninguna clave
+  foránea cruce** entre los dos esquemas: sin cruces, quitar la app es borrar un
+  esquema. El comando lee `sys.objects` y no una lista escrita a mano, que se
+  quedaría corta en la primera migración nueva.
+- **La app escribe filas en tablas del ERP, y eso se cuenta por
+  `ventas.documento_app`.** La cotización y la nota de venta no estampan
+  `Proceso`, así que filtrar por `Proceso = 'Venta Softland'` sólo vale para el
+  documento de venta — y da cero para las demás, que es un cero que parece una
+  respuesta.
 
 ## Actualizar la instalación
 
@@ -865,7 +879,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.47.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.47.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

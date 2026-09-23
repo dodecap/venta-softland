@@ -42,6 +42,30 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.47.2 — La huella en la base se puede enseñar
+*2026-09-23*
+
+- **`ventas:huella`**: qué creó la app dentro de la base del cliente y qué ha
+  escrito en las tablas del ERP. Es la primera pregunta de quien administra un
+  SQL Server donde se factura, y la respuesta estaba repartida entre diez
+  migraciones y la memoria de quien las escribió. No escribe nada.
+- Lee el esquema de `sys.objects`, no de una lista escrita en el comando: una
+  lista a mano se queda corta en la primera migración que alguien añada, y
+  entonces el comando miente justo en lo que vino a contestar.
+- Comprueba lo que sí se puede comprobar: que las migraciones estén todas
+  puestas y que **ninguna clave foránea cruce** entre `ventas` y `softland`.
+  Sin cruces, quitar la app es borrar un esquema y no puede arrastrar nada del
+  ERP. Que no se haya modificado una tabla del ERP no se deduce de la base
+  —cualquiera pudo hacerlo desde el escritorio—, se deduce del código.
+- Cuenta las filas escritas en tablas de Softland por `ventas.documento_app`,
+  no por `Proceso = 'Venta Softland'`: esa columna sólo la estampa el documento
+  de venta, así que filtrar por ella daba cero para cotizaciones y notas de
+  venta, que es un cero que parece una respuesta.
+- **Apéndice «La huella en la base»** en `docs/instalacion.md`, con las 13
+  tablas y la vista, las tablas del ERP en las que la app escribe filas, el
+  caso aparte del catálogo de giros y cómo se desinstala. El manual lo anuncia
+  arriba, antes de que el cliente lo pregunte.
+
 ### 0.47.1 — El servidor se trae su propio instalable
 *2026-09-23*
 
