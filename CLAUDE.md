@@ -741,6 +741,11 @@ instalar la app pasa antes de que la app exista en el teléfono.
   equivocados. Quien sabe la buena es el navegador, y se la pasa a `qr.svg`;
   esa dirección se comprueba contra el `Host` de la petición, que es lo que
   impide que sea un generador de códigos QR abierto a internet.
+- **El APK llega por dos caminos y ninguno es el repositorio.** Desde aquí se
+  sube con `bin/publicar-apk.sh`; en casa de un cliente se trae de la
+  publicación con `ventas:actualizar --apk`, que baja el de **la versión que
+  está puesta** y no el último. Sin eso, una instalación recién hecha tiene
+  `/app` vacío: acaba de instalarse, así que no tiene nada que actualizar.
 - **El APK vive fuera de `public/` y fuera del tar de `deploy.sh`**, en
   `storage/app/private/apk`. Lo primero para que la entrega pase por una ruta
   nuestra, que sabe cuál es el último y le pone el tipo MIME que Android
@@ -860,7 +865,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.47.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.47.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado
@@ -871,5 +876,6 @@ contesta las consultas de estado. **Falta el primer envío de verdad**, que es l
 tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
 documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
 `docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el alta de clientes
-desde el SII en `docs/alta-clientes-sii.md`, el historial de
+desde el SII en `docs/alta-clientes-sii.md`, la puesta en marcha en una empresa
+nueva en `docs/instalacion.md`, el historial de
 versiones en `docs/versiones.md` y el plan por fases en `docs/roadmap.md`.

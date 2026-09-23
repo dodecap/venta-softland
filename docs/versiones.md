@@ -42,6 +42,25 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.47.1 — El servidor se trae su propio instalable
+*2026-09-23*
+
+- **`ventas:actualizar --apk`**: trae el APK de la versión que está puesta y lo
+  deja listo en `/app`. Tapa el hueco de la instalación nueva — el servidor
+  acaba de instalarse, así que no tiene nada que actualizar, pero `/app` está
+  vacío y el vendedor no tiene de dónde bajar la app. El instalable no viaja en
+  el repositorio: viaja en la publicación.
+- `/app` sin instalable decía «se sube desde el equipo de desarrollo con
+  `bin/publicar-apk.sh`», que es una máquina que quien instala en casa de un
+  cliente no tiene. Ahora nombra el comando que sí puede correr.
+- La página de «Instalación completada» lo pide **antes** del código QR, y
+  corrige dos rutas de la app que nombraba mal: Identidad y Usuarios cuelgan de
+  **Cuenta**, no de Configuración.
+- **`docs/instalacion.md`**: el manual de puesta en marcha de principio a fin,
+  para instalar en el servidor de un cliente sin el repositorio delante.
+- `.env.example` documenta `SII_AUX_URL` y `SII_AUX_KEY`, que no estaban y son
+  lo que decide si el botón de buscar por RUT se dibuja.
+
 ### 0.47.0 — Actualizarse desde GitHub Releases
 *2026-09-22*
 

@@ -64,8 +64,9 @@
         </script>
     @else
         <div class="errores">
-            Todavía no se ha publicado ningún instalable en este servidor. Se sube
-            desde el equipo de desarrollo con <code>bin/publicar-apk.sh</code>.
+            Todavía no se ha publicado ningún instalable en este servidor. Se trae
+            desde una consola en el servidor, con:
+            <br><code>php artisan ventas:actualizar --apk</code>
         </div>
     @endif
 @endsection

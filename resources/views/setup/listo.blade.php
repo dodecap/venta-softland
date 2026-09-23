@@ -27,19 +27,29 @@
 
     {{-- Lo siguiente que hay que hacer es instalar la app, así que el enlace va
          aquí y grande. Antes esta página decía «instala el APK» sin decir de
-         dónde, y quien instalaba tenía que adivinar que existía /app. --}}
+         dónde, y quien instalaba tenía que adivinar que existía /app.
+
+         Y antes que eso, traerlo: el APK no viaja en el repositorio, viaja en
+         la publicación. Un servidor recién instalado no lo tiene, y quien
+         instala no tiene por qué enterarse encontrándose /app vacío. --}}
+    <div class="aviso">
+        <strong>Antes del código QR</strong>, trae el instalable a este servidor.
+        Desde una consola, en la carpeta del proyecto:
+        <p style="margin:8px 0 0;"><code>php artisan ventas:actualizar --apk</code></p>
+    </div>
+
     <a class="boton-enlace" href="../app">Ver el código QR para instalar la app</a>
 
     <h2 style="font-size:15px;color:#1d1060;margin:26px 0 8px;">Y ahora, desde el celular</h2>
     <ol class="pasos">
-        <li>Escanea el código QR de la página anterior e instala el APK.</li>
+        <li>Escanea el código QR de <code>/app</code> e instala el APK.</li>
         <li>Al abrirlo, en <strong>Servidor</strong>, escribe la dirección de esta instalación.</li>
         <li>Entra con el usuario <code>softland</code> y su contraseña.</li>
-        <li>Crea los vendedores en <strong>Usuarios</strong> y enlázalos con su código de vendedor
-            de Softland.</li>
-        <li>Pon los datos de la empresa en <strong>Configuración → Identidad</strong>: lo que quede
+        <li>Crea los vendedores en <strong>Cuenta → Usuarios</strong> y enlázalos con su código
+            de vendedor de Softland.</li>
+        <li>Pon los datos de la empresa en <strong>Cuenta → Identidad</strong>: lo que quede
             vacío lo hereda de Softland.</li>
-        <li>Configura el correo en <strong>Configuración → Correo</strong> y manda una prueba.</li>
+        <li>Configura el correo en <strong>Cuenta → Configuración</strong> y manda una prueba.</li>
     </ol>
 
     <p class="ayuda" style="margin-top:20px;">

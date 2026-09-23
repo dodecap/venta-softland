@@ -12,6 +12,7 @@ use Illuminate\Console\Command;
  *   php artisan ventas:actualizar --comprobar
  *   php artisan ventas:actualizar
  *   php artisan ventas:actualizar --a=0.46.0           (volver atrás)
+ *   php artisan ventas:actualizar --apk                (traer la app a /app)
  *
  * Lo normal es hacerlo desde la app, en Configuración → Versión del servidor.
  * Esto está para cuando la app no se puede abrir —que es justo cuando más
@@ -25,6 +26,7 @@ class VentasActualizar extends Command
     protected $signature = 'ventas:actualizar
         {--comprobar : Sólo mira si hay versión nueva; no baja ni cambia nada}
         {--a= : Instala esa versión en concreto, aunque sea anterior}
+        {--apk : Sólo trae la app de esta versión y la deja lista en /app}
         {--si : No preguntar (para dejarlo escrito en una tarea programada)}';
 
     protected $description = 'Actualiza el servidor a la última versión publicada';
@@ -39,9 +41,14 @@ class VentasActualizar extends Command
         $this->newLine();
 
         try {
-            $p = $this->option('a')
-                ? Publicacion::deVersion((string) $this->option('a'))
-                : Publicacion::ultima();
+            $p = match (true) {
+                (bool) $this->option('a') => Publicacion::deVersion((string) $this->option('a')),
+                // Con --apk se quiere la app **de esta versión**, no la última:
+                // repartir un APK más nuevo que la API es el desfase que Cuenta
+                // se pasa el día avisando.
+                (bool) $this->option('apk') => Publicacion::deVersion($mia) ?? Publicacion::ultima(),
+                default => Publicacion::ultima(),
+            };
         } catch (\Throwable $e) {
             $this->error('  '.$e->getMessage());
 
@@ -58,6 +65,14 @@ class VentasActualizar extends Command
 
         $nueva = $p->version();
         $atras = version_compare($nueva, $mia, '<');
+
+        // Traer sólo la app. Es lo que hace falta en una instalación recién
+        // hecha: el servidor está en la última versión y no tiene nada que
+        // actualizar, pero `/app` está vacío y el vendedor no tiene de dónde
+        // bajarse el instalable. El APK no viaja en el repositorio.
+        if ($this->option('apk')) {
+            return $this->soloApk($p);
+        }
 
         if ($nueva === $mia) {
             $this->info('  Ya está en la última: nada que hacer.');
@@ -124,6 +139,31 @@ class VentasActualizar extends Command
             $this->line('  Esta publicación no traía APK: los teléfonos se quedan como estaban.');
         }
 
+        $this->newLine();
+
+        return self::SUCCESS;
+    }
+
+    private function soloApk(Publicacion $p): int
+    {
+        $this->line("  App de la <comment>{$p->version()}</comment>.");
+        $this->newLine();
+
+        try {
+            $apk = (new Actualizador)->traerApk($p);
+        } catch (\Throwable $e) {
+            $this->error('  '.$e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        if (! $apk) {
+            $this->error('  Esa publicación no trae APK.');
+
+            return self::FAILURE;
+        }
+
+        $this->info('  '.$apk['nombre'].' ('.round($apk['bytes'] / 1048576, 1).' MB) listo en /app.');
         $this->newLine();
 
         return self::SUCCESS;

@@ -190,6 +190,39 @@ class Actualizador
     }
 
     /**
+     * Traer sólo el APK de una publicación y dejarlo listo para repartir.
+     *
+     * Existe por la instalación nueva: un servidor recién puesto está en la
+     * última versión —acaba de instalarse— y por eso no tiene nada que
+     * actualizar, pero `/app` está vacío y el vendedor no tiene de dónde bajar
+     * la app. El APK no viaja en el repositorio; viaja en la publicación.
+     *
+     * @return array{nombre: string, bytes: int}|null  `null` si la publicación no trae APK.
+     */
+    public function traerApk(Publicacion $p): ?array
+    {
+        $apk = $p->pieza('apk');
+
+        if (! $apk) {
+            return null;
+        }
+
+        $temporal = storage_path('app/private/actualizacion-apk');
+        File::ensureDirectoryExists($temporal);
+
+        try {
+            $bajado = $this->bajar($apk, $temporal);
+
+            File::ensureDirectoryExists(Apk::carpeta());
+            File::move($bajado, Apk::carpeta().DIRECTORY_SEPARATOR.$apk['nombre'], true);
+
+            return ['nombre' => $apk['nombre'], 'bytes' => $apk['bytes']];
+        } finally {
+            File::deleteDirectory($temporal);
+        }
+    }
+
+    /**
      * ¿Hay que bajarse las dependencias?
      *
      * El nombre del paquete es `vendor-<sha256 del composer.lock>.tgz`. Se

@@ -1,0 +1,1030 @@
+<title>Instalar Venta Softland</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+:root {
+    --papel: #fbfafd;
+    --tarjeta: #ffffff;
+    --tinta: #17142c;
+    --suave: #615d79;
+    --indigo: #1d1060;
+    --indigo-claro: #efedf8;
+    --cian: #26bdef;
+    --borde: #e4e2ee;
+    --borde-fino: #eeecf4;
+
+    --rojo: #8a1f1f;      --rojo-fondo: #fdecec;   --rojo-borde: #f3cfcf;
+    --verde: #1a6b38;     --verde-fondo: #eafaf0;  --verde-borde: #c8e9d5;
+    --ambar: #7a4e00;     --ambar-fondo: #fff5e0;  --ambar-borde: #f0dcb0;
+
+    --codigo-fondo: #14122a;
+    --codigo-tinta: #e6e3f5;
+    --codigo-suave: #8b86ad;
+
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --grotesca: Archivo, "Segoe UI", Roboto, system-ui, sans-serif;
+    --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --papel: #111018;
+        --tarjeta: #191825;
+        --tinta: #e8e6f2;
+        --suave: #9e99b5;
+        --indigo: #b5adff;
+        --indigo-claro: #221f3a;
+        --cian: #3ec8f5;
+        --borde: #2c2a41;
+        --borde-fino: #242236;
+
+        --rojo: #ff9d9d;      --rojo-fondo: #2c1719;   --rojo-borde: #4d2528;
+        --verde: #7fd9a2;     --verde-fondo: #14261c;  --verde-borde: #27492f;
+        --ambar: #f0c67a;     --ambar-fondo: #2a2113;  --ambar-borde: #4a3a1c;
+
+        --codigo-fondo: #0c0b16;
+        --codigo-tinta: #e6e3f5;
+        --codigo-suave: #7d7899;
+    }
+}
+
+:root[data-theme="dark"] {
+    --papel: #111018;
+    --tarjeta: #191825;
+    --tinta: #e8e6f2;
+    --suave: #9e99b5;
+    --indigo: #b5adff;
+    --indigo-claro: #221f3a;
+    --cian: #3ec8f5;
+    --borde: #2c2a41;
+    --borde-fino: #242236;
+
+    --rojo: #ff9d9d;      --rojo-fondo: #2c1719;   --rojo-borde: #4d2528;
+    --verde: #7fd9a2;     --verde-fondo: #14261c;  --verde-borde: #27492f;
+    --ambar: #f0c67a;     --ambar-fondo: #2a2113;  --ambar-borde: #4a3a1c;
+
+    --codigo-fondo: #0c0b16;
+    --codigo-tinta: #e6e3f5;
+    --codigo-suave: #7d7899;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-text-size-adjust: 100%;
+}
+
+.hoja {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 22px 120px;
+}
+
+/* ---- Portada ---------------------------------------------------------- */
+
+.portada {
+    padding: 64px 0 34px;
+    border-bottom: 4px solid var(--cian);
+}
+
+.rotulo {
+    font-family: var(--grotesca);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--suave);
+    margin: 0 0 14px;
+}
+
+h1 {
+    font-family: var(--grotesca);
+    font-weight: 700;
+    font-size: clamp(32px, 6.4vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    color: var(--indigo);
+    margin: 0 0 16px;
+    text-wrap: balance;
+}
+
+.entrada {
+    font-size: 19px;
+    color: var(--suave);
+    margin: 0;
+    max-width: 58ch;
+}
+
+.datos-portada {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 26px;
+    margin: 26px 0 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--grotesca);
+    font-size: 13px;
+    color: var(--suave);
+}
+
+.datos-portada b {
+    font-weight: 600;
+    color: var(--tinta);
+}
+
+/* ---- Estructura ------------------------------------------------------- */
+
+h2 {
+    font-family: var(--grotesca);
+    font-weight: 700;
+    font-size: 25px;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--tinta);
+    margin: 0 0 6px;
+    text-wrap: balance;
+}
+
+h3 {
+    font-family: var(--grotesca);
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.005em;
+    color: var(--tinta);
+    margin: 30px 0 8px;
+}
+
+p { margin: 0 0 15px; }
+p:last-child { margin-bottom: 0; }
+
+a { color: var(--indigo); }
+
+.bloque { padding: 46px 0 8px; }
+
+/*
+ * El paso lleva su número en el margen porque el orden aquí es información:
+ * saltarse uno deja el siguiente sin sentido. En pantalla angosta el número
+ * se pone encima del título en vez de encogerse.
+ */
+.paso { position: relative; padding: 46px 0 8px; }
+
+.numero {
+    font-family: var(--grotesca);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--cian);
+    letter-spacing: 0.08em;
+    display: block;
+    margin: 0 0 6px;
+}
+
+@media (min-width: 900px) {
+    .paso { padding-left: 0; }
+    .numero {
+        position: absolute;
+        left: -96px;
+        top: 48px;
+        width: 72px;
+        text-align: right;
+        font-size: 38px;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        color: var(--borde);
+        margin: 0;
+    }
+    :root[data-theme="dark"] .numero,
+    :root:not([data-theme="light"]) .numero { color: var(--borde); }
+}
+
+.sumario {
+    font-family: var(--grotesca);
+    font-size: 14.5px;
+    color: var(--suave);
+    margin: 0 0 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--borde-fino);
+}
+
+/* ---- Órdenes de consola ------------------------------------------------ */
+
+.consola {
+    background: var(--codigo-fondo);
+    color: var(--codigo-tinta);
+    border-left: 4px solid var(--cian);
+    border-radius: 0 7px 7px 0;
+    padding: 15px 18px;
+    margin: 18px 0;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.85;
+    overflow-x: auto;
+    white-space: pre;
+    -webkit-overflow-scrolling: touch;
+}
+
+.consola .dim { color: var(--codigo-suave); }
+
+code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: var(--indigo-claro);
+    color: var(--indigo);
+    padding: 1px 5px;
+    border-radius: 4px;
+    word-break: break-word;
+}
+
+.consola code { background: none; color: inherit; padding: 0; }
+
+/* ---- Tablas ------------------------------------------------------------ */
+
+.tabla-caja {
+    overflow-x: auto;
+    margin: 18px 0;
+    border: 1px solid var(--borde);
+    border-radius: 9px;
+    background: var(--tarjeta);
+    -webkit-overflow-scrolling: touch;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--grotesca);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+th, td {
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--borde-fino);
+    vertical-align: top;
+}
+
+th {
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--suave);
+    background: var(--indigo-claro);
+    white-space: nowrap;
+}
+
+tr:last-child td { border-bottom: none; }
+
+td:first-child { font-weight: 600; }
+
+/* ---- Avisos ------------------------------------------------------------ */
+
+.nota {
+    border: 1px solid var(--borde);
+    border-left-width: 4px;
+    border-radius: 0 9px 9px 0;
+    padding: 15px 18px;
+    margin: 20px 0;
+    font-size: 16px;
+}
+
+.nota p { margin-bottom: 10px; }
+.nota p:last-child { margin-bottom: 0; }
+
+.nota .cabeza {
+    font-family: var(--grotesca);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 7px;
+}
+
+.nota.peligro { background: var(--rojo-fondo); border-color: var(--rojo-borde); border-left-color: var(--rojo); }
+.nota.peligro .cabeza { color: var(--rojo); }
+
+.nota.cuidado { background: var(--ambar-fondo); border-color: var(--ambar-borde); border-left-color: var(--ambar); }
+.nota.cuidado .cabeza { color: var(--ambar); }
+
+.nota.bien { background: var(--verde-fondo); border-color: var(--verde-borde); border-left-color: var(--verde); }
+.nota.bien .cabeza { color: var(--verde); }
+
+.nota.dato { background: var(--tarjeta); border-color: var(--borde); border-left-color: var(--cian); }
+.nota.dato .cabeza { color: var(--suave); }
+
+/*
+ * Cada paso acaba diciendo cómo se sabe que está hecho. Un runbook sin eso
+ * obliga a descubrir en el paso 7 que el 4 no había quedado.
+ */
+.hecho {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    margin: 24px 0 0;
+    padding: 13px 16px;
+    background: var(--verde-fondo);
+    border: 1px solid var(--verde-borde);
+    border-radius: 9px;
+    font-family: var(--grotesca);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--verde);
+}
+
+.hecho svg { flex: none; margin-top: 2px; }
+.hecho b { font-weight: 600; }
+
+ul, ol { margin: 0 0 15px; padding-left: 22px; }
+li { margin-bottom: 7px; }
+li:last-child { margin-bottom: 0; }
+
+.lista-seca { list-style: none; padding-left: 0; }
+.lista-seca li {
+    padding-left: 20px;
+    position: relative;
+}
+.lista-seca li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.62em;
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: var(--cian);
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--borde);
+    margin: 52px 0 0;
+}
+
+.cierre {
+    margin-top: 56px;
+    padding: 30px 32px;
+    background: var(--indigo);
+    color: #fff;
+    border-radius: 12px;
+}
+
+.cierre h2 { color: #fff; margin-bottom: 14px; }
+.cierre .consola {
+    background: rgba(0, 0, 0, 0.32);
+    border-left-color: var(--cian);
+    color: #eeecfa;
+    margin-bottom: 0;
+}
+.cierre p { color: #cdc8ea; }
+
+.pie {
+    margin-top: 44px;
+    font-family: var(--grotesca);
+    font-size: 13px;
+    color: var(--suave);
+}
+</style>
+
+<div class="hoja">
+
+<header class="portada">
+    <p class="rotulo">Venta Softland · Puesta en marcha</p>
+    <h1>Instalar Venta&nbsp;Softland</h1>
+    <p class="entrada">
+        De principio a fin, en el servidor de una empresa nueva. Escrito para
+        quien instala sin el repositorio delante y sin poder preguntarle nada a
+        nadie.
+    </p>
+    <ul class="datos-portada">
+        <li>Versión <b>0.47.1</b></li>
+        <li>Dura <b>una mañana</b></li>
+        <li>Pasos <b>8 obligatorios</b></li>
+    </ul>
+</header>
+
+<section class="bloque">
+    <div class="nota peligro">
+        <span class="cabeza">Lo único que no se deshace</span>
+        <p>
+            <b>Emitir un documento tributario.</b> Todo lo demás de este manual
+            se puede repetir tantas veces como haga falta: los pasos son
+            idempotentes a propósito. No emitas nada «de prueba» hasta el final,
+            y hazlo sabiendo que el folio no vuelve.
+        </p>
+    </div>
+
+    <div class="nota dato">
+        <span class="cabeza">La regla de fondo</span>
+        <p>
+            <b>Un repositorio, N instalaciones.</b> No se copia el proyecto por
+            cliente. Lo de cada empresa vive fuera del código: la conexión en
+            <code>softland.json</code>, la identidad y las reglas en
+            <code>ventas.config</code>, y los folios, atributos y giros en la
+            propia base Softland.
+        </p>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">0</span>
+    <h2>Antes de ir</h2>
+    <p class="sumario">
+        La mitad de las instalaciones que se atascan es por un dato que no se
+        pidió a tiempo. Esta lista se manda por correo antes de agendar el día.
+    </p>
+
+    <h3>Accesos</h3>
+    <div class="tabla-caja">
+        <table>
+            <thead><tr><th>Qué</th><th>Para qué</th><th>Sin eso</th></tr></thead>
+            <tbody>
+                <tr><td>Sesión en el servidor</td><td>Todo</td><td>No se empieza</td></tr>
+                <tr><td>Instancia de SQL Server</td><td>Conectar</td><td>No se conecta</td></tr>
+                <tr><td>Base de la empresa</td><td>Conectar</td><td>No se conecta</td></tr>
+                <tr><td>Usuario y clave de SQL</td><td>Conectar y crear el esquema</td><td>No se conecta</td></tr>
+                <tr><td>Clave del usuario <code>softland</code></td><td>Autorizar la instalación</td><td><code>/setup</code> no deja instalar</td></tr>
+                <tr><td>Quién administra desde la app</td><td>Crear los usuarios</td><td>Nadie puede entrar después</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>
+        El usuario de SQL necesita poder <b>crear un esquema y tablas</b> dentro
+        de la base de la empresa. No toca nada del esquema <code>softland</code>
+        fuera del flujo de la aplicación, pero sí crea el suyo.
+    </p>
+
+    <h3>Para facturar</h3>
+    <ul class="lista-seca">
+        <li>Certificado digital <code>.pfx</code> o <code>.p12</code> <b>y su clave</b>. Se sube desde la app.</li>
+        <li>Folios CAF cargados en Softland. Los reparte el ERP, no la app.</li>
+        <li>Resolución del SII: número y fecha. Salen de <code>softland.soempre</code>.</li>
+    </ul>
+    <p>
+        El certificado <b>se renueva todos los años</b>. Anota su vencimiento el
+        mismo día de la instalación; la app lo enseña.
+    </p>
+
+    <h3>Para que salgan los correos</h3>
+    <p>
+        Servidor SMTP, puerto, cifrado, usuario, contraseña y el remitente. Sin
+        esto la app funciona igual, pero los avisos se quedan en el registro del
+        servidor, y nadie mira ahí hasta que alguien pregunta por qué no le
+        llegó nada.
+    </p>
+
+    <h3>Decisiones del cliente</h3>
+    <ul class="lista-seca">
+        <li><b>Códigos de vendedor</b> de cada persona que va a usar la app. Un documento sin vendedor no existe para Softland: no sale en las ventanas de búsqueda del ERP.</li>
+        <li><b>Tope por vendedor</b>, si quieren que las notas de venta grandes esperen el visto bueno del jefe. Es una aprobación que aporta la app; la del ERP se respeta aparte.</li>
+        <li>Si le <b>facturan a alguien distinto</b> del cliente de la nota de venta. Depende de un permiso de Softland y de una llave nuestra — y la nuestra sólo apaga, nunca enciende lo que el ERP negó.</li>
+    </ul>
+
+    <div class="hecho">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span><b>Queda hecho cuando</b> tienes los seis accesos por escrito y sabes si esta empresa va a facturar desde la app.</span>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">1</span>
+    <h2>El servidor: lo que tiene que haber</h2>
+    <p class="sumario">Windows con XAMPP, y SQL Server al alcance del propio equipo.</p>
+
+    <div class="tabla-caja">
+        <table>
+            <thead><tr><th>Requisito</th><th>Mínimo</th><th>Quién lo comprueba</th></tr></thead>
+            <tbody>
+                <tr><td>PHP</td><td>8.3</td><td><code>/setup</code>, antes del formulario</td></tr>
+                <tr><td><code>pdo_sqlsrv</code> y <code>sqlsrv</code></td><td>—</td><td>Idem</td></tr>
+                <tr><td><code>openssl mbstring fileinfo gd dom curl</code></td><td>—</td><td>Idem</td></tr>
+                <tr><td>Composer</td><td>—</td><td><code>bin\instalar.cmd</code></td></tr>
+                <tr><td>SQL Server, desde el propio servidor</td><td>2016+</td><td><code>/setup</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="nota dato">
+        <span class="cabeza">Dos cosas que conviene entender antes</span>
+        <p>
+            <b>SQL Server no necesita escuchar en la red.</b> La app corre en el
+            mismo equipo que la base, y el teléfono nunca habla con SQL Server.
+            Para eso existe la API.
+        </p>
+        <p>
+            <b>Laravel se sirve desde <code>public/</code></b>, no desde la raíz
+            del proyecto. Sin el Alias de Apache la dirección acabaría en
+            <code>/&lt;carpeta&gt;/public</code> y, peor, el código quedaría a la
+            vista.
+        </p>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">2</span>
+    <h2>Copiar el código</h2>
+    <p class="sumario">El nombre de la carpeta es el que va a salir en la dirección.</p>
+
+    <div class="consola">C:\xampp\htdocs\venta-softland</div>
+
+    <p>
+        Corto y sin espacios: <code>venta-softland</code>, <code>ventas</code>,
+        <code>vs</code>. No hace falta copiar <code>vendor/</code> — lo instala
+        el paso siguiente.
+    </p>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">3</span>
+    <h2>Correr el instalador</h2>
+    <p class="sumario">
+        Deja el servidor en condiciones de que <code>/setup</code> funcione, y
+        para ahí. No pide ninguna contraseña.
+    </p>
+
+    <div class="consola">cd C:\xampp\htdocs\venta-softland
+bin\instalar.cmd</div>
+
+    <p>Hace seis cosas, y todas se pueden repetir sin daño:</p>
+    <ol>
+        <li>Comprueba que PHP responde.</li>
+        <li>Instala las dependencias con Composer.</li>
+        <li>Crea el <code>.env</code> desde <code>.env.example</code> — <b>si ya existe, no lo toca</b>.</li>
+        <li>Genera la <code>APP_KEY</code> — <b>si ya está, no la regenera</b>.</li>
+        <li>Crea las carpetas de escritura.</li>
+        <li>Escribe el Alias de Apache en <code>conf\extra\&lt;carpeta&gt;.conf</code>.</li>
+    </ol>
+
+    <p>Si PHP está en otra ruta, se le pasa:</p>
+    <div class="consola">bin\instalar.cmd D:\xampp\php\php.exe</div>
+
+    <div class="nota cuidado">
+        <span class="cabeza">El paso que queda a mano, y es a propósito</span>
+        <p>
+            El script <b>no</b> edita <code>httpd.conf</code>: tocarlo a ciegas
+            puede dejar Apache sin arrancar, y entonces no hay página que
+            explique nada. Al terminar te dice la línea exacta. Añádela al final
+            de <code>C:\xampp\apache\conf\httpd.conf</code>:
+        </p>
+        <div class="consola">Include conf/extra/venta-softland.conf</div>
+        <p>Y <b>reinicia Apache</b> desde el panel de XAMPP.</p>
+    </div>
+
+    <div class="nota dato">
+        <span class="cabeza">Con la APP_KEY, cuidado</span>
+        <p>
+            Con esa clave se cifra la conexión a Softland en disco. Si se pierde
+            —porque alguien borró el <code>.env</code> y volvió a correr el
+            instalador—, hay que volver a configurar la conexión y a subir el
+            certificado.
+        </p>
+    </div>
+
+    <div class="hecho">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span><b>Queda hecho cuando</b> el navegador del servidor abre <code>http://localhost/venta-softland</code> y sale la página de instalación.</span>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">4</span>
+    <h2>Instalar desde <code>/setup</code></h2>
+    <p class="sumario">Siete campos, una sola vez, desde un navegador.</p>
+
+    <h3>Primero la página comprueba el servidor</h3>
+    <p>
+        Antes de dibujar el formulario mira PHP, las extensiones, la
+        <code>APP_KEY</code> y las carpetas. Si falta algo, <b>no hay
+        formulario</b>: sale la lista de lo que falta y cómo se arregla.
+        Rellenar siete campos para que «Instalar» conteste <code>could not find
+        driver</code> es hacerle perder el tiempo a quien está en el servidor de
+        un cliente sin nada que consultar.
+    </p>
+
+    <h3>Después, los siete campos</h3>
+    <div class="tabla-caja">
+        <table>
+            <thead><tr><th>Campo</th><th>Ejemplo</th><th>Ojo con</th></tr></thead>
+            <tbody>
+                <tr><td>Servidor SQL</td><td><code>localhost\MSSQLSERVER2022</code></td><td>Si la instancia es <b>nombrada</b>, va <code>host\INSTANCIA</code> y el puerto <b>se deja en blanco</b></td></tr>
+                <tr><td>Base de datos</td><td>el nombre de la empresa</td><td>Cada empresa de Softland es una base distinta</td></tr>
+                <tr><td>Puerto</td><td>vacío</td><td>Sólo si la instancia por defecto escucha en un puerto raro</td></tr>
+                <tr><td>Usuario SQL</td><td><code>sa</code> u otro</td><td>Tiene que poder crear esquema y tablas</td></tr>
+                <tr><td>Contraseña SQL</td><td>—</td><td>—</td></tr>
+                <tr><td>Usuario Softland</td><td><code>softland</code></td><td><b>Sólo <code>softland</code></b>; cualquier otro se rechaza</td></tr>
+                <tr><td>Contraseña Softland</td><td>—</td><td>Se valida contra <code>softland.wisusuarios</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Qué pasa al pulsar «Instalar»</h3>
+    <ol>
+        <li>Se prueba la conexión a SQL Server.</li>
+        <li>Se comprueba la contraseña del administrador de Softland.</li>
+        <li><b>Se mira si esa base tiene lo que la app usa</b>: 46 tablas, 731 columnas y el repartidor de folios.</li>
+        <li>Se guarda la conexión <b>cifrada</b> en <code>storage/app/private/softland.json</code>.</li>
+        <li>Se crea el esquema <code>ventas</code> y se corren las migraciones.</li>
+        <li>Se registra a <code>softland</code> como administrador y se siembran las 12 reglas de notificación.</li>
+    </ol>
+
+    <div class="nota cuidado">
+        <span class="cabeza">Si la comprobación de la base falla</span>
+        <p>
+            Depende de <b>qué</b> falte. Si lo que falta es entrar y leer la
+            empresa, o cotizar y vender, <b>no se instala</b>. Cualquier otra
+            cosa —el DTE, el seguimiento, un maestro del catálogo— <b>sí
+            instala</b>, y la página siguiente dice qué va a quedar fuera.
+        </p>
+        <p>
+            Una base sin las tablas del DTE sirve perfectamente para vender. Lo
+            honesto es decirlo, no negarse a instalar. El detalle completo:
+        </p>
+        <div class="consola">C:\xampp\php\php.exe artisan ventas:compatibilidad --todo</div>
+    </div>
+
+    <div class="hecho">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span><b>Queda hecho cuando</b> sale la página «Instalación completada» con el nombre de la base.</span>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">5</span>
+    <h2>Traer la app al servidor</h2>
+    <p class="sumario">
+        El instalable no viaja en el repositorio: viaja en la publicación. Un
+        servidor recién instalado no lo tiene.
+    </p>
+
+    <div class="consola">C:\xampp\php\php.exe artisan ventas:actualizar --apk</div>
+
+    <p>
+        Trae el APK <b>de esta misma versión</b> —no el último— y lo deja listo
+        en <code>/app</code>. Repartir un APK más nuevo que la API es
+        exactamente el desfase del que la app se pasa el día avisando.
+    </p>
+
+    <div class="nota dato">
+        <span class="cabeza">El código QR se puede imprimir</span>
+        <p>
+            La dirección de <code>/app</code> <b>no lleva la versión dentro</b>,
+            así que el cartel pegado en la pared sigue sirviendo cuando salga la
+            versión siguiente.
+        </p>
+        <p>
+            Y <code>/app</code> es público a propósito: el instalable no lleva
+            credenciales dentro, y exigir sesión haría imposible el caso que
+            esto resuelve — el vendedor nuevo que todavía no tiene cuenta.
+        </p>
+    </div>
+
+    <div class="hecho">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span><b>Queda hecho cuando</b> <code>/app</code> enseña el código QR con el número de versión debajo.</span>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">6</span>
+    <h2>El primer teléfono</h2>
+    <p class="sumario">Escanear, instalar, escribir la dirección, entrar.</p>
+
+    <ol>
+        <li>Escanea el QR e instala el APK. Android va a pedir permiso para instalar fuera de la tienda; es normal.</li>
+        <li>Al abrir, en <b>Servidor</b>, escribe la dirección de la instalación. La misma de <code>/setup</code>, <b>sin</b> <code>/setup</code> al final.</li>
+        <li>Entra con <code>softland</code> y su contraseña del ERP.</li>
+    </ol>
+
+    <div class="nota peligro">
+        <span class="cabeza">La trampa que mata la instalación</span>
+        <p>
+            Si el servidor se publica hacia fuera con un proxy inverso y el
+            puerto 80 responde con una redirección a <code>https</code>, <b>una
+            dirección guardada con <code>http://</code> deja la app muerta</b>
+            aunque el navegador del teléfono llegue perfectamente: una
+            redirección en la comprobación previa de CORS no se sigue.
+        </p>
+        <p>
+            La pantalla Servidor prueba los dos esquemas y guarda el que
+            contestó de verdad. Aun así: <b>escribe la dirección sin
+            <code>http://</code> delante</b> y deja que la app la resuelva.
+        </p>
+    </div>
+
+    <div class="hecho">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span><b>Queda hecho cuando</b> el panel carga con números que no son cero y la descarga de maestros avisa de que terminó.</span>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">7</span>
+    <h2>Dejar la empresa configurada</h2>
+    <p class="sumario">
+        Todo desde el teléfono, con el usuario admin. No hay panel web:
+        <code>/setup</code> y <code>/app</code> son las dos únicas páginas HTML
+        del proyecto, y existen porque ocurren antes de que la app exista.
+    </p>
+
+    <h3>Cuenta → Usuarios</h3>
+    <p>
+        Crea cada vendedor, <b>enlázalo con su código de vendedor de
+        Softland</b> y ponle su tope si van a usarlo. Sin código de vendedor sus
+        documentos no aparecen en las ventanas de búsqueda del ERP.
+    </p>
+
+    <h3>Cuenta → Identidad</h3>
+    <p>
+        Los datos de la empresa y el logo. Lo que quede vacío lo hereda de
+        <code>softland.soempre</code>.
+    </p>
+    <div class="nota dato">
+        <span class="cabeza">Dos campos que parecen uno</span>
+        <p>
+            <b>La oficina comercial y el domicilio tributario son distintos.</b>
+            El pie de la cotización lleva la primera —a donde va el cliente— y
+            la cabecera de la factura la segunda, que tiene que decir lo mismo
+            que el XML que recibió el SII.
+        </p>
+    </div>
+
+    <h3>Cuenta → Configuración → Correo saliente</h3>
+    <p>Ponlo y <b>manda la prueba</b> desde la misma pantalla.</p>
+
+    <h3>Cuenta → Configuración → Certificado digital</h3>
+    <p>
+        Sólo si van a facturar. Se sube el <code>.pfx</code> y se escribe su
+        clave. Se comprueba <b>abriendo el archivo antes de guardar nada</b>: si
+        la clave no es ésa, no se escribe y el que estuviera funcionando sigue
+        como está.
+    </p>
+    <p>
+        Ni el archivo ni la clave vuelven a salir del servidor. Lo que la
+        pantalla enseña —quién firma, RUT, vencimiento— se deduce del archivo,
+        no se teclea. Si la app todavía no se puede abrir:
+    </p>
+    <div class="consola">C:\xampp\php\php.exe artisan dte:certificado --archivo=C:\ruta\firma.pfx</div>
+    <p>
+        La clave se pregunta, no se pasa como argumento: así no queda en el
+        historial de la consola.
+    </p>
+
+    <h3>Cuenta → Configuración → Facturación</h3>
+    <div class="tabla-caja">
+        <table>
+            <thead><tr><th>Llave</th><th>Nace</th><th>Qué decide</th></tr></thead>
+            <tbody>
+                <tr><td>Envío automático al SII</td><td>encendida</td><td>Si al emitir se manda, o se deja para después</td></tr>
+                <tr><td>Receptor editable</td><td>apagada</td><td>Si se puede facturar a un RUT distinto del de la nota de venta</td></tr>
+                <tr><td>Referencias 801 / 802</td><td>las dos encendidas</td><td>Si el DTE nombra la orden de compra y la nota de venta</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Cuenta → Configuración → Orden de compra al proveedor</h3>
+    <p>
+        Si la usan: a quién se le pide y qué atributo de la nota de venta llena
+        cada hueco del papel. Los atributos los declara cada empresa en su base
+        — no hay ninguno garantizado, así que esto se elige mirando lo que la
+        base traiga.
+    </p>
+
+    <div class="hecho">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span><b>Queda hecho cuando</b> llegó el correo de prueba y, si van a facturar, el certificado sale «vigente» con su fecha de vencimiento.</span>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="paso">
+    <span class="numero">8</span>
+    <h2>Comprobar que quedó bien</h2>
+    <p class="sumario">
+        Todo esto se puede correr tantas veces como haga falta. Nada de esto
+        emite ni gasta un folio.
+    </p>
+
+    <h3>Desde el servidor</h3>
+    <div class="consola">C:\xampp\php\php.exe artisan ventas:probe
+<span class="dim">→ cotizaciones, notas de venta, clientes, productos,
+  vendedores y folios CAF disponibles</span>
+
+C:\xampp\php\php.exe artisan ventas:compatibilidad --todo
+<span class="dim">→ tabla por tabla y columna por columna</span>
+
+C:\xampp\php\php.exe artisan dte:token
+<span class="dim">→ conexión, certificado, firma y autorización ante el SII</span>
+
+C:\xampp\php\php.exe artisan ventas:actualizar --comprobar
+<span class="dim">→ que el servidor sabe dónde buscar las versiones nuevas</span></div>
+
+    <h3>Desde el teléfono</h3>
+    <ul class="lista-seca">
+        <li>El panel carga con números que no son cero.</li>
+        <li><b>Cuenta → Acerca de</b>: la versión del teléfono y la del servidor coinciden. Es la primera pregunta de cualquier soporte.</li>
+        <li>Tira hacia abajo en una lista: se refresca y avisa cuando acaba.</li>
+        <li>Crea una cotización de prueba y bórrala. El número vuelve al pozo.</li>
+    </ul>
+
+    <div class="nota bien">
+        <span class="cabeza">Con esto la instalación está entregable</span>
+        <p>
+            Lo que queda —el proxy, el catálogo de giros, la tarea programada
+            del DTE— es opcional y depende del cliente.
+        </p>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="bloque">
+    <h2>Opcionales, según el cliente</h2>
+
+    <h3>Publicar el servidor hacia fuera</h3>
+    <p>
+        Para que los vendedores trabajen fuera de la oficina hace falta publicar
+        la API con un proxy inverso. Tres cosas que se pagan caras si se
+        olvidan:
+    </p>
+    <ul class="lista-seca">
+        <li>El proxy suele <b>añadir la carpeta</b> al reenviar. El servidor no escribe direcciones absolutas por eso, pero abre <code>/setup</code> y <code>/app</code> por el nombre público antes de dar la publicación por buena.</li>
+        <li>El puerto 80 que redirige a <code>https</code> <b>rompe la app</b> si alguien guardó la dirección con <code>http://</code>.</li>
+        <li>El certificado del proxy tiene que ser válido. Android no perdona uno autofirmado.</li>
+    </ul>
+
+    <h3>El catálogo de giros del SII</h3>
+    <p>
+        Si van a dar de alta clientes con el RUT. Enseña lo que haría y no
+        escribe hasta que se lo pidan:
+    </p>
+    <div class="consola">C:\xampp\php\php.exe artisan ventas:carga-giros
+C:\xampp\php\php.exe artisan ventas:carga-giros --escribir</div>
+    <p>
+        <b>No toca una fila que ya exista</b>: un giro en uso lleva el texto que
+        sus clientes reconocen y que sale impreso en el <code>GiroRecep</code> de
+        sus DTE.
+    </p>
+
+    <h3>El alta de clientes desde el SII</h3>
+    <p>
+        Necesita una llave de la API del padrón, en el <code>.env</code> del
+        servidor. Sin ella <b>el botón no se dibuja</b>: ofrecerlo y que falle es
+        peor que no ofrecerlo. El formulario se llena a mano igual.
+    </p>
+
+    <h3>El repaso de lo enviado al SII</h3>
+    <p>
+        <code>dte:pendientes</code> consulta el veredicto del SII de lo emitido y
+        reintenta lo que no salió. Déjalo en una tarea programada de Windows,
+        cada 15 o 30 minutos.
+    </p>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="bloque">
+    <h2>Actualizar, de aquí en adelante</h2>
+    <p class="sumario">
+        Desde la app, con rol admin: <b>Cuenta → Configuración → Versión del
+        servidor</b>. Dice qué hay puesto, si hay algo nuevo y qué trae.
+    </p>
+
+    <p>Desde el servidor, que es el camino para el día en que la app no abra:</p>
+    <div class="consola">C:\xampp\php\php.exe artisan ventas:actualizar --comprobar
+C:\xampp\php\php.exe artisan ventas:actualizar
+C:\xampp\php\php.exe artisan ventas:actualizar --a=0.46.0   <span class="dim">(volver atrás)</span></div>
+
+    <ul class="lista-seca">
+        <li><b>No toca <code>.env</code> ni <code>storage/</code>.</b> Ahí viven la conexión cifrada, el certificado, los PDF y los APK repartidos.</li>
+        <li><b>Nunca se actualiza solo.</b> Siempre lo manda una persona.</li>
+        <li>Se puede <b>volver atrás</b> a una versión anterior, que sigue publicada.</li>
+        <li>Si tarda más que el plazo del teléfono, el servidor sigue trabajando: la pantalla vuelve a preguntar hasta que diga en qué quedó.</li>
+    </ul>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="bloque">
+    <h2>Si algo falla</h2>
+
+    <div class="tabla-caja">
+        <table>
+            <thead><tr><th>Lo que se ve</th><th>Lo que pasa</th><th>Qué hacer</th></tr></thead>
+            <tbody>
+                <tr><td><code>/setup</code> sale sin formulario</td><td>Al servidor le falta algo</td><td>Está en la lista de la propia página, con el arreglo</td></tr>
+                <tr><td><code>could not find driver</code></td><td>Falta <code>pdo_sqlsrv</code></td><td>Copiar el driver de Microsoft para esa versión de PHP y añadir <code>extension=pdo_sqlsrv</code> a <code>php.ini</code></td></tr>
+                <tr><td><code>Unsupported cipher</code></td><td>Falta la <code>APP_KEY</code></td><td><code>php artisan key:generate</code></td></tr>
+                <tr><td>«No se pudo conectar a SQL Server»</td><td>Instancia, credenciales o TCP</td><td>Probar la misma cadena con el Management Studio en el mismo equipo</td></tr>
+                <tr><td>«Solo el usuario administrador <code>softland</code>…»</td><td>Se escribió otro usuario</td><td>Es a propósito: sólo <code>softland</code> instala</td></tr>
+                <tr><td>La dirección abre en el navegador pero la app no entra</td><td>Se guardó con <code>http://</code> y el 80 redirige</td><td>Volver a Servidor y escribirla sin esquema</td></tr>
+                <tr><td><code>/app</code> dice que no hay instalable</td><td>Instalación recién hecha</td><td><code>php artisan ventas:actualizar --apk</code></td></tr>
+                <tr><td>Android guarda el APK en vez de ofrecer instalar</td><td>Se bajó por una ruta que no es <code>/app/apk</code></td><td>Usar el QR o el botón de la página</td></tr>
+                <tr><td>Cuenta avisa de versiones distintas</td><td>El APK y la API no van a la par</td><td>Actualizar el servidor, o repartir el APK que toca</td></tr>
+                <tr><td>No llega ningún correo</td><td>SMTP sin configurar</td><td>Configuración → Correo saliente, y mandar la prueba</td></tr>
+                <tr><td>«No hay certificado digital…»</td><td>No se ha subido</td><td>Configuración → Certificado digital</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="nota dato">
+        <span class="cabeza">Si la conexión guardada deja de servir</span>
+        <p>
+            Cambió la instancia, se renombró la base, se rotó la contraseña de
+            SQL: <b><code>/setup</code> se reabre solo</b>. Es la única salida —
+            para entrar en la app hace falta el token, y el token está en
+            <code>ventas.api_token</code>, justo al otro lado de la conexión
+            rota.
+        </p>
+    </div>
+</section>
+
+<hr>
+
+<!-- ===================================================================== -->
+
+<section class="bloque">
+    <h2>Lo que la app no hace</h2>
+    <p class="sumario">Conviene decirlo el día uno, no el día que alguien lo busca.</p>
+
+    <ul class="lista-seca">
+        <li><b>No centraliza.</b> Contabilidad, registro de ventas y cuenta corriente del cliente son un procedimiento aparte que se corre desde Softland. La app llega hasta inventario y facturación, con el DTE emitido, y para ahí.</li>
+        <li><b>No emite boleta.</b> Está preparada y probada, pero bloqueada: necesita folios CAF de boleta del RUT de la empresa, y la boleta viaja por una integración distinta de la factura.</li>
+        <li><b>No emite Liquidación-Factura (DTE 43).</b> Softland trae el ciclo del mandante como documento propio, con sus formularios y sus cuentas.</li>
+        <li><b>No hace notas de crédito parciales.</b> Sólo anulación completa; corregir texto o montos es otro documento y se hace desde el ERP.</li>
+        <li><b>No tiene metas de venta heredadas</b>, porque Softland no las tiene en ninguna tabla. La meta es un dato de la app, y sin meta cargada el widget no aparece.</li>
+    </ul>
+</section>
+
+<!-- ===================================================================== -->
+
+<div class="cierre">
+    <h2>Todo, en una pantalla</h2>
+    <div class="consola">1.  Copiar el código a C:\xampp\htdocs\&lt;carpeta&gt;
+2.  bin\instalar.cmd
+3.  Añadir el Include a httpd.conf  +  reiniciar Apache
+4.  Abrir /setup y rellenar los siete campos
+5.  artisan ventas:actualizar --apk
+6.  Escanear el QR de /app, instalar, escribir la dirección, entrar
+7.  Cuenta → Usuarios · Identidad · Configuración
+8.  ventas:probe · ventas:compatibilidad --todo · dte:token</div>
+    <p style="margin-top:18px;">
+        Nada de esto pide editar un archivo en el servidor, y ninguna contraseña
+        se escribe en disco a mano.
+    </p>
+</div>
+
+<p class="pie">
+    Venta Softland 0.47.1 · El detalle técnico vive en <code>docs/</code> del
+    repositorio: <code>instalacion.md</code>, <code>dte.md</code>,
+    <code>flujo-ventas-softland.md</code>.
+</p>
+
+</div>

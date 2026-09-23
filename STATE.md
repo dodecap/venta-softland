@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-22 — versión **0.47.0**
+2026-09-23 — versión **0.47.1**
 
 ## Resumen del estado actual
 **Versión 0.7.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -207,6 +207,29 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.47.1 — El servidor se trae su propio instalable (2026-09-23)
+
+Escribiendo el manual de puesta en marcha apareció un hueco que no se ve desde
+aquí: **una instalación recién hecha no tiene APK**. El servidor acaba de
+instalarse, así que está en la última versión y no tiene nada que actualizar;
+pero `/app` está vacío, porque el instalable no viaja en el repositorio sino en
+la publicación. Y lo que decía la página era «se sube desde el equipo de
+desarrollo con `bin/publicar-apk.sh`» — una máquina que quien instala en casa
+de un cliente no tiene.
+
+`ventas:actualizar --apk` trae el APK **de la versión que está puesta**, no el
+último: repartir un APK más nuevo que la API es el desfase del que Cuenta se
+pasa el día avisando. La página de «Instalación completada» lo pide antes del
+código QR.
+
+De paso, dos rutas mal nombradas en esa misma página: **Identidad y Usuarios
+cuelgan de Cuenta**, no de Configuración.
+
+Y **`docs/instalacion.md`**, el manual de principio a fin: qué pedirle al
+cliente antes de ir, los ocho pasos, las comprobaciones que no gastan folio,
+una tabla de síntoma → causa → arreglo, y lo que la app no hace, que conviene
+decir el día uno.
 
 ### 0.47.0 — Actualizarse desde GitHub Releases (2026-09-22)
 
