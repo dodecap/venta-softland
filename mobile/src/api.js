@@ -180,6 +180,16 @@ export const api = {
     },
 
     // ---- Clientes: lo único de Softland que la app escribe en esta fase ----
+    /*
+     * Enseñarle a un producto el código de barras que se acaba de leer.
+     *
+     * Escribe en `iw_tprod.CodBarra`, que es del ERP: el servidor sólo lo deja
+     * si está vacío y si no lo tiene ya otro producto. Cuando no puede
+     * contesta **409** con el motivo escrito para enseñarlo tal cual.
+     */
+    aprenderCodigoBarras: (producto, barra) =>
+        pedir('/productos/codigo-barras', { method: 'PUT', body: { producto, barra } }),
+
     cliente: (codigo) => pedir(`/clientes/${encodeURIComponent(codigo)}`),
     // La ficha que el SII publica de una empresa, ya traducida a códigos de
     // Softland. Es una **propuesta** para llenar el formulario, no un alta: da

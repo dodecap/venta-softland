@@ -278,6 +278,30 @@ class VentasHuella extends Command
             $this->line('   <fg=yellow>No se pudo contar en softland.cwtgiro.</>');
         }
 
+        /*
+         * Los códigos de barras que la app le enseñó al maestro de productos.
+         *
+         * Es la única columna que la app escribe de `iw_tprod`, y no hay forma
+         * de deducirla mirando la tabla: `CodBarra` no guarda autor. La cuenta
+         * sale de la bitácora de la app, que existe justamente para poder
+         * contestar esto.
+         */
+        try {
+            $n = $conn->table('ventas.codigo_barras_app')->count();
+
+            $this->line(sprintf(
+                '   %-16s %6d  (softland.iw_tprod.CodBarra, según ventas.codigo_barras_app)',
+                'códigos barra',
+                $n
+            ));
+
+            if ($n > 0) {
+                $this->line('   Se escribieron sobre productos que no tenían ninguno; ninguno se pisó.');
+            }
+        } catch (Throwable) {
+            $this->line('   <fg=yellow>No se pudo leer ventas.codigo_barras_app.</>');
+        }
+
         $this->newLine();
     }
 

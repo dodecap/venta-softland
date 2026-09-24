@@ -2445,3 +2445,255 @@ label .etiqueta { margin-left: 6px; vertical-align: 1px; }
 }
 
 .eleccion-fila.activa b { color: var(--indigo); }
+
+/* ---------- Carga rápida de productos ----------
+   La hoja que hace el bucle: buscar o escanear, cantidad, y seguir. Ver
+   `components/CargaProductos.vue`.
+
+   Va teletransportada fuera de `#app` porque su mitad de la cámara lo exige: el
+   plugin dibuja el vídeo POR DETRÁS del navegador, así que para verlo hay que
+   volver transparente la página entera, y lo único que puede quedar visible es
+   lo que no está dentro de ella. */
+
+.carga-productos {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    display: flex;
+    align-items: flex-end;
+    z-index: 40;
+}
+
+/* Alta a propósito: el bucle vive aquí dentro y cuantos más resultados quepan,
+   menos veces hay que desplazar entre producto y producto. */
+.carga-hoja {
+    max-height: 100%;
+    height: 88%;
+}
+
+.carga-hoja .hoja-cuerpo { flex: 1; }
+
+/* «Terminar» no es la X de cerrar: es el final del bucle y se toca mucho, así
+   que va con palabra y no con icono. Con sus 44 px, como todo lo pulsable. */
+.boton-terminar {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, .5);
+    border-radius: 99px;
+    background: none;
+    color: var(--blanco);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.boton-terminar:active { background: rgba(255, 255, 255, .16); }
+
+.carga-elegido {
+    background: var(--indigo-suave);
+    border-radius: var(--radio);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+.carga-elegido .item-titulo { font-size: calc(16px * var(--d)); }
+
+/* Lo que ya lleva el documento de ese producto, al borde de su fila. Es la
+   señal de que agregarlo otra vez va a sumar y no a duplicar. */
+.carga-lleva {
+    flex: 0 0 auto;
+    align-self: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 7px;
+    border-radius: 99px;
+    background: var(--indigo);
+    color: var(--blanco);
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.carga-pie {
+    flex: 0 0 auto;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--indigo-suave);
+    border-top: 1px solid var(--borde);
+    color: var(--indigo);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* ---------- La mitad de la cámara ---------- */
+
+/* El vídeo va detrás de todo. Sin esto se ve la página opaca y encima nada. */
+body.escaneando { background: transparent !important; }
+body.escaneando #app { visibility: hidden; }
+body.escaneando .carga-productos.sobre-camara { visibility: visible; }
+
+/* Escaneando no hay velo: el velo taparía justo lo que hay que mirar. Pidiendo
+   la cantidad sí, porque la cámara sigue encendida detrás —volver tiene que
+   ser instantáneo— y el vídeo en movimiento bajo un formulario no deja leer. */
+.carga-productos.en-camara {
+    background: none;
+    align-items: stretch;
+}
+
+.escaner {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    color: var(--blanco);
+}
+
+.escaner-arriba {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 10px;
+    background: rgba(0, 0, 0, .55);
+}
+
+/* Lo que se lleva agregado, y de paso el hueco que empuja «Terminar» al borde.
+   Se dibuja siempre, aunque esté en cero: si apareciera al agregar el primero,
+   los tres botones de arriba cambiarían de sitio en mitad del escaneo. */
+.escaner-cuenta {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Sobre el vídeo el color de familia no se lee: lo único que importa es
+   contrastar con lo que haya detrás, que es cualquier cosa. */
+.icono-camara {
+    flex: 0 0 auto;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, .18);
+    color: var(--blanco);
+    cursor: pointer;
+}
+.icono-camara:active { background: rgba(255, 255, 255, .34); }
+
+/* La mira. No recorta nada —el lector mira el fotograma entero— pero dice
+   dónde poner el código, que es la mitad de lo rápido que se lee. */
+.escaner-mira {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.escaner-mira span {
+    width: 78%;
+    max-width: 320px;
+    aspect-ratio: 5 / 3;
+    border: 3px solid var(--cian);
+    border-radius: 14px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, .28);
+}
+
+.escaner-abajo {
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: rgba(0, 0, 0, .55);
+    font-size: 14px;
+    text-align: center;
+}
+.escaner-abajo p { margin: 0; }
+
+/* Un código que ningún producto tiene se enseña; no se traga en silencio. */
+.escaner-desconocido {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+}
+.escaner-desconocido > div { flex: 1; display: flex; flex-direction: column; }
+.escaner-desconocido b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.escaner-desconocido span { font-size: 13px; color: rgba(255, 255, 255, .78); }
+.escaner-salidas { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; }
+.escaner-desconocido button {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 99px;
+    background: var(--cian);
+    color: #04202c;
+    font-size: 14px;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.escaner-desconocido button.secundario {
+    background: rgba(255, 255, 255, .18);
+    color: var(--blanco);
+    font-weight: 700;
+}
+
+/* ---------- La barra de agregar productos ----------
+   Pegada al fondo del formulario mientras se llena el detalle. No es el botón
+   flotante: ése es de las pestañas y el editor es una pantalla de adentro. Sale
+   cuando el encabezado ya tiene lo imprescindible, que es cuando agregar
+   productos empieza a tener sentido. */
+
+.barra-cargar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--blanco);
+    border-top: 1px solid var(--borde);
+    box-shadow: 0 -2px 12px rgba(16, 12, 48, .10);
+}
+
+.barra-cargar .resumen {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+.barra-cargar .resumen b { font-size: calc(15px * var(--d)); font-variant-numeric: tabular-nums; }
+.barra-cargar .resumen span { font-size: 12px; color: var(--texto-suave); }
+
+/* Dos iconos chicos, no dos botones con texto: la fila tiene que dejarle sitio
+   al total, que es lo que se mira al ir agregando. */
+.barra-cargar .accion {
+    flex: 0 0 auto;
+    min-width: 46px;
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    background: var(--ic-catalogo-bg);
+    color: var(--ic-catalogo-fg);
+    cursor: pointer;
+}
+.barra-cargar .accion:active { background: #cfeaf7; }
+.barra-cargar .accion.principal {
+    border-color: var(--indigo);
+    background: var(--indigo);
+    color: var(--blanco);
+}
+.barra-cargar .accion.principal:active { background: var(--indigo-claro); }
+
+/* Que la barra no tape el botón de guardar ni la última línea. */
+.contenido.con-barra-cargar {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 86px);
+}

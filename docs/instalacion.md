@@ -506,8 +506,8 @@ C:\xampp\php\php.exe artisan ventas:huella
 ### La estructura del ERP no se toca
 
 Ni una tabla de Softland modificada. Ni una columna añadida, ni un trigger, ni
-un índice, ni una clave foránea. Las diez migraciones del proyecto crean
-objetos **sólo** en el esquema `ventas`; ninguna hace `ALTER` sobre `softland`.
+un índice, ni una clave foránea. Las migraciones del proyecto crean objetos
+**sólo** en el esquema `ventas`; ninguna hace `ALTER` sobre `softland`.
 
 Eso incluye la única vista del proyecto: `ventas.nv_atributo_valor` **lee**
 `softland.nw_nventa` y sus tres tablas de atributos, pero vive en `ventas`. El
@@ -518,7 +518,7 @@ propósito: `ventas.giro_sii` apunta a `softland.cwtgiro` por el código, sin
 restricción declarada. La consecuencia es la que importa — quitar la app es
 borrar el esquema `ventas`, y eso no puede arrastrar nada del ERP.
 
-### Lo que sí se crea: un esquema propio, 13 tablas y una vista
+### Lo que sí se crea: un esquema propio, 14 tablas y una vista
 
 | Objeto | Cols | Qué guarda |
 |---|---|---|
@@ -534,6 +534,7 @@ borrar el esquema `ventas`, y eso no puede arrastrar nada del ERP.
 | `ventas.cotizacion_avance` | 7 | El avance comercial, que en Softland no existe |
 | `ventas.giro_sii` | 5 | ACTECO del SII → giro histórico de Softland |
 | `ventas.sii_auxiliar` | 6 | Caché de las consultas al padrón del SII |
+| `ventas.codigo_barras_app` | 5 | Qué códigos de barras aprendió la app, y de quién |
 | `ventas.migrations` | 3 | Control de versiones del propio esquema |
 | `ventas.nv_atributo_valor` | 7 | **Vista.** Los atributos de la nota de venta, unificados |
 
@@ -553,6 +554,7 @@ del cliente, y conviene decirlo con el mismo detalle:
 | `iw_gsaen` · `iw_gmovi` · `dte_*` | Al emitir una factura o nota de crédito | `Proceso = 'Venta Softland'` |
 | `cwtauxi` | Al dar de alta un cliente | Por RUT |
 | `cwtgiro` | Sólo si se corre `ventas:carga-giros --escribir` | Ver abajo |
+| `iw_tprod.CodBarra` | Al enseñarle un código de barras leído con la cámara | `ventas.codigo_barras_app` |
 
 Son documentos y maestros de la empresa, escritos como los escribe el Softland
 de escritorio: indistinguibles, y se anulan o se borran desde el ERP como
@@ -562,6 +564,17 @@ La cotización y la nota de venta **no estampan** la columna `Proceso`, así que
 filtrar por `Proceso = 'Venta Softland'` sólo sirve para el documento de venta.
 Quién creó qué lo dice `ventas.documento_app`, que es el mapa de idempotencia y
 la cuenta buena.
+
+`iw_tprod` es el único maestro del que la app **modifica una fila existente**, y
+sólo una columna: `CodBarra`, cuando alguien lee con la cámara un código que
+todavía no estaba y dice de qué producto es. Cinco reglas lo acotan: sólo si esa
+columna está **vacía** —lo que ya tiene código se escanea hoy desde el
+escritorio y no se pisa—, sólo si **no lo tiene otro producto** —la columna no
+lleva índice único, así que la base aceptaría el duplicado sin avisar—, un
+máximo de **20 caracteres**, **ninguna otra columna** (ni `Proceso`, ni
+`Usuario`, ni `FechaUlMod`), y **quién y cuándo anotados en `ventas`**, porque
+`iw_tprod` no guarda autor. Se puede vivir sin esto: el maestro se llena igual
+desde Softland, y basta con no usar el escáner.
 
 ### El caso aparte: el catálogo de giros
 

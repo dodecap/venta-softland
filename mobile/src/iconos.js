@@ -23,6 +23,7 @@ import {
     Hourglass, LayoutDashboard,
     LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
     LifeBuoy, Percent, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
+    ScanBarcode, ScanLine, Zap, ZapOff, SwitchCamera,
     Share2, Smartphone, Minus, Trash2, TrendingDown, TrendingUp, TriangleAlert, Type,
     Timer, UserCog, UserPlus, Users, UsersRound, WifiOff, X,
 } from 'lucide-vue-next';
@@ -56,6 +57,10 @@ export const ICONOS = {
     cliente: { glifo: Users, variante: 'catalogo' },
     nuevoCliente: { glifo: UserPlus, variante: 'catalogo' },
     producto: { glifo: Package, variante: 'catalogo' },
+    // El código de barras del producto. Va con el cian del catálogo porque es
+    // otra forma de nombrar lo mismo que nombra `producto`: no es una acción
+    // del flujo de venta, es una manera de encontrar una ficha.
+    codigoBarras: { glifo: ScanBarcode, variante: 'catalogo' },
     inventario: { glifo: Boxes, variante: 'catalogo' },
     ruta: { glifo: Route, variante: 'catalogo' },
 
@@ -134,6 +139,13 @@ export const ICONOS = {
     borrar: { glifo: Trash2, variante: 'peligro' },
     anular: { glifo: Ban, variante: 'peligro' },
     sinResultados: { glifo: SearchX, variante: 'neutro' },
+    // Los tres controles de la cámara mientras escanea. Sin variante: van
+    // sobre el vídeo, donde el color de familia no se lee y lo único que
+    // importa es que contrasten con lo que haya detrás.
+    escanear: { glifo: ScanLine },
+    linterna: { glifo: Zap },
+    linternaApagada: { glifo: ZapOff },
+    cambiarCamara: { glifo: SwitchCamera },
 
     // ---- Estados ----
     ok: { glifo: CircleCheck, variante: 'dinero' },

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\CotizacionController;
 use App\Http\Controllers\Api\FacturaController;
 use App\Http\Controllers\Api\IdentidadController;
 use App\Http\Controllers\Api\NotaVentaController;
+use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +66,20 @@ Route::middleware('auth.api')->group(function () {
     // INNOVAGES van los dos, y el orden cambia según el documento.
     Route::get('/identidad/logo/{cual}', [IdentidadController::class, 'logo'])
         ->where('cual', 'logo|secundario');
+
+    /*
+     * El código de barras de un producto, aprendido al escanearlo.
+     *
+     * Es lo tercero que la app escribe en Softland, después de los clientes y
+     * del flujo de venta, y la única columna que toca de `iw_tprod`. No cuelga
+     * de /admin a propósito: quien está delante de la caja con el teléfono es
+     * el vendedor, y hacerlo pasar por un administrador es no hacerlo. Lo que
+     * lo hace seguro son las cinco reglas de `CodigoBarras`, no el rol.
+     */
+    // El producto va en el cuerpo y no en la dirección: `iw_tprod.CodProd` es
+    // texto libre de 20 caracteres y en Softland los hay con barra dentro, que
+    // en una ruta serían otro segmento.
+    Route::put('/productos/codigo-barras', [ProductoController::class, 'codigoBarras']);
 
     Route::get('/cotizaciones/{numero}', [CotizacionController::class, 'show'])->whereNumber('numero');
     Route::post('/cotizaciones', [CotizacionController::class, 'store']);

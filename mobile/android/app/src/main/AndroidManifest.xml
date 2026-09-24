@@ -40,4 +40,12 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Leer el código de barras del producto al cargar un documento.
+         Se pide al abrir el escáner por primera vez, no al instalar. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- `required=false`: un teléfono sin cámara puede instalar la app igual y
+         cargar los productos con la lupa, que es lo que hace el 90 % del
+         tiempo. Exigirla dejaría fuera de Play a tabletas que sí sirven. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

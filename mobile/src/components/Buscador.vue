@@ -36,6 +36,21 @@ const emit = defineEmits(['update:modelValue']);
 const texto = ref(props.modelValue);
 let reloj = null;
 
+/*
+ * El bucle de carga rápida vuelve aquí después de cada producto: agregar y
+ * seguir tiene que devolver el cursor al campo vacío sin bajar el teclado.
+ * Android sólo abre el teclado si el `focus()` cuelga del toque que lo pidió,
+ * así que quien llama a esto lo hace dentro del mismo manejador, sin `await`
+ * por delante.
+ */
+const campo = ref(null);
+
+function enfocar() {
+    campo.value?.focus();
+}
+
+defineExpose({ enfocar });
+
 watch(() => props.modelValue, (v) => { if (v !== texto.value) texto.value = v; });
 
 watch(texto, (v) => {
@@ -53,7 +68,7 @@ function limpiar() {
 <template>
     <div class="campo-buscar">
         <AppIcon name="buscar" :size="18" />
-        <input :value="texto" @input="texto = $event.target.value"
+        <input ref="campo" :value="texto" @input="texto = $event.target.value"
                type="text" inputmode="search" enterkeyhint="search" :placeholder="placeholder"
                autocapitalize="off" autocomplete="off" spellcheck="false">
         <!-- La X aparece solo cuando hay algo que borrar: un botón que no hace

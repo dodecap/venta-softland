@@ -18,6 +18,30 @@ android {
         versionCode appVersionCode
         versionName appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        /*
+         * Sólo las dos arquitecturas de los teléfonos de verdad.
+         *
+         * El lector de códigos de barras trae su decodificador nativo
+         * (`libbarhopper_v3.so`) compilado para cuatro: `arm64-v8a`,
+         * `armeabi-v7a`, `x86` y `x86_64`. Las dos últimas son de emulador —no
+         * hay teléfonos x86 desde los Zenfone de 2015— y son las que más pesan:
+         * con ellas dentro el instalable pasaba de 5,2 MB a 16,4, y aquí el APK
+         * se reparte por la red desde `/app`, sobre el WiFi de la oficina o los
+         * datos del vendedor.
+         *
+         * Se declara aquí y para todo el APK, no sólo para el escáner: es la
+         * lista de máquinas en las que esta app corre, y hasta ahora no había
+         * ninguna biblioteca nativa que la hiciera falta escribir.
+         *
+         * Lo que esto rompe, y hay que saberlo: **no corre en el emulador de
+         * Android Studio en un PC**, que es x86_64. Para probar en el emulador
+         * hay que quitar esta lista o crear un AVD de arm64.
+         */
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+        }
+
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -48,6 +72,23 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+
+    /*
+     * El escáner de códigos de barras trae dos caminos y esta app sólo usa uno.
+     *
+     * `com.google.mlkit:barcode-scanning` empotra el modelo en el APK, así que
+     * se lee sin señal — que es todo el motivo de tenerlo: un vendedor en una
+     * bodega sin cobertura. `play-services-code-scanner` es el otro: la pantalla
+     * que pone Google, con el modelo **descargado** de Play la primera vez.
+     * Nunca se llama a `scanGoogleCode()`, así que sobra, y sobra caro: con él
+     * y sus dependencias el instalable pasaba de 5,2 MB a 16,4.
+     *
+     * Se excluye aquí y no en el plugin porque el plugin es de `node_modules`:
+     * lo que se edite ahí se pierde en el siguiente `npm install`.
+     */
+    configurations.all {
+        exclude group: 'com.google.android.gms', module: 'play-services-code-scanner'
+    }
 }
 
 apply from: 'capacitor.build.gradle'

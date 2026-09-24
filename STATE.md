@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-24 — versión **0.47.2**
+2026-09-24 — versión **0.48.0**
 
 ## Resumen del estado actual
-**Versión 0.47.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.48.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -207,6 +207,94 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.48.0 — Cargar productos de corrido: la lupa y la cámara (2026-09-24)
+
+Lo que se pidió era leer el código de barras con la cámara. Lo que se midió
+antes de escribir nada fue por qué eso solo no alcanzaba:
+
+- **En INNOVAGES hay código de barras en 133 de 1.195 productos vendibles**, y
+  varios de esos son basura heredada. Un escáner que sólo lea lo que ya está
+  escrito no sirve el primer día.
+- Y agregar un producto a mano eran **siete gestos**: abrir la hoja, buscar,
+  tocarlo, la hoja se cerraba, bajar hasta la línea recién creada, tocar la
+  cantidad, teclear — y volver a abrir la hoja para el siguiente. Con eso, un
+  documento de quince líneas se hace en la oficina y no en terreno, con o sin
+  cámara.
+
+Así que son tres cosas y el orden importa: primero el bucle, después la cámara,
+y por último aprender los códigos que faltan — que es lo que hace útil a la
+cámara en esta base.
+
+**El bucle** vive en `CargaProductos.vue`, y buscar con la lupa y leer un código
+son la misma pantalla con la primera mitad cambiada: lo de después —la cantidad,
+«Agregar y seguir», la cuenta de lo que se lleva— está escrito una sola vez.
+Se agrega y se vuelve al campo de búsqueda vacío y enfocado **sin que el teclado
+baje**; para eso el `focus()` tiene que ir dentro del mismo manejador del toque y
+sin un `await` por delante, porque Android sólo abre el teclado si el foco cuelga
+del gesto que lo pidió. La cantidad entra con el `1` puesto **y seleccionado**,
+así teclear `40` reemplaza y no deja `140`. «Terminar» está siempre a la vista.
+
+**La cámara** va con `@capacitor-mlkit/barcode-scanning` y el modelo **dentro
+del APK** (`com.google.mlkit:barcode-scanning`, nunca `scanGoogleCode()`): el
+caso que esto resuelve es una bodega sin cobertura, y un escáner que la primera
+vez dice «descargando» es un escáner que no está. Tres cosas que costaron:
+
+- El vídeo se dibuja **por detrás** del navegador, así que la página entera se
+  vuelve transparente y la capa del escáner va **teletransportada fuera de
+  `#app`** — es lo único que puede quedar visible.
+- Un código bajo la cámara se lee **treinta veces por segundo**. Sin la guardia
+  de rebote, apuntar medio segundo a una caja agregaba quince líneas.
+- Al pedir la cantidad **la cámara sigue encendida** —volver tiene que ser
+  instantáneo— así que la capa sigue siendo la única visible y lo que cambia es
+  sólo el velo. Hay dos clases y no una: `sobre-camara` es «la cámara está
+  puesta» y `en-camara` es «se está escaneando».
+
+**Aprender los códigos** escribe en `softland.iw_tprod.CodBarra`, que es la
+tercera cosa que esta app escribe en Softland después de los clientes y del
+flujo de venta. Se descartó una tabla propia en `ventas`: un código que sólo
+conoce esta app es un código que el Softland de escritorio no encuentra, y
+serían dos verdades sobre lo mismo. Las cinco reglas están en
+`CodigoBarras.php`, no en el controlador, porque una pantalla nueva que no
+supiera de ellas pisaría un código que ya se escanea en el ERP:
+
+| Regla | Por qué |
+|---|---|
+| Sólo si está **vacío** | Lo que ya tiene código lo escanea hoy el escritorio |
+| Sólo si **no lo tiene otro** | `CodBarra` no lleva índice único: la base acepta el duplicado |
+| **20 caracteres** | Es lo que mide la columna; un QR largo se dice, no se recorta |
+| **Sólo esa columna** | Ni `Proceso`, ni `Usuario`, ni `FechaUlMod` |
+| Quién y cuándo, en `ventas` | `iw_tprod` no guarda autor: `ventas.codigo_barras_app` |
+
+Comprobado que los disparadores no se enteran: `IW_TProd_UTRIG` sólo escribe en
+`LogIW_TProd` cuando `Proceso` vale «Correccion Monetaria», y los dieciocho que
+propagan cambios van todos con `IF UPDATE(CodProd)`. Y **probado contra
+INNOVAGES dentro de una transacción que se deshizo**: las cinco reglas
+contestaron lo que tenían que contestar —incluido el reenvío del mismo código,
+que dice que sí y no que ya estaba— y al terminar la columna y la bitácora
+volvieron a estar como antes.
+
+Dos cosas más que salieron por el camino:
+
+- **`iwparam.CantDecimales` no lo miraba nadie**: `Cantidad.vue` redondeaba a
+  tres fijos. Ahora viaja en el arranque y decide el redondeo y **el teclado que
+  abre Android** — con cero decimales, sin coma. En INNOVAGES son 2.
+- **Dos veces el mismo producto se suman.** Antes se agregaba una segunda línea
+  idéntica; escanear dos cajas iguales es lo normal, y el documento que sale con
+  la línea repetida hay que arreglarlo a mano antes de mandarlo. Se suma sobre
+  la línea que ya está, sin tocarle el precio negociado.
+
+Lo que esto cuesta: **el APK pasa de 5,2 MB a 11,2 MB**. Lo que pesa es el
+decodificador nativo del lector (`libbarhopper_v3.so`), que viene para cuatro
+arquitecturas; se dejaron las dos de los teléfonos de verdad —`arm64-v8a` y
+`armeabi-v7a`— y con las de emulador dentro eran 16,4 MB. **Consecuencia: ya no
+corre en el emulador x86 de Android Studio**; para probar ahí hay que quitar el
+`abiFilters` o crear un AVD de arm64.
+
+La barra de agregar productos va **pegada al fondo del formulario y no
+flotante**: el botón flotante es de las pestañas y el editor es una pantalla de
+adentro. Sale cuando el encabezado ya dice para quién es el documento, que es
+cuando cargar productos empieza a tener sentido.
 
 ### 0.47.2 — La huella en la base se puede enseñar (2026-09-23)
 
@@ -670,6 +758,21 @@ sin eso el arreglo no llegaba a un servidor instalado desde el tar.
       release ya había quedado creada; se comprobó que no quedara ningún
       borrador suelto y que los tres adjuntos coincidieran byte a byte con los
       locales. Si vuelve a pasar, mirar antes `gh release list` que repetir.
+- [ ] **Probar el escáner de códigos de barras en un teléfono de verdad.** Es lo
+      único de la 0.48.0 que no se puede comprobar desde aquí: el modelo va en el
+      APK y el vídeo se dibuja por detrás del navegador, así que ni el navegador
+      de desarrollo ni el emulador x86 sirven —y el emulador x86 ya no puede ni
+      instalar el APK, porque su arquitectura se dejó fuera para no cargar 5 MB
+      de más—. Qué mirar: que la página se vuelva transparente y se vea la
+      cámara; que al leer una caja suene el golpecito **una vez** y no quince;
+      que al volver de la cantidad se siga escaneando sin esperar; que la
+      linterna aparezca sólo si el aparato la tiene; y que «atrás» de Android
+      cierre el escáner y devuelva la app opaca.
+- [ ] **Aprender un código de barras de verdad, en INNOVAGES.** Las cinco reglas
+      están probadas contra la base en una transacción deshecha, pero todavía no
+      se ha escrito ninguna fila real: `ventas.codigo_barras_app` está en cero.
+      El primero conviene hacerlo con un producto conocido y comprobar después,
+      desde el Softland de escritorio, que lo encuentra por ese código.
 - [ ] **Fase D** — `bin/deploy.sh` con la máquina de destino como argumento, y
       un `appId` por empresa sólo si hace falta de verdad.
 - [ ] Crear los primeros vendedores y probar la app con un usuario que no sea

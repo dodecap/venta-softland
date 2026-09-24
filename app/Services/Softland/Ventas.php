@@ -832,6 +832,25 @@ class Ventas
     }
 
     /**
+     * Con cuántos decimales escribe cantidades esta empresa.
+     *
+     * Lo dice `iwparam.CantDecimales`, y hasta ahora no lo miraba nadie: el
+     * teléfono redondeaba a tres fijos. Importa en el campo que más se toca de
+     * la app — una empresa que vende por unidades no quiere ver «1,00» ni que
+     * el teclado ofrezca la coma, y una que vende por kilos la necesita.
+     *
+     * Se acota a 3 porque es lo que admite `nw_detcot.CantidadPedida`: un
+     * parámetro más generoso que la columna acabaría en un redondeo silencioso
+     * al escribir.
+     */
+    public function decimalesCantidad(): int
+    {
+        $v = $this->conn()->table('softland.iwparam')->value('CantDecimales');
+
+        return max(0, min(3, (int) $v));
+    }
+
+    /**
      * El total que tendría el documento, sin escribir nada.
      *
      * Lo usa la nota de venta para decidir si pasa el tope del vendedor. Tiene

@@ -128,6 +128,12 @@ class AuthController extends Controller
                 // que el documento se guarde con ellos.
                 'iva_pct' => $ventas->ivaPct(),
                 'uf' => $this->uf(),
+                // Con cuántos decimales escribe cantidades esta empresa
+                // (`iwparam.CantDecimales`). Decide el teclado que abre el
+                // teléfono al pedir una cantidad y el redondeo de los botones
+                // de más y menos: en una empresa que vende por unidades, la
+                // coma sobra y estorba.
+                'cant_decimales' => $ventas->decimalesCantidad(),
                 // Cuántos días la empresa da por buena una cotización. Es el
                 // mismo número que sale impreso en el PDF, y con él el panel
                 // sabe cuáles están por vencer sin preguntar: la cotización no

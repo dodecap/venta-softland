@@ -75,6 +75,19 @@ const propuesta = ref(null);
 const lineas = ref([]);
 const cliente = ref(null);
 const cargando = ref(true);
+
+/*
+ * Decimales que admite la empresa en una cantidad (`iwparam.CantDecimales`).
+ * Aquí no se cargan productos con el escáner —lo que se escribe a mano es el
+ * concepto de una comisión, no una caja que se apunta con la cámara— pero la
+ * cantidad se escribe igual, y el parámetro es de la empresa, no de la
+ * pantalla.
+ */
+const decimalesCantidad = ref(3);
+db.getServidorInfo().then((info) => {
+    // `?? 3` y no `|| 3`: cero decimales es una respuesta, no un hueco.
+    decimalesCantidad.value = Number(info?.cant_decimales ?? 3);
+});
 const error = ref('');
 const trabajando = ref(false);
 const confirmando = ref(false);
@@ -619,7 +632,7 @@ function cantidad(n) {
                             <textarea v-model="l.glosa" rows="2" :placeholder="l.nombre"></textarea>
                         </label>
                         <div class="linea-campos">
-                            <Cantidad v-model.number="l.cantidad" />
+                            <Cantidad v-model.number="l.cantidad" :decimales="decimalesCantidad" />
                             <label>
                                 <span>Precio</span>
                                 <input v-model.number="l.precio" type="number" inputmode="decimal"
@@ -656,7 +669,7 @@ function cantidad(n) {
                         <div class="linea-campos">
                             <!-- Sin techo: facturar de más está permitido, y el
                                  aviso de abajo lo dice cuando pasa. -->
-                            <Cantidad v-model.number="l.cantidad" />
+                            <Cantidad v-model.number="l.cantidad" :decimales="decimalesCantidad" />
                         </div>
                         <!-- El precio se enseña, no se edita: lo pone la nota de
                              venta. Un campo desactivado invita a pelearse con

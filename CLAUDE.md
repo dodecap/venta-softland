@@ -180,7 +180,28 @@ tocar nada de esto:
 - Toda cantidad se escribe con `Cantidad.vue`, nunca con un `<input number>`
   pelado: las flechitas nativas no salen en Android, así que pasar de 2 a 3
   obligaba a abrir el teclado y teclear. Menos a la izquierda y más a la
-  derecha, no arriba y abajo — así los dos botones caben a 44 px.
+  derecha, no arriba y abajo — así los dos botones caben a 44 px. **Cuántos
+  decimales admite lo dice la empresa**, no el componente: `iwparam.CantDecimales`
+  viaja en el arranque y decide también el teclado que abre Android — con cero
+  decimales, sin coma.
+- **El detalle de un documento se carga con `CargaProductos.vue`, y el bucle no
+  se corta.** Buscar con la lupa y leer el código de barras son la misma
+  pantalla con la primera mitad cambiada: lo de después —cantidad, «Agregar y
+  seguir», la cuenta de lo que se lleva— está escrito una sola vez. Se agrega y
+  se vuelve al campo de búsqueda vacío y enfocado **sin que el teclado baje**, y
+  para eso el `focus()` va dentro del mismo manejador del toque y sin un `await`
+  por delante: Android sólo abre el teclado si el foco cuelga del gesto que lo
+  pidió. Dos veces el mismo producto **se suman** en la línea que ya está, sin
+  tocarle el precio: dos cajas iguales no son dos líneas iguales.
+- **El escáner es lo único que esta app puede dejar encendido.** Vive en
+  `mobile/src/escaner.js`, hay uno solo vivo y el cierre pasa siempre por ahí.
+  El vídeo se dibuja **por detrás** del navegador, así que la página se vuelve
+  transparente (`body.escaneando`) y la capa va teletransportada fuera de `#app`
+  — es lo único que puede quedar visible. El modelo va **dentro del APK**
+  (`com.google.mlkit:barcode-scanning`, nunca `scanGoogleCode()`), porque el caso
+  que esto resuelve es una bodega sin cobertura. Y un código bajo la cámara se
+  lee treinta veces por segundo: sin la guardia de rebote, medio segundo
+  apuntando agregaba quince líneas.
 - **Cada lista se refresca sola, tirando hacia abajo.** El gesto vive en
   `mobile/src/refresco.js` y el mapa pantalla → maestros en `sync.js`
   (`GRUPOS`); el servidor acota el inventario con `?solo=`. Se baja el maestro
@@ -304,6 +325,21 @@ tocar nada de esto:
   anularla no se decide por el estado sino por `Ventas::corregibleNotaVenta()`:
   que nadie la haya aprobado (`nvFeAprob` vacío) y que no haya avanzado a
   factura, picking o compra.
+- **El código de barras se aprende al escanear, y es la única columna que la app
+  escribe de `iw_tprod`.** El maestro viene casi vacío —133 de 1.195 productos
+  vendibles en INNOVAGES— así que un escáner que sólo lea lo ya escrito no sirve
+  el primer día. Se guarda en la columna del ERP y no en una tabla propia a
+  propósito: un código que sólo conoce esta app es un código que el Softland de
+  escritorio no encuentra, y serían dos verdades sobre lo mismo. Las cinco
+  reglas que lo hacen inocuo están en `CodigoBarras.php` y no en el controlador:
+  sólo si está **vacío** —lo que ya se escanea en el escritorio no se pisa—,
+  sólo si **no lo tiene otro** —`CodBarra` no lleva índice único, así que la base
+  acepta el duplicado sin rechistar—, **veinte caracteres** —un QR largo no cabe
+  y eso se dice, no se recorta—, **sólo esa columna** —ni `Proceso` ni `Usuario`—
+  y **quién y cuándo en `ventas.codigo_barras_app`**, porque `iw_tprod` no
+  guarda autor. Comprobado que los disparadores no se enteran:
+  `IW_TProd_UTRIG` sólo escribe en `LogIW_TProd` con `Proceso = 'Correccion
+  Monetaria'`, y los dieciocho que propagan cambios van con `IF UPDATE(CodProd)`.
 - **Un documento sin vendedor no existe para Softland**: no sale en las
   ventanas de búsqueda del ERP. `VenCod` nunca va en nulo; antes de escribir
   uno así, el servidor devuelve 422.
@@ -812,6 +848,10 @@ nadie edite un archivo. Lo que hay que saber antes de tocar nada:
   foránea cruce** entre los dos esquemas: sin cruces, quitar la app es borrar un
   esquema. El comando lee `sys.objects` y no una lista escrita a mano, que se
   quedaría corta en la primera migración nueva.
+- **De `iw_tprod` la app escribe una columna, `CodBarra`, y la cuenta sale de
+  `ventas.codigo_barras_app`.** Mirando la tabla del ERP no hay forma de
+  saberlo: no guarda autor ni fecha. Por eso la bitácora, y por eso
+  `ventas:huella` la lee de ahí.
 - **La app escribe filas en tablas del ERP, y eso se cuenta por
   `ventas.documento_app`.** La cotización y la nota de venta no estampan
   `Proceso`, así que filtrar por `Proceso = 'Venta Softland'` sólo vale para el
@@ -883,7 +923,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.47.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.48.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

@@ -42,6 +42,42 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.48.0 — Cargar productos de corrido: la lupa y la cámara
+*2026-09-24*
+
+- **El detalle se carga sin cerrar la hoja.** Antes, agregar un producto eran
+  siete gestos —abrir, buscar, tocar, la hoja se cerraba, bajar hasta la línea,
+  tocar la cantidad, teclear— y volver a abrir la hoja para el siguiente. Un
+  documento de quince líneas se hacía en la oficina, no en terreno. Ahora el
+  bucle no se corta: se busca, se toca, se pone la cantidad y «Agregar y
+  seguir» devuelve al campo de búsqueda vacío y enfocado, con el teclado
+  todavía arriba. «Terminar» está siempre a la vista.
+- **Lectura del código de barras con la cámara.** El mismo bucle con la primera
+  mitad cambiada: se apunta, suena el golpecito, se pone la cantidad, y a la
+  siguiente caja. El modelo va **dentro del APK**
+  (`@capacitor-mlkit/barcode-scanning`, artefacto `com.google.mlkit`), así que
+  lee sin señal, que es el caso que esto viene a resolver.
+- **Los códigos se aprenden al escanear.** El maestro venía casi vacío —133 de
+  1.195 productos vendibles tienen `CodBarra`— así que un escáner que sólo lea
+  lo que ya está escrito no sirve el primer día. Cuando lee uno que no conoce,
+  pregunta de qué producto es y lo guarda en `iw_tprod`, para toda la empresa.
+  Cinco reglas lo hacen inocuo: sólo si está vacío, sólo si no lo tiene otro,
+  veinte caracteres, sólo esa columna, y quién y cuándo en
+  `ventas.codigo_barras_app`.
+- **Una barra al fondo del formulario** con la lupa y el código de barras, que
+  sale cuando el encabezado ya dice para quién es el documento. No es el botón
+  flotante: ése es de las pestañas.
+- **Escanear dos veces la misma caja son dos unidades**, no dos líneas iguales.
+  Se suma sobre la línea que ya está, sin tocarle el precio negociado.
+- **Los decimales de la cantidad los dice la empresa**, no el código:
+  `iwparam.CantDecimales` viaja en el arranque y decide el teclado que abre
+  Android y el redondeo de los botones de más y menos. En INNOVAGES son 2;
+  donde sean 0, el teclado no ofrece la coma.
+- El APK pasa de 5,2 MB a 11,2 MB: lo que pesa es el decodificador nativo del
+  lector. Se dejó en las dos arquitecturas de los teléfonos de verdad
+  (`arm64-v8a` y `armeabi-v7a`); con las de emulador dentro eran 16,4 MB. **Ya
+  no corre en el emulador x86 de Android Studio.**
+
 ### 0.47.2 — La huella en la base se puede enseñar
 *2026-09-23*
 

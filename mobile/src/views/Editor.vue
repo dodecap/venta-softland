@@ -12,10 +12,12 @@ import { conectado } from '../red';
 import { encolar, nuevoUuid } from '../pendientes';
 import { olvidarPdf } from '../pdf';
 import { useCapa } from '../nav';
+import { disponible as escanerDisponible } from '../escaner';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import Cantidad from '../components/Cantidad.vue';
 import Buscador from '../components/Buscador.vue';
+import CargaProductos from '../components/CargaProductos.vue';
 import Selector from '../components/Selector.vue';
 import Vacio from '../components/Vacio.vue';
 
@@ -69,6 +71,12 @@ const form = ref(vacio());
 const cliente = ref(null);
 const contactos = ref([]);
 const ivaPct = ref(19);
+/*
+ * Decimales que admite la empresa en una cantidad (`iwparam.CantDecimales`).
+ * Llega en el arranque y decide el teclado que abre Android y el redondeo de
+ * los botones de más y menos: donde se venden licencias, la coma estorba.
+ */
+const decimalesCantidad = ref(3);
 const uf = ref(null);
 const guardando = ref(false);
 const error = ref('');
@@ -77,10 +85,10 @@ const cargando = ref(true);
 // Las dos hojas de elegir. `useCapa` hace que «atrás» de Android las cierre en
 // vez de salirse de la pantalla y perder lo escrito.
 const eligiendoCliente = ref(false);
-const eligiendoProducto = ref(false);
-useCapa(computed(() => eligiendoCliente.value || eligiendoProducto.value), () => {
+const agregandoProductos = ref(false);
+useCapa(computed(() => eligiendoCliente.value || agregandoProductos.value), () => {
     eligiendoCliente.value = false;
-    eligiendoProducto.value = false;
+    agregandoProductos.value = false;
 });
 
 function vacio() {
@@ -145,6 +153,8 @@ async function cargar() {
     try {
         const info = await db.getServidorInfo();
         ivaPct.value = Number(info?.iva_pct) || 19;
+        // `?? 3` y no `|| 3`: cero decimales es una respuesta, no un hueco.
+        decimalesCantidad.value = Number(info?.cant_decimales ?? 3);
         uf.value = Number(info?.uf) || null;
 
         if (tipo.value === 'nota_venta') {
@@ -382,25 +392,45 @@ function elegirCentroCosto(codigo) {
 
 // --------------------------------------------------------------- las líneas
 
-const busquedaProducto = ref('');
-const productosHallados = ref([]);
+/*
+ * Con qué mitad se abre la carga: la lupa o la cámara. El bucle de después es
+ * el mismo, y por eso es una sola pantalla y no dos.
+ */
+const modoCarga = ref('buscar');
 
-// Mismo guardián que el cliente: sin él, la carga inicial puede pisar la
-// búsqueda que ya se hizo.
-let turnoProducto = 0;
+/*
+ * Si este aparato puede leer códigos de barras. En el navegador de desarrollo
+ * no, y en un teléfono sin cámara tampoco. El botón **no se dibuja** cuando no
+ * se puede: ofrecerlo y que falle es peor que no ofrecerlo, que es la misma
+ * regla del botón de consultar el SII.
+ */
+const hayCamara = ref(false);
+escanerDisponible().then((si) => { hayCamara.value = si; });
 
-watch(busquedaProducto, async (q) => {
-    const turno = ++turnoProducto;
-    const filas = await idb.buscar('productos', q, { limite: 30 });
-    if (turno === turnoProducto) productosHallados.value = filas;
-});
+/*
+ * La barra de agregar productos aparece cuando el encabezado ya dice lo
+ * imprescindible. Antes de eso no estorba: lo que hay que hacer primero es
+ * decir para quién es el documento.
+ *
+ * Son los mismos campos que el documento exige para guardarse —cliente y
+ * vendedor— más la condición de venta, que no es obligatoria en Softland pero
+ * decide el precio que se negocia; empezar a cargar productos sin ella es
+ * cargarlos para volver a mirarlos.
+ */
+const encabezadoListo = computed(() => !! (
+    form.value.cliente && form.value.vendedor && form.value.condicion
+));
 
-async function abrirProductos() {
-    eligiendoProducto.value = true;
-    busquedaProducto.value = '';
-    const turno = ++turnoProducto;
-    const filas = await idb.buscar('productos', '', { limite: 30 });
-    if (turno === turnoProducto) productosHallados.value = filas;
+function abrirCarga(modo) {
+    modoCarga.value = modo;
+    agregandoProductos.value = true;
+}
+
+/** Cuánto lleva ya el documento de un producto. Para poder decirlo al agregar. */
+function yaEnDocumento(codigo) {
+    return form.value.lineas
+        .filter((l) => l.producto === codigo)
+        .reduce((t, l) => t + (Number(l.cantidad) || 0), 0);
 }
 
 /**
@@ -412,7 +442,26 @@ async function abrirProductos() {
  * reales de INNOVAGES el vendedor terminó escribiendo su propio precio en casi
  * todas.
  */
-async function agregarProducto(p) {
+async function agregarProducto(p, cuantos = 1) {
+    /*
+     * Dos veces el mismo producto son dos unidades, no dos líneas iguales.
+     *
+     * Escanear una caja dos veces es lo normal cuando hay dos cajas, y el
+     * documento que sale con la misma línea repetida obliga a arreglarlo a
+     * mano antes de mandarlo. Se suma sobre la línea que ya está — la primera,
+     * por si el vendedor partió una a propósito con otro precio: pisar el
+     * precio negociado de la segunda sería peor.
+     *
+     * No se toca el precio: el de la línea es el que se negoció, y el de la
+     * lista ya se propuso cuando se creó.
+     */
+    const ya = form.value.lineas.find((l) => l.producto === p.codigo);
+    if (ya) {
+        ya.cantidad = (Number(ya.cantidad) || 0) + (Number(cuantos) || 0);
+
+        return;
+    }
+
     const deLista = form.value.lista
         ? (await idb.obtener('precios', [form.value.lista, p.codigo]))?.valor
         : null;
@@ -426,12 +475,10 @@ async function agregarProducto(p) {
         detalle: p.nombre || '',
         unidad: p.unidad || '',
         afecto: !! p.afecto,
-        cantidad: 1,
+        cantidad: Number(cuantos) || 1,
         precio: aMonedaDocumento(deLista ?? p.precio, p.moneda),
         descuento_pct: 0,
     });
-
-    eligiendoProducto.value = false;
 }
 
 /** De la moneda del producto a la del documento. Hoy el único cambio es la UF. */
@@ -554,7 +601,7 @@ function cantidad(n) {
             <h1>{{ editando ? `${def.singular} Nº ${numero}` : `Nueva ${def.singular.toLowerCase()}` }}</h1>
         </div>
 
-        <div class="contenido">
+        <div class="contenido" :class="{ 'con-barra-cargar': encabezadoListo && ! cargando }">
             <div class="cargando" v-if="cargando">Cargando…</div>
 
             <template v-else>
@@ -676,13 +723,18 @@ function cantidad(n) {
 
                 <div class="seccion">
                     <h2>Detalle</h2>
-                    <button class="ver-todo" @click="abrirProductos">
+                    <button class="ver-todo" :disabled="! encabezadoListo" @click="abrirCarga('buscar')">
                         Agregar producto <AppIcon name="crear" :size="15" color="currentColor" />
                     </button>
                 </div>
 
-                <Vacio v-if="! form.lineas.length" icono="producto" titulo="Todavía no hay productos">
+                <Vacio v-if="! form.lineas.length && encabezadoListo" icono="producto"
+                       titulo="Todavía no hay productos">
                     Agrega el primero y el total se va armando solo.
+                </Vacio>
+                <Vacio v-else-if="! form.lineas.length" icono="cliente" titulo="Primero, para quién">
+                    Elige el cliente, el vendedor y la condición de venta. Después aparece abajo
+                    la barra para ir cargando productos.
                 </Vacio>
 
                 <div class="linea-doc" v-for="(l, i) in form.lineas" :key="i">
@@ -704,7 +756,7 @@ function cantidad(n) {
                                   :placeholder="l.nombre"></textarea>
                     </label>
                     <div class="linea-campos">
-                        <Cantidad v-model.number="l.cantidad" />
+                        <Cantidad v-model.number="l.cantidad" :decimales="decimalesCantidad" />
                         <label>
                             <span>Precio</span>
                             <input v-model.number="l.precio" type="number" inputmode="decimal" min="0" step="any">
@@ -837,28 +889,35 @@ function cantidad(n) {
             </div>
         </div>
 
-        <!-- Elegir producto -->
-        <div class="velo" v-if="eligiendoProducto" @click.self="eligiendoProducto = false">
-            <div class="hoja">
-                <div class="hoja-cabecera">
-                    <h2>Producto</h2>
-                    <button class="icono-barra" @click="eligiendoProducto = false"><AppIcon name="cerrar" :size="21" /></button>
-                </div>
-                <div class="hoja-cuerpo">
-                    <Buscador v-model="busquedaProducto" placeholder="Nombre, código o código de barras" />
-                    <div class="item" v-for="p in productosHallados" :key="p.codigo" @click="agregarProducto(p)">
-                        <div class="item-estado" :class="p.afecto ? 'cian' : 'amarillo'"></div>
-                        <div class="item-cuerpo">
-                            <div class="item-titulo item-titulo-producto">{{ p.nombre }}</div>
-                            <div class="item-linea">{{ monto(p.precio, p.moneda) }} / {{ nombreDe('unidades', p.unidad) }}</div>
-                            <div class="item-meta"><span class="etiqueta gris">{{ p.codigo }}</span></div>
-                        </div>
-                    </div>
-                    <Vacio v-if="! productosHallados.length" icono="sinResultados" titulo="Ningún producto con eso">
-                        Prueba con una palabra del nombre o con el código.
-                    </Vacio>
-                </div>
+        <!-- Cargar productos, de corrido: buscar o escanear, cantidad, y seguir. -->
+        <CargaProductos v-if="agregandoProductos" :modo="modoCarga"
+                        :decimales="decimalesCantidad" :ya-en="yaEnDocumento"
+                        @agregar="agregarProducto" @cerrar="agregandoProductos = false" />
+
+        <!--
+            La barra de cargar productos.
+
+            Pegada al fondo mientras se llena el detalle, no flotante: el botón
+            flotante es de las pestañas y el editor es una pantalla de adentro.
+            Sale cuando el encabezado ya dice para quién es el documento, que es
+            cuando agregar productos empieza a tener sentido.
+        -->
+        <div class="barra-cargar" v-if="encabezadoListo && ! agregandoProductos && ! cargando">
+            <div class="resumen">
+                <b v-if="form.lineas.length">{{ monto(totales.total, form.moneda) }}</b>
+                <b v-else>Agregar productos</b>
+                <span v-if="form.lineas.length">
+                    {{ form.lineas.length }} {{ form.lineas.length === 1 ? 'línea' : 'líneas' }}
+                </span>
+                <span v-else>Buscando por nombre o leyendo el código</span>
             </div>
+            <button class="accion" aria-label="Buscar productos" @click="abrirCarga('buscar')">
+                <AppIcon name="buscar" :size="22" color="currentColor" />
+            </button>
+            <button class="accion principal" v-if="hayCamara" aria-label="Escanear código de barras"
+                    @click="abrirCarga('escanear')">
+                <AppIcon name="codigoBarras" :size="22" color="currentColor" />
+            </button>
         </div>
     </div>
 </template>
