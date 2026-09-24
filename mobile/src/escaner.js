@@ -137,7 +137,20 @@ export async function abrir({ alLeer, alFallar = null } = {}) {
     // encima nada. La clase la lee `style.css`.
     document.body.classList.add('escaneando');
 
-    await BarcodeScanner.startScan({ formats: FORMATOS, lensFacing: LensFacing.Back });
+    try {
+        await BarcodeScanner.startScan({ formats: FORMATOS, lensFacing: LensFacing.Back });
+    } catch (e) {
+        /*
+         * Si la cámara no arranca hay que deshacer lo de arriba a mano: todavía
+         * no hay mando que cerrar, y sin esto se queda la página transparente
+         * con dos oyentes puestos. Es exactamente lo que este módulo existe
+         * para que no pase.
+         */
+        for (const o of oyentes) { try { await o.remove(); } catch { /* ya no estaba */ } }
+        document.body.classList.remove('escaneando');
+
+        throw e;
+    }
 
     let linterna = false;
 

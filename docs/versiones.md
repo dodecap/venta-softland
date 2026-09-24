@@ -42,6 +42,20 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.48.1 — El escáner no deja la pantalla transparente si la cámara no arranca
+*2026-09-24*
+
+- **Si `startScan()` falla, se deshace lo que ya estaba puesto.** El vídeo se
+  dibuja por detrás del navegador, así que antes de encender la cámara la
+  página entera se vuelve transparente y quedan dos oyentes atados. Si el
+  arranque fallaba —la cámara ocupada por otra app, un aparato que la declara
+  y no la tiene— eso se quedaba así: la app transparente y sin escáner. Es
+  exactamente lo que `escaner.js` existe para que no pase.
+- Mientras se está enseñando un código a un producto, la búsqueda **no se
+  adelanta sola** al escribir trece dígitos: ahí la pregunta es a cuál
+  pertenece, y contestarla por quien tiene la caja en la mano es lo contrario
+  de lo que hace falta.
+
 ### 0.48.0 — Cargar productos de corrido: la lupa y la cámara
 *2026-09-24*
 

@@ -105,7 +105,10 @@ watch(busqueda, async (q) => {
      * saltaría en «100», que existe y es otra cosa— y ocho es el largo del
      * EAN-8, el código de comercio más corto que hay.
      */
-    const codigo = (q || '').trim();
+    // Mientras se está enseñando un código no se adelanta nadie: ahí la
+    // pregunta es «a cuál pertenece esto», y saltar solo sería contestarla por
+    // quien tiene la caja en la mano.
+    const codigo = aprendiendo.value ? '' : (q || '').trim();
     if (codigo.length >= 8 && /^\d+$/.test(codigo)) {
         const p = hallados.value.find((x) => (x.barra || '').trim() === codigo);
         if (p) elegir(p);

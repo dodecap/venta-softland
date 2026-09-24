@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-24 — versión **0.48.0**
+2026-09-24 — versión **0.48.1**
 
 ## Resumen del estado actual
-**Versión 0.48.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.48.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -207,6 +207,24 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.48.1 — El escáner no deja la pantalla transparente si la cámara no arranca (2026-09-24)
+
+Repasando el módulo del escáner antes de cerrar la 0.48.0 apareció el fallo que
+ese módulo existe para evitar. El orden de `abrir()` es: atar los oyentes,
+volver la página transparente, y **entonces** encender la cámara. Si lo último
+fallaba —la cámara ocupada por otra app, un aparato que la declara y no la
+tiene— se salía por la excepción con la app ya transparente y dos oyentes
+puestos, y sin mando que cerrar, porque el mando se crea después. La app se
+quedaba invisible hasta reiniciarla.
+
+Ahora el `startScan()` va en un `try` que deshace las dos cosas antes de
+propagar el error, que es lo que la pantalla necesita para poder enseñarlo.
+
+Y una segunda, del flujo de aprender códigos: mientras se elige a qué producto
+pertenece un código, la búsqueda **ya no se adelanta sola** al escribir trece
+dígitos. Ahí la pregunta es a cuál pertenece, y saltar por su cuenta es
+contestarla por quien tiene la caja en la mano.
 
 ### 0.48.0 — Cargar productos de corrido: la lupa y la cámara (2026-09-24)
 
