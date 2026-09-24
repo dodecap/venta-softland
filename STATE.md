@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-24 — versión **0.48.1**
+2026-09-24 — versión **0.48.2**
 
 ## Resumen del estado actual
-**Versión 0.48.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.48.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -207,6 +207,33 @@ vendibles, 12 meses de documentos y solo los del vendedor).
       (`@capacitor/share` + `@capacitor/filesystem`), con el mensaje ya escrito.
 - [x] Pantalla **Identidad** en administración, con vista previa del logo sobre
       tablero de cuadros para que se note la transparencia.
+
+### 0.48.2 — El globo rojo de la campana (2026-09-24)
+
+La campana de la cabecera tenía su marca escrita en la plantilla desde que se
+mudó ahí desde la barra de abajo, pero el CSS se quedó atrás: la única regla
+que dibujaba el globo era `.pestana .punto`, y `.pestana` ya no la lleva
+ninguna plantilla. El número de avisos sin leer se pintaba de **texto pelado**
+al lado del icono — sin globo, sin rojo, y empujando el resto de la fila cada
+vez que llegaba uno.
+
+Ahora la regla apunta a donde está la campana. El globo va encima del icono, en
+la esquina del **trazo** y no en la del botón, que lleva 7 px de relleno para
+recoger el dedo; y va pequeño a propósito, porque el dibujo de la campana mide
+15 px de ancho y un globo del mismo tamaño deja de ser una marca encima para
+ser la mitad del icono.
+
+El segundo fallo era que la cuenta no se refrescaba donde se dibuja. El buzón
+se pedía sólo desde el panel, así que quien entraba por Clientes —o quien
+dejaba el teléfono abierto y volvía al rato— veía la cuenta de cuando arrancó
+la app, o ninguna. Ahora lo pide la propia cabecera al montarse, con un plazo
+de un minuto (`refrescarAvisosSiToca`) para que cambiar de pestaña no sea una
+petición, y también `App.vue` al volver del segundo plano — aparte de los
+maestros, que llevan su propio plazo de cinco minutos.
+
+Comprobado en el navegador contra el CSS compilado, con la cabecera a 360 px y
+el globo a 0, 3 y «9+»: el trazo de la campana se sigue leyendo entero por
+debajo. `npm run pruebas`: 218 comprobaciones.
 
 ### 0.48.1 — El escáner no deja la pantalla transparente si la cámara no arranca (2026-09-24)
 

@@ -4,9 +4,9 @@ import { db } from './db';
 import { avisaDeVersion, esMasNueva } from './version';
 
 /**
- * Buzón de avisos, compartido entre la barra inferior (que muestra la cuenta)
- * y la pantalla (que muestra la lista). Si cada una pidiera lo suyo, el número
- * del punto rojo y lo que se ve al entrar no coincidirían.
+ * Buzón de avisos, compartido entre la cabecera (que enciende el globo rojo de
+ * la campana) y la pantalla (que muestra la lista). Si cada una pidiera lo
+ * suyo, el número del globo y lo que se ve al entrar no coincidirían.
  *
  * Lo leído es del aparato: el teléfono guarda hasta qué id llegó. Sin señal la
  * cuenta sigue siendo correcta, y abrir la pestaña no escribe en la base.
@@ -40,6 +40,10 @@ export const versionSinAvisar = computed(
 
 let visto = 0;
 
+/** Cuándo se trajo el buzón por última vez, para no repetirlo a cada toque. */
+let ultimo = 0;
+const PLAZO_MS = 60 * 1000;
+
 function recontar() {
     noLeidos.value = avisos.value.filter((a) => a.id > visto).length
         + (versionSinAvisar.value ? 1 : 0);
@@ -54,6 +58,7 @@ function recontar() {
  */
 export async function refrescarAvisos() {
     cargando.value = true;
+    ultimo = Date.now();
     try {
         visto = await db.getAvisoVisto();
         versionAvisada.value = await db.getVersionAvisada();
@@ -104,9 +109,29 @@ export async function marcarVistos() {
     recontar();
 }
 
+/**
+ * Lo mismo, pero sólo si hace rato de la última vez.
+ *
+ * El globo de la campana sale en **todas** las pestañas, así que la cuenta no
+ * puede refrescarse sólo desde el panel: quien entra por Clientes, o quien deja
+ * el teléfono abierto y vuelve al rato, veía la cuenta de cuando arrancó la app.
+ * Y al revés, pedir el buzón cada vez que se cambia de pestaña son dos
+ * peticiones por toque para algo que cambia cada varias horas.
+ *
+ * El plazo es el resguardo. No se toca `noLeidos` mientras tanto: lo último que
+ * se supo es mejor que un cero recién inventado.
+ */
+export async function refrescarAvisosSiToca(plazoMs = PLAZO_MS) {
+    if (cargando.value || Date.now() - ultimo < plazoMs) return;
+
+    ultimo = Date.now();
+    await refrescarAvisos();
+}
+
 /** Al cerrar sesión el buzón del anterior no puede quedar en pantalla. */
 export function olvidarAvisos() {
     avisos.value = [];
     noLeidos.value = 0;
     visto = 0;
+    ultimo = 0;
 }

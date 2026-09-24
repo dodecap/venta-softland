@@ -513,9 +513,10 @@ onMounted(async () => {
         : porDefecto;
 
     await releerAlmacen();
-    // El punto rojo de la barra inferior sale de aquí: si se pidiera recién al
-    // abrir el buzón, nunca habría aviso de que hay algo que mirar.
-    refrescarAvisos();
+    // El buzón ya lo pide la cabecera, que es quien dibuja el globo rojo, y lo
+    // hace en todas las pestañas: pedirlo aquí otra vez era una petición doble
+    // al abrir el panel. Lo que sí se pide desde aquí es al tirar hacia abajo,
+    // que es un gesto explícito y no puede quedarse con la cuenta de antes.
     cargarAprobaciones();
 });
 

@@ -7,6 +7,7 @@ import { db } from './db';
 import { conectado } from './red';
 import { contarPendientes, enviarPendientes, porEnviar } from './pendientes';
 import { sincronizar } from './sync';
+import { refrescarAvisosSiToca } from './avisos';
 import AppIcon from './components/AppIcon.vue';
 import BarraInferior from './components/BarraInferior.vue';
 import BotonCrear from './components/BotonCrear.vue';
@@ -105,6 +106,14 @@ const REANUDAR_TRAS = 5 * 60 * 1000;
 async function alReanudar() {
     if (! conectado.value) return;
     if (! (await db.getToken())) return;
+
+    /*
+     * El buzón va por su cuenta y con su propio plazo, que es más corto: traer
+     * los avisos es una petición pequeña, y el globo rojo de la campana es
+     * justo lo que se mira al volver a coger el teléfono. Colgarlo del plazo de
+     * los maestros lo dejaría sin encender hasta cinco minutos después.
+     */
+    refrescarAvisosSiToca().catch(() => { /* el buzón es un extra */ });
 
     const ultima = await db.getSincronizado();
     if (ultima && Date.now() - new Date(ultima).getTime() < REANUDAR_TRAS) return;

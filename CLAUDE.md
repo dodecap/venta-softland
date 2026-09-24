@@ -89,6 +89,12 @@ con borde fino y sombra casi nula, mucho aire, densidad alta sin saturación.
 El panel de inicio va en este orden: encabezado → KPIs → acciones rápidas →
 actividad reciente → barra de navegación inferior.
 
+**Lo que se dibuja en todas las pestañas lo refresca quien lo dibuja.** El globo
+rojo de la campana vive en la cabecera, que es común a todas: si la cuenta la
+pidiera sólo el panel —como pasaba hasta la 0.48.2—, quien entra por Clientes la
+ve vieja o no la ve. La cabecera lo pide al montarse, con un plazo corto para
+que cambiar de pestaña no sea una petición.
+
 ### Navegación
 
 Dos niveles, no más. Arriba las **pestañas** (`meta.tab` en el router):
@@ -923,7 +929,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.48.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.48.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

@@ -563,6 +563,50 @@ html[data-entra="derecha"] .contenido > * { animation-name: entra-lista-derecha;
 .encabezado .icono-barra { color: var(--texto-medio); }
 .encabezado .icono-barra:active { background: var(--fondo); }
 
+/* El globo rojo de la campana: avisos sin mirar.
+   Lleva número y no sólo el punto, porque «tienes algo» y «tienes once cosas»
+   no se atienden igual; de 10 en adelante dice «9+», que es lo que cabe sin
+   deformar el globo y lo único que hace falta saber.
+   Vivía en la barra de abajo, que es de donde la campana se mudó aquí; la
+   marca se fue con ella y la regla se quedó apuntando a `.pestana`, que ya no
+   la lleva ninguna plantilla. El número salía de texto pelado al lado del
+   icono: sin globo, sin rojo y empujando la fila.
+   Va **encima** del icono y no al lado: al lado empuja el resto de la fila cada
+   vez que llega un aviso, y una cabecera que se mueve sola se siente rota. */
+.encabezado .campana { position: relative; }
+
+.encabezado .campana .punto {
+    position: absolute;
+    /* En la esquina de la campana, no en la del botón: el botón lleva 7 px de
+       relleno para recoger el dedo, y la campana no llena su caja, así que un
+       globo pegado a *su* esquina quedaría flotando en aire vacío. Estos dos
+       números salen de dónde acaba el trazo, no de dónde acaba el botón. */
+    top: 0;
+    right: 0;
+    /* Pequeño a propósito: el dibujo de la campana mide 15 px de ancho, y un
+       globo del mismo tamaño deja de ser una marca encima para ser la mitad
+       del icono. Tapa la esquina y se le sigue viendo la forma. */
+    min-width: 10px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 99px;
+    background: var(--rojo);
+    color: var(--blanco);
+    /* 10 px es el piso de lectura y por eso no se escala con la densidad: lo
+       que dice es «hay algo», y el número es el detalle. */
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 14px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    /* El aro del color del fondo separa el globo del trazo de la campana:
+       sin él, sobre las líneas del icono no se lee dónde acaba uno y empieza
+       el otro. */
+    border: 1.5px solid var(--blanco);
+    box-sizing: content-box;
+    pointer-events: none;
+}
+
 .seccion {
     display: flex;
     align-items: baseline;
@@ -1111,26 +1155,6 @@ input:focus, select:focus, textarea:focus {
 
 .pestana.activa .rotulo { max-width: 110px; opacity: 1; }
 .pestana:not(.activa):active { background: var(--fondo); }
-
-/* Cuenta de avisos sin leer. Lleva número, no solo el punto: «tienes algo» y
-   «tienes once cosas» no se atienden igual. */
-.pestana .punto {
-    position: absolute;
-    top: -4px;
-    right: -7px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 8px;
-    background: var(--rojo);
-    color: var(--blanco);
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 16px;
-    text-align: center;
-    border: 2px solid var(--blanco);
-    box-sizing: content-box;
-}
 
 /* ---------- Pestañas de filtro (dentro de una pantalla) ---------- */
 

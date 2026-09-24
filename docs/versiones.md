@@ -42,6 +42,31 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.48.2 — El globo rojo de la campana
+*2026-09-24*
+
+- La campana de la cabecera **enciende un globo rojo** con los avisos sin
+  mirar. La marca ya estaba en la plantilla, pero su CSS se quedó apuntando a
+  `.pestana` —la barra de abajo, de donde la campana se mudó a la cabecera—, y
+  como ninguna plantilla la lleva ya, la regla no pintaba nada: el número salía
+  de texto pelado al lado del icono, sin globo, sin rojo y empujando la fila
+  cada vez que llegaba un aviso.
+- El globo va **encima** del icono, en la esquina del trazo de la campana y no
+  en la del botón, que lleva 7 px de relleno para recoger el dedo. Pequeño a
+  propósito: el dibujo de la campana mide 15 px y un globo del mismo tamaño
+  deja de ser una marca encima para ser la mitad del icono.
+- **La cuenta se refresca donde se dibuja.** El buzón se pedía sólo desde el
+  panel, así que quien entraba por Clientes veía la cuenta de cuando arrancó la
+  app — o ninguna. Ahora lo pide la propia cabecera al montarse, con un plazo
+  de un minuto (`refrescarAvisosSiToca`) para que cambiar de pestaña no sea una
+  petición, y el panel deja de pedirlo por su cuenta al abrirse.
+- **Y al volver del segundo plano.** `App.vue` ya sincronizaba los maestros al
+  reanudar, pero con un plazo de cinco minutos; el buzón va aparte y con el
+  suyo, que es más corto: traer los avisos es una petición pequeña y el globo
+  rojo es justo lo que se mira al volver a coger el teléfono.
+- El botón dice cuántos hay en su `aria-label` y en el título, en vez de un
+  «Avisos» a secas.
+
 ### 0.48.1 — El escáner no deja la pantalla transparente si la cámara no arranca
 *2026-09-24*
 

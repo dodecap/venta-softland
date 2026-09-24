@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { db } from '../db';
-import { noLeidos } from '../avisos';
+import { noLeidos, refrescarAvisosSiToca } from '../avisos';
 import AppIcon from './AppIcon.vue';
 
 /**
@@ -19,10 +19,15 @@ import AppIcon from './AppIcon.vue';
  * pestañas, están siempre en el mismo píxel — que es lo que hace que no haya
  * que buscarlas.
  *
- * ## El contador de la campana
+ * ## El globo de la campana
  *
  * Va sobre el icono y no al lado: al lado empuja el resto de la fila cada vez
  * que llega un aviso, y una cabecera que se mueve sola se siente rota.
+ *
+ * Y lo cuenta esta cabecera, que es quien lo dibuja. El buzón se pedía sólo
+ * desde el panel, así que quien entraba por Clientes o por Cuenta veía la
+ * cuenta de cuando arrancó la app — o ninguna. El plazo de `avisos.js` evita
+ * que cambiar de pestaña sea una petición.
  */
 
 defineProps({
@@ -35,6 +40,7 @@ const usuario = ref(null);
 
 onMounted(async () => {
     usuario.value = await db.getUsuario();
+    refrescarAvisosSiToca().catch(() => { /* el buzón es un extra */ });
 });
 
 /**
@@ -66,7 +72,8 @@ const iniciales = computed(() => (usuario.value?.nombre || '')
         </div>
 
         <button class="icono-barra campana" @click="router.push('/avisos')"
-                title="Avisos" aria-label="Avisos">
+                :title="noLeidos ? `Avisos (${noLeidos} sin leer)` : 'Avisos'"
+                :aria-label="noLeidos ? `Avisos, ${noLeidos} sin leer` : 'Avisos'">
             <AppIcon name="notificacion" :size="20" />
             <span class="punto" v-if="noLeidos">{{ noLeidos > 9 ? '9+' : noLeidos }}</span>
         </button>
