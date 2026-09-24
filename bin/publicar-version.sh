@@ -77,7 +77,7 @@ mkdir -p "$DIST"
 # delante lo que identifica a esa instalación.
 tar -C "$R" -czf "$DIST/venta-softland-$V-servidor.tar.gz" --exclude='bootstrap/cache' \
     app bootstrap config database lang resources routes public bin \
-    artisan composer.json composer.lock phpunit.xml tests VERSION
+    artisan composer.json composer.lock phpunit.xml tests VERSION .env.example
 echo "  código        $(du -h "$DIST/venta-softland-$V-servidor.tar.gz" | cut -f1)"
 
 # --- 2) Las dependencias ----------------------------------------------------

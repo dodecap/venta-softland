@@ -366,6 +366,14 @@ respuesta imprimible para quien administra el SQL Server, y sirve también para
 ver de un vistazo si las migraciones quedaron todas puestas. **No escribe
 nada.**
 
+Y una comprobación que no es un comando: que el `.env` diga `APP_ENV=production`
+y `APP_DEBUG=false`. Con el depurador encendido, **cualquier error de la API
+devuelve la traza entera, las rutas del disco y el SQL de la consulta**, a quien
+llame y sin estar logueado. `.env.example` ya viene así, pero una instalación
+vieja o un `.env` copiado de otro sitio puede traerlo al revés. Medido el
+2026-09-24 en la instalación de referencia: el teléfono enseñó en pantalla el
+`select` contra `ventas.api_token` con el hash del token dentro.
+
 ### Desde el teléfono
 
 - El panel carga con números que no son cero.

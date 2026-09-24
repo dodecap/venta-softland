@@ -13,7 +13,7 @@ trap 'rm -rf "$TMP"' EXIT
 # de Composer, que solo existe donde corre Composer.
 tar -C "$R" -cf "$TMP/deploy.tar" --exclude='bootstrap/cache' \
   app bootstrap config database lang resources routes public bin \
-  artisan composer.json composer.lock phpunit.xml tests VERSION
+  artisan composer.json composer.lock phpunit.xml tests VERSION .env.example
 
 scp -q "$TMP/deploy.tar" "$SRV:C:/Users/ddecap/deploy-ventas.tar"
 ssh "$SRV" "cmd /c \"cd /d $DEST && C:\\Windows\\System32\\tar.exe -xf C:\\Users\\ddecap\\deploy-ventas.tar && C:\\xampp\\php\\php.exe artisan config:cache && C:\\xampp\\php\\php.exe artisan view:cache\"" | sed 's/\r$//'

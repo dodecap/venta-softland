@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-23 — versión **0.47.2**
+2026-09-24 — versión **0.47.2**
 
 ## Resumen del estado actual
 **Versión 0.47.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -629,6 +629,39 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 12 clavados y los campos a 16, que es lo que evita el zoom de Android. Nada
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
+
+## Incidencias
+
+### 2026-09-24 · La API dejó de conectar a SQL Server, y el depurador estaba encendido
+
+A las 13:21:14 la app empezó a contestar `SQLSTATE[08001] … Encryption not
+supported on the client` en toda petición que tocara la base. **Sólo por
+Apache**: desde la consola `ventas:probe` conectaba sin problema, por memoria
+compartida y con `encrypt_option = TRUE`.
+
+Descartado, con la máquina delante: `ForceEncryption` está en 0; ningún DLL de
+`System32` se tocó ese día; no hubo actualizaciones de Windows; SQL Server lleva
+en marcha desde el 21/08; y el 8086 lo sirve el Apache de XAMPP y no el
+`wamp64` que también está instalado. Tampoco fue un cambio nuestro: el último
+despliegue había sido el día anterior a las 03:44 y la app funcionó toda la
+jornada.
+
+Lo que quedaba: el proceso trabajador de Apache llevaba vivo desde el 23/09 a
+las 18:10 y dejó de poder levantar el contexto de cifrado a media vida —el
+paquete de login va cifrado aunque `ForceEncryption` esté apagado—, con la
+máquina a 1,4 GB libres de 24. **Reiniciar `Apache2.4` lo arregló**, y no ha
+vuelto a salir. **No hay causa probada**: con una sola observación no da para
+más. Si reaparece, hay un segundo punto para trazar la línea, y la mitigación
+conocida es reciclar el trabajador (`MaxConnectionsPerChild`).
+
+Lo que sí quedó demostrado y arreglado es otra cosa: el servidor corría con
+`APP_ENV=local` y `APP_DEBUG=true`, así que el error salió **en la pantalla del
+teléfono con el `select` y el hash del token dentro**. Viene de
+`.env.example`, que `bin\instalar.cmd` copia tal cual: toda instalación nacía
+con el depurador encendido. Corregido en el origen, en `srv` (con respaldo en
+`C:\xampp\htdocs\.env.respaldo-20260924`) y en el manual. Y `.env.example`
+se añadió a los paquetes de `deploy.sh` y de la publicación, donde no estaba:
+sin eso el arreglo no llegaba a un servidor instalado desde el tar.
 
 ## Pendiente / próximos pasos
 - [x] **Publicar la primera versión en GitHub.** Hecha el 2026-09-23: la
