@@ -20,7 +20,7 @@ import {
     Ban, Bell, BellOff, Boxes, Building2, CalendarDays, ChartNoAxesCombined, CheckCheck, ChevronLeft,
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
     CloudDownload, CloudUpload, Copy, CreditCard, Database, FileDown, FileText, Image, Inbox, Info,
-    Hourglass, LayoutDashboard,
+    Hourglass, LayoutDashboard, Link2,
     LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
     LifeBuoy, Percent, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
     ScanBarcode, ScanLine, Zap, ZapOff, SwitchCamera,
@@ -51,6 +51,10 @@ export const ICONOS = {
     // facturado. El rojo es de anular, que es la acción, no del papel.
     notaCredito: { glifo: ReceiptText, variante: 'venta' },
     pdf: { glifo: FileDown, variante: 'venta' },
+    // De qué otro papel habla este documento. Es un eslabón y no un archivo: lo
+    // referenciado suele ser un documento que esta app no tiene —la HES de una
+    // eléctrica, un contrato—, y lo que se dibuja es el enlace, no el papel.
+    referencia: { glifo: Link2, variante: 'venta' },
     venta: { glifo: ShoppingCart, variante: 'venta' },
 
     // ---- Catálogos ----

@@ -92,6 +92,77 @@ reales:
 Y una que no es regla sino dato de origen: **el `TSTED` no se deriva de nada**.
 Es el instante en que se timbra.
 
+## ISO-8859-1 al SII, caracteres a la base
+
+La regla anterior tiene una consecuencia que tardó en salir: **el DTE está
+escrito en bytes ISO-8859-1 y la base no guarda bytes**.
+
+`dte_archivos.Archivo` es `ntext`, que es Unicode, y `dte_doccab.FirmaDTE` es
+`varchar(4000)`. El controlador `sqlsrv` traduce a UCS-2 lo que le mandamos
+dando por hecho que viene en UTF-8. Un `0xF3` suelto —la «ó» del DTE— no es
+UTF-8 válido, así que el controlador no falla en ese carácter: **rechaza la
+escritura entera**.
+
+    SQLSTATE[IMSSP]: An error occurred translating string for input param 2
+    to UCS-2: No hay ninguna asignación en la página de códigos…
+
+Eso es lo que impidió emitir la factura 238 el 25-09-2026. Fue la primera de la
+app cuya glosa llevaba una vocal acentuada —«Distribución»—; las tres anteriores
+sólo tenían `N°`, cuyo `0xB0` el controlador sí traga, y por eso el camino
+parecía bueno. El documento quedó escrito en `iw_gsaen` y sin poder viajar.
+
+### Qué hace Softland, que es lo que se copia
+
+Guarda **caracteres**. Mirando los XML que escribió el Softland de escritorio
+—folios 178, 179, 180 y 187 de INNOVAGES— la «ó» del 179 y la «Ñ» del 187
+vuelven de la base como `C3 B3` y `C3 91`, aunque el propio XML declare
+`encoding="ISO-8859-1"`: esa declaración describe el archivo que viaja al SII, no
+la columna. Convertidos de vuelta a ISO-8859-1 los cuatro pierden 1 o 2 bytes,
+que son exactamente sus acentos.
+
+`dte:verifica-timbre` ya había dado con el mismo hecho desde el otro lado y lo
+dejó escrito: «la copia archivada se volvió a codificar a UTF-8 en algún punto
+del camino a la base, y el DTE se firmó en ISO-8859-1». Lo que allí es un
+síntoma que se tolera al leer documentos ajenos, aquí es la regla al escribir los
+propios.
+
+### La frontera, en un solo sitio
+
+`App\Services\Dte\Codificacion`, con las dos direcciones:
+
+- `paraLaBase()` para el documento, el sobre y el TED de `FirmaDTE`.
+- `desdeLaBase()` para el XML que se recupera al reintentar un envío y para el
+  timbre que se reimprime meses después.
+
+La vuelta importa tanto como la ida: ISO-8859-1 es un subconjunto de Unicode con
+correspondencia uno a uno, así que lo que se recupera es **byte a byte** lo que
+se firmó. `dte:verifica-timbre --todos` sigue dando 201 timbres idénticos.
+
+### Y el 500 sin explicación
+
+El fallo llegó al vendedor como «error del servidor», sin nada más, y el mensaje
+que lo explicaba estaba dentro de la respuesta que no se pudo entregar.
+`response()->json()` lanza `InvalidArgumentException` al encontrarse una cadena
+que no es UTF-8, y lo lanza **después** de que el controlador terminó: Laravel
+lo convierte en un 500 opaco.
+
+**Un mensaje de excepción no es texto: son los bytes que puso quien la lanzó**, y
+el ODBC los pone en la página de códigos de Windows. Ahora todas las respuestas
+pasan por `App\Http\Respuestas`, que llama a la de siempre y **repara sólo si
+falló** —`json_encode` ya recorre el árbol, así que revisarlo antes sería
+recorrerlo dos veces—. La reparación va en **Windows-1252** y no en ISO-8859-1,
+porque el tramo `80`–`9F` que ISO-8859-1 deja sin asignar es justo donde Windows
+pone las comillas tipográficas y los guiones largos de sus propios mensajes.
+
+Un problema de codificación puede seguir existiendo; lo que no puede es
+esconderse.
+
+### Lo que contesta el SII también viene en ISO-8859-1
+
+Lo declaran sus propios `.jws`, y su glosa acaba en `dte_doccab.Motivo` y en el
+JSON que lee el teléfono: los dos caminos que acabamos de tapar. Se normaliza en
+`Sii::pide()`, que es el único sitio por donde entran las respuestas.
+
 ## La llave privada no sale de la base
 
 `Caf::firmar()` es lo único que se expone. No hay método que devuelva la llave,

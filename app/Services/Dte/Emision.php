@@ -172,7 +172,10 @@ class Emision
 
         $xml = trim((string) $xml);
 
-        return $xml === '' ? null : $xml;
+        // A los bytes que se firmaron. Reintentar un envío con la copia en
+        // caracteres mandaría al SII un documento cuya firma ya no cubre su
+        // propio texto: un acento que pasó de un byte a dos.
+        return $xml === '' ? null : Codificacion::desdeLaBase($xml);
     }
 
     /** La cabecera de un documento de inventario, para quien la necesite fuera. */
@@ -225,8 +228,13 @@ class Emision
 
             if ($timbre = Timbre::extraer($documento)) {
                 // El ERP imprime el código de barras desde aquí, no desde el XML.
-                $datos['FirmaDTE'] = '<TED version="1.0">'.$timbre[0]
-                    .'<FRMT algoritmo="SHA1withRSA">'.$timbre[1].'</FRMT></TED>';
+                // Recodificado por lo mismo que el archivo, y con la misma
+                // salvedad: al imprimirlo se devuelve a ISO-8859-1, porque el
+                // PDF417 lleva bytes y tiene que decir lo mismo que el XML.
+                $datos['FirmaDTE'] = Codificacion::paraLaBase(
+                    '<TED version="1.0">'.$timbre[0]
+                    .'<FRMT algoritmo="SHA1withRSA">'.$timbre[1].'</FRMT></TED>'
+                );
             }
 
             $this->escribirSeguimiento($cab, $tipo, $folio, $rutEmisor, $datos);
@@ -314,14 +322,23 @@ class Emision
         ]);
     }
 
-    /** Guarda un XML en `dte_archivos` y devuelve su identificador. */
+    /**
+     * Guarda un XML en `dte_archivos` y devuelve su identificador.
+     *
+     * El XML va **recodificado** (`Codificacion::paraLaBase`). La columna es
+     * `ntext` y el controlador ODBC traduce asumiendo UTF-8: los bytes
+     * ISO-8859-1 del DTE lo hacen abortar la escritura entera, que es lo que
+     * dejó la factura 238 escrita en inventario y sin timbrar. Lo que viaja al
+     * SII sigue siendo lo que se firmó; aquí sólo cambia la forma de guardarlo,
+     * que es además la que usa el Softland de escritorio.
+     */
     private function archivo(object $cab, TipoDte $tipo, int $folio, string $tipoXml, string $nombre, string $xml): int
     {
         $tabla = $this->califica('dte_archivos');
 
         DB::connection(self::CONN)->table($tabla)->insert([
             'Extension' => pathinfo($nombre, PATHINFO_EXTENSION),
-            'Archivo' => $xml,
+            'Archivo' => Codificacion::paraLaBase($xml),
             'Tipo' => $cab->Tipo,
             'NroInt' => (int) $cab->NroInt,
             'Folio' => $folio,

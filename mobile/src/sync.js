@@ -72,8 +72,8 @@ export const GRUPOS = {
     // 12»— se calcula desde ellas: las columnas que Softland tiene para eso
     // están muertas.
     notas_venta: ['notas_venta', 'nota_venta_lineas', 'linea_origen', 'nv_atributo_valores',
-        'facturas', 'factura_lineas', 'factura_referencias', 'dte_estado'],
-    facturas: ['facturas', 'factura_lineas', 'factura_referencias', 'dte_estado'],
+        'facturas', 'factura_lineas', 'factura_referencias', 'referencias_dte', 'dte_estado'],
+    facturas: ['facturas', 'factura_lineas', 'factura_referencias', 'referencias_dte', 'dte_estado'],
     clientes: ['clientes', 'contactos'],
     productos: ['productos', 'precios'],
 };

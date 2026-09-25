@@ -151,6 +151,14 @@ class AuthController extends Controller
                 // El servidor lo vuelve a comprobar al emitirla, siempre.
                 'receptor_editable' => (new \App\Services\Dte\ReglasFactura)
                     ->receptorEditable($u->softland_user),
+                // Si la orden de compra del cliente sale nombrada en el DTE como
+                // referencia 801. Lo decide la empresa, y el teléfono lo necesita
+                // para **no mentir**: la pantalla de la factura enseña las
+                // referencias que van a salir, y con la llave apagada la de la
+                // orden de compra no sale. Quien manda sobre eso es el servidor;
+                // esto es sólo la copia que el teléfono necesita sin señal.
+                'referencia_orden_compra' => (new \App\Services\Dte\ReglasFactura)
+                    ->referenciaOrdenCompra(),
                 // Si este servidor sabe consultar el padrón del SII. Sin esto
                 // el alta de clientes no ofrece el botón de buscar, en vez de
                 // ofrecerlo y fallar. Es configuración del servidor, no

@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Services\Documentos\Emision as EmisionPapel;
 use App\Services\Documentos\TipoDocumento;
 use App\Services\Dte\Caf;
-use App\Services\Dte\CodigoBarras;
 use App\Services\Dte\Certificado;
+use App\Services\Dte\CodigoBarras;
+use App\Services\Dte\Codificacion;
 use App\Services\Dte\Emision;
 use App\Services\Dte\Facturacion;
 use App\Services\Dte\ReglasFactura;
@@ -17,6 +18,7 @@ use App\Services\Softland\Maestros;
 use App\Services\Softland\Saldo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -90,11 +92,24 @@ class FacturaController extends Controller
             'oc' => self::ocDe($nv),
             'observacion' => trim((string) $nv->nvObser) ?: null,
             'bodega' => trim((string) $nv->CodBode) ?: null,
+            // El contacto, que es una persona y no un código: `NomCon` guarda el
+            // nombre, igual que en la cotización. La factura lo hereda como
+            // hereda la condición de pago, y se puede cambiar — quien recibe la
+            // factura en administración no siempre es quien pidió el presupuesto.
+            'contacto' => trim((string) $nv->NomCon) ?: null,
             'fecha' => substr((string) $nv->nvFem, 0, 10),
             // Por usuario, no por empresa: el permiso lo concede Softland a
             // cada uno, y la pantalla tiene que enseñar lo que éste puede.
             'receptor_editable' => $this->reglas->receptorEditable(
                 $this->usuario($request)->softland_user
+            ),
+            // Las referencias que van a salir solas, tal como las va a escribir
+            // el servidor. Se calculan aquí y no en el teléfono a propósito:
+            // cuáles salen lo decide la empresa, y una copia de esa regla en la
+            // pantalla sería un papel con renglones que la pantalla no anunció.
+            'referencias_automaticas' => array_map(
+                fn ($r) => ['tipo_sii' => (string) $r['sii'], 'folio' => $r['folio'], 'fecha' => $r['fecha']],
+                $this->referenciasDelDocumento([], $nv),
             ),
             'conocible' => $saldo['conocible'],
             'motivo' => $saldo['motivo'],
@@ -143,6 +158,10 @@ class FacturaController extends Controller
             'centro_costo' => 'nullable|string|max:8',
             'condicion' => 'nullable|string|max:3',
             'bodega' => 'nullable|string|max:10',
+            // 30, que es lo que mide `iw_gsaen.NomContacto`. Es el nombre de la
+            // persona, no un código: así lo guarda el ERP y así lo guarda la
+            // cotización en `nwcotiza.NomCon`.
+            'contacto' => 'nullable|string|max:30',
             // 255, que es lo que mide `iw_gsaen.Glosa`. La observación de la
             // nota de venta cabe en 4.000 y aquí no: el teléfono enseña el
             // recorte antes de emitir, y `Facturacion` lo vuelve a cortar por
@@ -153,6 +172,16 @@ class FacturaController extends Controller
             // haber llegado después de escribirla, y entonces se corrige aquí
             // sin tener que volver a tocar la venta.
             'oc' => 'nullable|string|max:18',
+            // Los papeles que esta factura nombra además de los suyos: la HES
+            // que pide una eléctrica, un contrato, la factura que se está
+            // reemplazando. El tipo se comprueba contra el maestro del ERP
+            // antes de gastar un folio; ver `referenciasDelDocumento()`.
+            'referencias' => 'nullable|array|max:20',
+            'referencias.*.tipo_sii' => 'required|string|max:3',
+            // Texto y no entero: hay folios referenciados como «272-OC00008216».
+            'referencias.*.folio' => 'required|string|max:18',
+            'referencias.*.fecha' => 'nullable|date',
+            'referencias.*.glosa' => 'nullable|string|max:400',
             'lineas' => 'required|array|min:1|max:200',
             'lineas.*.producto' => 'required|string|max:20',
             'lineas.*.cantidad' => 'required|numeric|gt:0',
@@ -205,9 +234,10 @@ class FacturaController extends Controller
                 'centro_costo' => $data['centro_costo'] ?? null,
                 'cond_pago' => $data['condicion'] ?? null,
                 'bodega' => $data['bodega'] ?? null,
+                'contacto' => $data['contacto'] ?? null,
                 'glosa' => $data['glosa'] ?? null,
                 'nota_venta' => $data['nota_venta'] ?? null,
-                'referencias' => $this->referenciasDeLaVenta($data, $nv),
+                'referencias' => $this->referenciasDelDocumento($data, $nv),
                 'lineas' => $data['lineas'],
             ]);
         } catch (Throwable $e) {
@@ -731,7 +761,12 @@ class FacturaController extends Controller
             ->where('Tipo', $cab['tipo'])->where('NroInt', $cab['numero_interno'])
             ->value('FirmaDTE');
 
-        return trim((string) $ted) === '' ? null : CodigoBarras::timbre($ted);
+        // Devuelto a los bytes que se firmaron. El PDF417 codifica bytes, no
+        // letras: con el TED en caracteres, una «ó» ocuparía dos y el timbre
+        // impreso dejaría de decir lo mismo que el XML que recibió el SII.
+        $ted = Codificacion::desdeLaBase(trim((string) $ted));
+
+        return $ted === '' ? null : CodigoBarras::timbre($ted);
     }
 
     /**
@@ -741,6 +776,11 @@ class FacturaController extends Controller
      * Pedido»— porque es lo que el cliente lleva años leyendo. Y la referencia
      * al documento que se anula sale de `IW_GSaEn_RefDTE`, que es donde de
      * verdad se dice qué se acredita.
+     *
+     * Cada renglón lleva **rótulo, folio y fecha**. La fecha estaba fuera y
+     * hace falta: quien recibe la factura la cuadra contra un papel suyo, y en
+     * una eléctrica hay varias HES con numeración propia por contrato. Va entre
+     * paréntesis y sólo si la hay, que es como la escribe el papel de Softland.
      *
      * @return list<string>
      */
@@ -755,9 +795,16 @@ class FacturaController extends Controller
         foreach ($refs as $r) {
             // La glosa es el rótulo que Softland imprime —«Nota de
             // Pedido/Hes/Has»— y el folio va detrás. Cuando no hay glosa se
-            // nombra el tipo del SII, que para eso está.
-            $glosa = trim((string) ($r->Glosa ?? '')) ?: TipoDte::nombreSii((int) $r->CodRefSII);
-            $lista[] = trim($glosa.' '.$r->FolioRef);
+            // nombra el tipo del SII; y si el código no es ni numérico —el
+            // maestro del ERP admite filas escritas a mano— se imprime tal cual,
+            // que al menos es lo que eligió quien facturó.
+            $codigo = trim((string) $r->CodRefSII);
+            $glosa = trim((string) ($r->Glosa ?? ''))
+                ?: (ctype_digit($codigo) ? TipoDte::nombreSii((int) $codigo) : $codigo);
+
+            $fecha = substr((string) $r->FechaRef, 0, 10);
+            $lista[] = trim($glosa.' '.$r->FolioRef)
+                .($fecha === '' ? '' : ' ('.date('d-m-Y', strtotime($fecha)).')');
         }
 
         // La nota de venta sólo se nombra si no vino ya como referencia del
@@ -1035,12 +1082,14 @@ class FacturaController extends Controller
     /**
      * De qué papeles viene esta factura, para el `<Referencia>` del DTE.
      *
-     * Las arma **el servidor**, no el teléfono, y por dos razones: los códigos
-     * del SII no son cosa de una pantalla, y así la factura que estuvo
-     * esperando en la bandeja de salida sale con sus referencias igual que la
-     * que se emitió con señal.
+     * Son dos cosas que se suman, y conviene no confundirlas:
      *
-     * Son dos, y no son la misma:
+     *  - **las que deduce el servidor** de la propia venta, que salen solas y
+     *    no hay que acordarse de ellas;
+     *  - **las que escribe quien factura**, que son papeles que el sistema no
+     *    tiene forma de conocer.
+     *
+     * ## Las que salen solas
      *
      *  - **801, Orden de Compra**, con la que dio el cliente. Es la que de
      *    verdad le sirve a quien recibe la factura para cuadrarla contra lo que
@@ -1051,16 +1100,35 @@ class FacturaController extends Controller
      * El ERP las escribe en ese orden —la 232 lleva la 801 en la línea 1 y la
      * 802 en la 2— y con la fecha del documento referido, no con la de hoy: las
      * seis referencias 801 de INNOVAGES llevan las seis la fecha de su nota de
-     * venta.
+     * venta. Las dos se pueden apagar por empresa: poner el número de la nota de
+     * venta en el DTE es una costumbre de INNOVAGES —188 documentos—, no una
+     * regla del SII.
      *
-     * Las dos se pueden apagar por empresa. Poner el número de la nota de venta
-     * en el DTE es una costumbre de INNOVAGES —188 documentos—, no una regla
-     * del SII, y la app se replica a otras empresas cambiando configuración.
+     * ## Las que se escriben
+     *
+     * Hay clientes que **no pagan una factura que no nombre su documento**: las
+     * eléctricas y las forestales piden la HES, y también aparecen contratos y
+     * resoluciones. Eso no se deduce de nada — lo sabe quien factura y nadie
+     * más —, así que se escribe, y va detrás de las automáticas.
+     *
+     * Tres reglas, y las tres son para que un folio no se gaste en un documento
+     * que el SII va a rechazar:
+     *
+     *  - **el tipo tiene que existir en `DTE_SiiTDocRef`.** Va tal cual al
+     *    `<TpoDocRef>` del XML, así que un código inventado es un rechazo
+     *    después de haber gastado el folio. El maestro es del ERP y la app no lo
+     *    interpreta —lee y muestra lo que declare—, pero no acepta lo que no
+     *    declara.
+     *  - **la fecha, si no viene, es la del documento.** El `<FchRef>` no es
+     *    opcional en el DTE, y dejarlo vacío es el mismo rechazo.
+     *  - **una referencia repetida es una.** Mismo tipo y mismo folio escritos
+     *    dos veces —o escritos a mano habiendo salido ya solos, que es justo lo
+     *    que pasa con la orden de compra— es un renglón, no dos.
      *
      * @param  array<string, mixed>  $data
      * @return list<array<string, mixed>>
      */
-    private function referenciasDeLaVenta(array $data, ?object $nv): array
+    private function referenciasDelDocumento(array $data, ?object $nv): array
     {
         $refs = [];
         $fecha = $nv
@@ -1080,7 +1148,77 @@ class FacturaController extends Controller
             $refs[] = ['sii' => 802, 'folio' => (string) $nv->NVNumero, 'fecha' => $fecha];
         }
 
-        return $refs;
+        foreach ($data['referencias'] ?? [] as $r) {
+            $tipo = trim((string) ($r['tipo_sii'] ?? ''));
+            $folio = trim((string) ($r['folio'] ?? ''));
+
+            if ($tipo === '' || $folio === '') {
+                continue;
+            }
+
+            if (! self::tipoDeReferenciaExiste($tipo)) {
+                throw new RuntimeException(
+                    "El tipo de documento de referencia «{$tipo}» no está en el maestro del ERP. ".
+                    'Elige uno de la lista: el SII rechaza el documento si no lo reconoce.'
+                );
+            }
+
+            $refs[] = [
+                'sii' => $tipo,
+                'folio' => $folio,
+                'fecha' => substr((string) ($r['fecha'] ?? $fecha), 0, 10),
+                // Vacía a propósito cuando no se escribe: `Facturacion` la
+                // rellena con el rótulo del maestro, que es el que el cliente
+                // lleva años leyendo en el papel de Softland.
+                'glosa' => trim((string) ($r['glosa'] ?? '')) ?: null,
+            ];
+        }
+
+        return self::sinRepetidas($refs);
+    }
+
+    /**
+     * Si el ERP declara este tipo de documento de referencia.
+     *
+     * Contra el maestro y no contra una lista escrita aquí: los códigos del SII
+     * son suyos, y una lista nuestra se quedaría vieja el día que el SII añada
+     * uno. Se compara sin espacios porque `CodRefSII` es `varchar(3)` y hay
+     * instalaciones con el valor rellenado.
+     */
+    private static function tipoDeReferenciaExiste(string $tipo): bool
+    {
+        return DB::connection('softland')->table('softland.DTE_SiiTDocRef')
+            ->whereRaw('LTRIM(RTRIM(CodRefSII)) = ?', [$tipo])->exists();
+    }
+
+    /**
+     * Una referencia por tipo y folio, en el orden en que aparecieron.
+     *
+     * Hace falta porque las automáticas y las escritas a mano pueden nombrar lo
+     * mismo: teclear la orden de compra como referencia libre habiendo salido ya
+     * sola por la 801 daría dos renglones iguales en el DTE. Gana la primera,
+     * que es la automática, y con ella la fecha deducida de la venta.
+     *
+     * @param  list<array<string, mixed>>  $refs
+     * @return list<array<string, mixed>>
+     */
+    private static function sinRepetidas(array $refs): array
+    {
+        $vistas = [];
+        $limpias = [];
+
+        foreach ($refs as $r) {
+            $clave = trim((string) $r['sii']).'|'.strtoupper(trim((string) $r['folio']));
+
+            if (isset($vistas[$clave])) {
+                continue;
+            }
+
+            $vistas[$clave] = true;
+            $limpias[] = $r;
+        }
+
+        return $limpias;
     }
 
     private function notaVenta(int $numero)

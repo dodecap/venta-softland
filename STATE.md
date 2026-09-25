@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-24 — versión **0.48.2**
+2026-09-25 — versión **0.49.0**
 
 ## Resumen del estado actual
-**Versión 0.48.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.49.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -738,8 +738,9 @@ escribir: el detalle está en `docs/ciclo-normal.md`, paso 7, y en `docs/dte.md`
       corriente: los mismos productos facturados a otro RUT porque quien paga no
       es quien recibe. La diferencia que importa es el saldo.
 - [x] **La factura hereda lo que describe la venta**: condición de pago, bodega,
-      centro de costo, observación y orden de compra. La observación y la OC se
-      pueden corregir antes de emitir; el resto no, que son datos de la venta.
+      centro de costo, observación y orden de compra. (En la 0.49.0 se corrigen
+      todos, no sólo la observación y la OC: con el receptor cambiado, «son datos
+      de la venta» deja de ser un argumento.)
 - [x] **La observación no cabe entera y se dice.** 4.000 caracteres en la nota
       de venta, 255 en la glosa de la factura. Se enseña el recorte antes de
       emitir, como con lo que el SII recorta en el alta de clientes.
@@ -763,7 +764,76 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
 
+### 0.49.0 — La factura completa, y los papeles que nombra
+
+- [x] **Arreglado lo que impidió emitir la factura 238**: el DTE va en
+      ISO-8859-1 y `dte_archivos` es `ntext`, así que el ODBC rechazaba la
+      escritura entera al traducir a UCS-2 (`SQLSTATE[IMSSP]`). La frontera vive
+      ahora en `Dte\Codificacion`, en un solo sitio y en las dos direcciones:
+      caracteres a la base, bytes al SII. `dte:verifica-timbre --todos` sigue
+      dando 201 timbres idénticos, y `ventas:compatibilidad --todo` pasa.
+- [x] **Y el 500 sin explicación no vuelve.** Todas las respuestas pasan por
+      `Http\Respuestas`, que intenta y **repara sólo si falló**
+      (`Support\Texto`, en Windows-1252). Un mensaje de excepción son los bytes
+      que puso quien la lanzó, no texto. Lo que contesta el SII se normaliza en
+      `Sii::pide()`, que es el único sitio por donde entra.
+- [x] **La cabecera de la factura, entera y editable, en las tres pantallas**
+      (`CabeceraFactura.vue`): contacto, condición de venta, centro de costo,
+      bodega, orden de compra y observación, con lo heredado dicho y corregible.
+      La factura suelta mandaba la condición y el centro de costo **sin
+      enseñarlos**; la que nace de una nota de venta los enseñaba sin poder
+      tocarlos. Cambiar el receptor se lleva el contacto, que es una persona de
+      una empresa. Sigue intacto el `iw_gsaen.nvnumero`.
+- [x] **Referencias del DTE escritas a mano** (`ReferenciasDte.vue`): tipo del
+      maestro del ERP, folio **de texto**, fecha y glosa, hasta 20. Las
+      automáticas —801 de la orden de compra, 802 de la nota de venta— se
+      enseñan sin poder editarlas, porque ya tienen su campo. El servidor
+      colapsa repetidas, rellena la fecha que falte y **se niega a un código que
+      `DTE_SiiTDocRef` no declare**.
+- [x] **Las referencias salen impresas con su fecha**, y con el rótulo bien:
+      `codigoSii()` devolvía `int`, así que el `HES` del maestro se convertía en
+      `0` y caía en el 33 por omisión. Nunca llegó a emitirse.
+- [x] Maestro `referencias_dte` al teléfono con las notas de venta y las
+      facturas (44 filas), IndexedDB en la versión 10, y `iw_gsaen_refdte` con
+      su columna `Glosa` en el catálogo — que es de donde sale el `RazonRef` del
+      DTE, no de la columna llamada `RazonRef`.
+
+**Comprobado** con sondas contra INNOVAGES: la mezcla de referencias (las
+automáticas primero, las de mano detrás, la fecha que falta rellenada, las
+repetidas colapsadas, un código inventado rechazado con un mensaje legible y
+`HES` sobreviviendo como texto), el maestro llegando al inventario de descarga y
+los renglones impresos con su fecha. Las dos pantallas nuevas revisadas sobre una
+maqueta desechable, ya borrada, porque las de verdad están detrás del login. 218
+comprobaciones del teléfono pasando.
+
 ## Incidencias
+
+### 2026-09-25 · La factura 238 se guardó y no se pudo enviar al SII
+
+Un vendedor convirtió la nota de venta 2056 en factura y recibió «error del
+servidor». El documento quedó escrito en `iw_gsaen` con su folio gastado y sin
+haber viajado al SII.
+
+La causa: la glosa llevaba «Distribución». El DTE va en **ISO-8859-1** —la firma
+del timbre cubre los bytes del `<DD>` tal como están escritos—, y
+`dte_archivos.Archivo` es `ntext`; el controlador ODBC traduce a UCS-2 dando por
+hecho UTF-8, no encuentra el `0xF3` suelto y **rechaza la escritura entera**. Las
+tres facturas anteriores de la app sólo llevaban `N°`, cuyo `0xB0` sí traga, y por
+eso el camino parecía bueno.
+
+Lo que costó las dos horas no fue eso, fue que **el mensaje estaba dentro de la
+respuesta que no se pudo entregar**: `response()->json()` lanza ante una cadena
+que no es UTF-8 y lo lanza después de que el controlador terminó, así que Laravel
+sirvió un 500 vacío. Arreglado en tres capas —`Dte\Codificacion`,
+`Http\Respuestas` + `Support\Texto`, y `Sii::pide()`— y documentado en
+`docs/dte.md`.
+
+**Deshecho todo** para volver a empezar limpio: borrada la factura, borrada su
+fila de reserva de folio, la nota de venta 2056 de vuelta en `A` con `nvFeAprob`
+vacío, su cotización 8533 en `V` —que es lo correcto: le queda una NV viva— y el
+folio 238 libre otra vez. Comprobado: cero filas en `iw_gsaen` y en `dte_doccab`
+para el 238.
+
 
 ### 2026-09-24 · La API dejó de conectar a SQL Server, y el depurador estaba encendido
 

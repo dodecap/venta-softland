@@ -469,6 +469,13 @@ class Maestros
                     'folio_referido' => 'FolioRef',
                     'fecha_referida' => 'FechaRef:fecha',
                     'codigo' => 'CodRef',
+                    // Ojo con estas dos, que se llaman al revés de lo que
+                    // parece: el `RazonRef` del DTE sale de **`Glosa`**, y la
+                    // columna que se llama `RazonRef` está vacía en los 209
+                    // documentos reales. Faltaba `Glosa`, y sin ella la ficha
+                    // no podía decir «Orden de Compra 272-OC00008216»: tenía el
+                    // folio y no el rótulo.
+                    'glosa' => 'Glosa',
                     'razon' => 'RazonRef',
                 ],
                 'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
@@ -485,6 +492,34 @@ class Maestros
                         static::soloSusVendedores($s, 'cab.CodVendedor', $ctx);
                     });
                 },
+            ],
+            /*
+             * Qué tipos de documento se pueden nombrar en una referencia.
+             *
+             * Los declara el SII —los tributarios, del 30 al 112, y los que no
+             * lo son, del 801 al 823— y Softland los trae en su propio maestro.
+             * De aquí sale la glosa que se imprime, y de aquí sale la lista que
+             * se le ofrece a quien escribe una referencia a mano.
+             *
+             * Baja al teléfono porque una factura se escribe en terreno: el
+             * cliente que pide que su HES o su contrato salgan nombrados en el
+             * documento no espera a que haya señal.
+             *
+             * **No se interpreta, se lee y se muestra**, que es la misma regla
+             * que con `nwttcomp`. Vale saber que el maestro es del ERP y admite
+             * filas escritas a mano: en la base de INNOVAGES hay dos —«asd» y
+             * «HES»— junto a las 42 del SII. Esconderlas sería decidir por la
+             * empresa cuáles son suyas; limpiarlas es cosa del ERP. Lo que sí
+             * hace la app es no aceptar un código **que no esté aquí**, que es
+             * otra cosa: inventarse uno es gastar un folio en un documento que
+             * el SII va a rechazar.
+             */
+            'referencias_dte' => [
+                'titulo' => 'Tipos de documento de referencia',
+                'tabla' => 'softland.DTE_SiiTDocRef',
+                'clave' => ['CodRefSII'],
+                'campos' => ['codigo' => 'CodRefSII', 'nombre' => 'DesRefSII'],
+                'etiqueta' => 'nombre',
             ],
             /*
              * De qué línea de cotización salió cada línea de nota de venta.

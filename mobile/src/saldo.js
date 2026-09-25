@@ -299,6 +299,10 @@ export async function propuestaLocal(numero, receptorEditable = false) {
         oc: nv.oc && nv.oc !== '0' ? nv.oc : null,
         observacion: nv.observacion || null,
         bodega: nv.bodega || null,
+        // El contacto va con lo demás: es una persona, no un código, y la
+        // factura lo hereda igual que la condición de pago.
+        contacto: nv.contacto || null,
+        fecha: nv.fecha || null,
         estado: nv.estado,
         receptor_editable: receptorEditable,
         conocible: true,

@@ -88,8 +88,6 @@ class Compatibilidad
 
         // Los folios que el SII autorizó, con su llave privada dentro.
         'dte_siicaf' => ['dte', ['DocCod', 'FolioD', 'FolioH', 'CAFXML', 'RSASK', 'RUT', 'Fecha']],
-        // Los tipos de referencia del SII: de ahí sale la glosa del DTE.
-        'DTE_SiiTDocRef' => ['dte', ['CodRefSII', 'DesRefSII']],
         // El XML firmado tal como salió, guardado.
         'dte_archivos' => ['dte', ['TipoDTE', 'Folio', 'TipoXML', 'Archivo']],
     ];

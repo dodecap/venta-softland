@@ -1593,6 +1593,53 @@ select.filtro-grupo { margin-bottom: 12px; }
    cede es la rejilla. */
 .linea-campos .cantidad { grid-column: 1 / -1; }
 
+/* Las referencias del DTE: dos campos por fila, y el texto a la izquierda.
+   `.linea-campos` alinea a la derecha porque ahí todo son cantidades y precios;
+   un folio como «272-OC00008216» alineado a la derecha no se lee. */
+.ref-campos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.ref-campos label { display: block; margin: 0; }
+
+.ref-campos label span {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--texto-medio);
+}
+
+/* 12 px arriba y abajo son los 44 px de área pulsable con 16 px de letra, que no
+   se achican en ninguna escala. */
+.ref-campos input { padding: 12px 10px; text-align: left; }
+
+/* Las referencias que pone el servidor solo. Van en un bloque tenue: son un
+   dato, no un control, y tienen que leerse como algo que ya está resuelto. */
+.ref-automaticas {
+    background: var(--fondo);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: calc(10px * var(--d)) calc(12px * var(--d));
+    margin-bottom: calc(9px * var(--d));
+}
+
+.ref-automatica {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: calc(13px * var(--d));
+    color: var(--texto-medio);
+}
+
+.ref-automatica + .ref-automatica { margin-top: 5px; }
+.ref-automatica b { color: var(--texto); font-weight: 600; }
+.ref-automaticas .ayuda { margin-bottom: 0; }
+
 .linea-total {
     margin-top: 9px;
     padding-top: 8px;

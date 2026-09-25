@@ -42,6 +42,100 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.49.0 — La factura completa, y los papeles que nombra
+*2026-09-25*
+
+**Por qué la factura 238 se guardó y no se pudo enviar**
+
+- El error de verdad estaba escrito en la respuesta que no se pudo entregar. La
+  glosa de esa factura llevaba «Distribución», y la «ó» del DTE va en
+  **ISO-8859-1** —un byte, `0xF3`— porque la firma del timbre cubre los bytes
+  del `<DD>` tal como están escritos. Al guardar ese XML en `dte_archivos`, el
+  controlador ODBC lo traduce a UCS-2 dando por hecho que viene en UTF-8, no
+  encuentra `0xF3` y **rechaza la escritura entera**. Las tres facturas
+  anteriores de la app sólo llevaban `N°`, cuyo `0xB0` el controlador sí traga:
+  por eso el camino parecía bueno.
+- La conversión vive ahora en un solo sitio, `App\Services\Dte\Codificacion`:
+  **lo que viaja al SII va en ISO-8859-1 y lo que se guarda en la base va en
+  caracteres**, que es exactamente lo que hace el Softland de escritorio —
+  comprobado en sus folios 178, 179, 180 y 187, donde la «ó» y la «Ñ» vuelven de
+  la base como `C3 B3` y `C3 91` aunque el propio XML declare ISO-8859-1. Pasa
+  por ahí el documento, el sobre y el timbre de `dte_doccab.FirmaDTE`, y la
+  vuelta: el XML que se recupera para reintentar y el TED que se reimprime meses
+  después son byte a byte los que se firmaron. `dte:verifica-timbre --todos`
+  sigue dando 201 timbres idénticos.
+- **Y el 500 sin explicación tampoco vuelve.** `response()->json()` lanza al
+  encontrarse una cadena que no es UTF-8, y lanzarlo *después* de que el
+  controlador terminó convierte cualquier mensaje mal codificado en una página
+  de error opaca. El mensaje de una excepción no es texto: son los bytes que
+  puso quien la lanzó, y el ODBC los pone en la página de códigos de Windows.
+  Ahora todas las respuestas pasan por `App\Http\Respuestas`, que intenta
+  primero y **repara sólo si falló** (`App\Support\Texto`, con Windows-1252,
+  que cubre el tramo `80`–`9F` que ISO-8859-1 deja sin asignar). Un problema de
+  codificación puede seguir existiendo; lo que no puede es esconderse.
+- Lo mismo por el otro lado: las respuestas del SII vienen en ISO-8859-1 —lo
+  declaran sus propios `.jws`— y su glosa acaba en `dte_doccab.Motivo` y en
+  JSON. Se normaliza en `Sii::pide()`, que es el único sitio por donde entran.
+
+**La cabecera de la factura, entera y editable**
+
+- **Heredar es una propuesta, no un candado.** Hasta ahora la factura suelta
+  preguntaba el cliente y la glosa, y mandaba la condición de venta y el centro
+  de costo **sin enseñarlos**: salían del usuario o de la ficha del cliente y
+  nadie los veía, así que corregirlos era imposible. La que nace de una nota de
+  venta los enseñaba como texto, sin poder tocarlos, con el argumento de que son
+  datos de la venta — y con el receptor cambiado ese argumento se cae: la
+  factura de comisión va a otro RUT, con otra condición de pago y otro contacto,
+  y heredar los del cliente final es escribir un documento tributario con los
+  datos de quien no lo recibe.
+- Las dos pantallas comparten ahora `CabeceraFactura.vue`: **contacto,
+  condición de venta, centro de costo, bodega, orden de compra y observación**,
+  con lo heredado dicho —«viene de la nota de venta»— y editable. El contacto
+  sale de los contactos del cliente que recibe, con lista si los tiene y a mano
+  si no, y **cambiar de cliente se lo lleva**: el contacto es una persona de una
+  empresa, no un dato del documento.
+- Dos campos no se preguntan, a propósito. **La fecha**, porque un DTE lleva la
+  del día en que se emite y en esta app emitir y mandar al SII son el mismo acto
+  justamente para que no se separen. Y **el vendedor**, que lo hereda de la nota
+  de venta y sólo se pregunta cuando no hay ninguna detrás.
+- Sigue intacto el enlace `iw_gsaen.nvnumero` entre la nota de venta y su
+  factura, se le facture a quien se le facture.
+
+**Los papeles que la factura nombra**
+
+- Hay clientes grandes —eléctricas, forestales, mineras— que **no pagan una
+  factura que no nombre su propio documento**: la HES que autorizó el servicio,
+  el contrato marco, la resolución. Ese papel no está en Softland y no se deduce
+  de nada: lo sabe quien factura, y no tenía dónde escribirlo. La factura salía
+  correcta para el SII e **impagable** para el cliente. Ahora se escriben en
+  `ReferenciasDte.vue`, van al DTE como `<Referencia>` y salen impresas.
+- El tipo sale del maestro del ERP, `DTE_SiiTDocRef`, que es de donde sale el
+  rótulo que se imprime. La app **no interpreta esa lista**: ofrece lo que
+  declare, incluidas las filas puestas a mano en esta base. Lo que sí hace el
+  servidor es **no aceptar un código que no esté ahí**, porque un código
+  inventado es un folio gastado en un documento que el SII rechaza.
+- **El folio de una referencia es texto.** Hay órdenes de compra como
+  `272-OC00008216` y HES con letras. Y el código también: `codigoSii()` lo
+  devolvía con `(int)`, así que el `HES` del maestro se convertía en `0` y caía
+  en el 33 por omisión — la referencia habría dicho «factura electrónica» donde
+  el cliente pidió su HES. Nunca llegó a emitirse; estaba ahí esperando.
+- Las **automáticas** —la 801 de la orden de compra y la 802 de la nota de
+  venta— se enseñan arriba sin poder editarlas, porque ya tienen su campo:
+  cambiar la orden de compra en la cabecera cambia la referencia, y tenerla en
+  dos sitios sería tener dos verdades. Se enseñan porque si no, el papel sale
+  con renglones que nadie escribió y parece un error.
+- Las repetidas se colapsan por tipo y folio, y a la que no trae fecha se le
+  pone la del documento.
+- **Y ahora sí salen bien impresas.** Ya se imprimían, pero sólo las
+  automáticas, porque no había manera de crear otras; y el rótulo se sacaba del
+  código convertido a entero, que dejaba en blanco los no numéricos. Cada
+  renglón lleva además la fecha del documento referido, que es lo que
+  administración busca.
+- El maestro `referencias_dte` viaja al teléfono con las notas de venta y las
+  facturas (44 filas en esta base), y `iw_gsaen_refdte` gana la columna `Glosa`
+  — que es de donde sale el `RazonRef` del DTE, no de la columna que se llama
+  `RazonRef`, vacía en los 209 documentos reales.
+
 ### 0.48.2 — El globo rojo de la campana
 *2026-09-24*
 

@@ -600,6 +600,37 @@ están en `docs/ciclo-normal.md`. Lo que hay que saber antes de tocar nada:
 - **La factura hereda lo que describe la venta**, se le facture a quien se le
   facture: condición de pago, bodega, centro de costo, observación y orden de
   compra. Cambiar el pagador no cambia qué se vendió.
+- **Pero heredar es una propuesta, no un candado.** Los seis campos que
+  describen una factura —contacto, condición de venta, centro de costo, bodega,
+  orden de compra y observación— se enseñan y se pueden cambiar en las tres
+  pantallas, y viven en un solo sitio, `CabeceraFactura.vue`. Enseñarlos como
+  texto valía mientras el receptor era el de la venta; con el receptor cambiado
+  el argumento se cae, porque la condición de pago y el contacto son **del
+  cliente** y no del pedido. Mandarlos sin enseñarlos —lo que hacía la factura
+  suelta— es peor: un dato que nadie ve es un dato que nadie corrige.
+- **El contacto se va con el cliente.** Es una persona de una empresa, no un
+  dato del documento: al cambiar el receptor se vacía, y lo vacía **quien cambia
+  el receptor**, no el componente. Desde dentro no se distingue «el vendedor
+  eligió otro cliente» de «la nota de venta acabó de cargar» —los dos se ven
+  igual, el receptor pasa de vacío a un código— y borrar en el segundo caso se
+  llevaba por delante el contacto heredado, a veces: dependía de cuál de las dos
+  lecturas de IndexedDB terminara antes.
+- **La fecha de una factura no se pregunta.** Lleva la del día en que se emite, y
+  emitir y mandar al SII son el mismo acto justamente para que no se separen.
+  Ofrecer el campo sería ofrecer equivocarse en lo único que no se deshace.
+- **Una factura puede nombrar los papeles que el cliente le pida.** Hay clientes
+  grandes que no pagan una factura que no nombre su HES, su contrato marco o su
+  resolución; eso no está en Softland y no se deduce de nada. Se escribe a mano y
+  va al DTE como `<Referencia>`. El tipo sale del maestro del ERP
+  —`DTE_SiiTDocRef`, que es de donde sale el rótulo impreso— y **la app no lo
+  interpreta**: ofrece lo que declare, incluidas las filas puestas a mano. Lo que
+  sí hace el servidor es negarse a un código que el maestro no declare: un código
+  inventado es un folio gastado en un documento que el SII rechaza.
+- **El código y el folio de una referencia son texto, los dos.** `CodRefSII` es
+  `varchar(3)` y este maestro trae `HES`; pasarlo por `(int)` daba `0` y caía en
+  el 33 por omisión, o sea una referencia diciendo «factura electrónica» donde el
+  cliente pidió su HES. Y el folio admite `272-OC00008216`, que como entero es
+  `272`.
 - **La orden de compra del cliente va al DTE como referencia 801, no 802.**
   `DTE_SiiTDocRef` declara 801 «Orden de Compra» y 802 «Nota de Pedido», y en
   INNOVAGES las 188 referencias 802 llevan el número de la nota de venta y las 6
@@ -666,6 +697,24 @@ esto está en `docs/dte.md`. Cuatro cosas que se olvidan:
   `dte_siicaf` está guardado con espacios y en el DTE va sin ellos— y el `MNT`
   va **sin signo**, aunque el total de una nota de crédito sea negativo en
   `iw_gsaen`.
+- **El DTE va en ISO-8859-1 y la base guarda caracteres.** Son dos cosas y la
+  frontera está en `Dte\Codificacion`, en ningún otro sitio. `dte_archivos` es
+  `ntext` y el controlador ODBC traduce a UCS-2 dando por hecho UTF-8: un `0xF3`
+  suelto **rechaza la escritura entera** (`SQLSTATE[IMSSP] … translating
+  string`). Es lo que impidió emitir la factura 238 —la primera cuya glosa
+  llevaba una vocal acentuada; las anteriores sólo tenían `N°`, cuyo `0xB0` el
+  controlador sí traga—. Guardar caracteres es lo que hace el Softland de
+  escritorio, medido en sus folios 178, 179, 180 y 187. La vuelta importa igual:
+  el XML que se recupera para reintentar y el TED que se reimprime tienen que
+  ser **byte a byte** los que se firmaron.
+- **Un mensaje de excepción no es texto: son los bytes que puso quien la lanzó.**
+  `response()->json()` lanza ante una cadena que no es UTF-8, y lanzarlo después
+  de que el controlador terminó convierte cualquier fallo mal codificado en un
+  500 sin explicación. Por eso todas las respuestas pasan por `Http\Respuestas`,
+  que **intenta primero y repara sólo si falló** (`Support\Texto`, en
+  Windows-1252, que cubre el tramo `80`–`9F`). Un problema de codificación puede
+  seguir existiendo; lo que no puede es esconderse. Lo mismo al otro lado: lo que
+  contesta el SII viene en ISO-8859-1 y se normaliza en `Sii::pide()`.
 - **La firma del documento y la del sobre no se canonicalizan igual.** La forma
   canónica arrastra los espacios de nombres heredados: el **documento** se firma
   suelto y el **sobre**, con los de `<EnvioDTE>`. Suena contradictorio y no lo
@@ -929,7 +978,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.48.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.49.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

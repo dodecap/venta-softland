@@ -928,7 +928,7 @@ class Facturacion
                 'Tipo' => $letra,
                 'NroInt' => $nroInt,
                 'LineaRef' => $i + 1,
-                'CodRefSII' => (string) $codigo,
+                'CodRefSII' => $codigo,
                 // 18 caracteres, que es lo que mide la columna y lo que admite
                 // el `FolioRef` del SII. Y es **texto**: hay órdenes de compra
                 // como «272-OC00008216».
@@ -972,22 +972,30 @@ class Facturacion
      *
      * Viene dado —801, 802— cuando lo referido no es un documento nuestro; se
      * deduce de la pareja de Softland cuando sí lo es.
+     *
+     * Devuelve **texto**, no un número, y no es un detalle: `CodRefSII` es
+     * `varchar(3)` y el `<TpoDocRef>` del DTE también, y el maestro del ERP
+     * admite códigos que no son numéricos —la base de INNOVAGES trae «HES»
+     * junto a las 42 filas del SII—. Pasándolo por `int` esos códigos daban
+     * cero y acababan escritos como **33**: la referencia decía «factura
+     * electrónica» donde el cliente había pedido su HES, y el documento salía
+     * mal sin que nada se quejara.
      */
-    private static function codigoSii(array $ref): int
+    private static function codigoSii(array $ref): string
     {
-        if ($sii = (int) ($ref['sii'] ?? 0)) {
+        if (($sii = trim((string) ($ref['sii'] ?? ''))) !== '') {
             return $sii;
         }
 
-        return TipoDte::desdeSoftland($ref['tipo'] ?? 'F', $ref['subtipo'] ?? 'T')?->value
-            ?? TipoDte::FACTURA->value;
+        return (string) (TipoDte::desdeSoftland($ref['tipo'] ?? 'F', $ref['subtipo'] ?? 'T')?->value
+            ?? TipoDte::FACTURA->value);
     }
 
     /** Cómo nombra el ERP un código de referencia. Del maestro, no de aquí. */
-    private static function glosaSii(int $codigo): ?string
+    private static function glosaSii(string $codigo): ?string
     {
         $glosa = DB::connection(self::CONN)->table('softland.DTE_SiiTDocRef')
-            ->where('CodRefSII', (string) $codigo)->value('DesRefSII');
+            ->whereRaw('LTRIM(RTRIM(CodRefSII)) = ?', [$codigo])->value('DesRefSII');
 
         return trim((string) $glosa) ?: null;
     }

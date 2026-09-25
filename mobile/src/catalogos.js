@@ -23,6 +23,10 @@ const CHICOS = [
     // Seis filas, y sin ellas la lista diría «LLA» donde tiene que decir
     // «Llamar por teléfono».
     'compromisos',
+    // Cuarenta y cuatro filas. Sin ellas la factura ofrecería «801» donde tiene
+    // que decir «Orden de Compra/Orden de Servicio», y el papel imprimiría el
+    // número en vez del rótulo que el cliente lleva años leyendo.
+    'referencias_dte',
     // Estos cuatro son más gordos (2.009 giros, 937 ciudades, 594 centros de
     // costo, 352 comunas) pero van igual: sin ellos la ficha del cliente
     // muestra «C28 · 08301 · LANGE», que no le dice nada a nadie.

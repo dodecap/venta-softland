@@ -12,7 +12,9 @@ import { conectado } from '../red';
 import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import Buscador from '../components/Buscador.vue';
+import CabeceraFactura from '../components/CabeceraFactura.vue';
 import Cantidad from '../components/Cantidad.vue';
+import ReferenciasDte from '../components/ReferenciasDte.vue';
 import Vacio from '../components/Vacio.vue';
 
 /*
@@ -59,11 +61,30 @@ import Vacio from '../components/Vacio.vue';
  * ## Lo que la factura hereda de la venta
  *
  * Todo lo que describe la venta viaja con ella, se le facture a quien se le
- * facture: condición de pago, bodega, centro de costo, la observación y la
- * orden de compra del cliente. Las dos últimas se pueden corregir aquí —la OC
- * llega muchas veces después de escribir la venta—, y la OC acaba en el DTE
- * como **referencia 801**, que es la que le sirve a quien recibe la factura
- * para cuadrarla contra lo que encargó.
+ * facture: contacto, condición de pago, bodega, centro de costo, la observación
+ * y la orden de compra del cliente. La OC acaba en el DTE como **referencia
+ * 801**, que es la que le sirve a quien recibe la factura para cuadrarla contra
+ * lo que encargó.
+ *
+ * **Heredar es una propuesta, no un candado.** Hasta la 0.48.2 la condición de
+ * pago, el centro de costo y la bodega se enseñaban como texto, con el argumento
+ * de que son datos de la venta y corregirlos aquí dejaría dos verdades. Con el
+ * receptor cambiado ese argumento se cae: la factura de comisión sale a otro RUT,
+ * con la condición de pago **de ese** RUT y con un contacto que no es el del
+ * cliente final. Heredarlos sin poder tocarlos era escribir un documento
+ * tributario con los datos de quien no lo recibe. Así que se enseñan, se dice de
+ * dónde vienen, y se pueden cambiar — los campos están en `CabeceraFactura.vue`,
+ * el mismo que usa la factura suelta.
+ *
+ * ## Las referencias, que son de dos clases
+ *
+ * Las **automáticas** las escribe el servidor: la orden de compra y el número de
+ * la nota de venta. Se enseñan tal como él las va a escribir —vienen en la
+ * propuesta, no se calculan aquí— para que el papel no salga con renglones que
+ * la pantalla no anunció.
+ *
+ * Las **escritas a mano** son papeles que el sistema no conoce: la HES que pide
+ * una eléctrica, un contrato. Sin ellas hay clientes que no pagan la factura.
  */
 
 const route = useRoute();
@@ -141,12 +162,20 @@ const aOtro = computed(
 const oc = ref('');
 const observacion = ref('');
 
-const LARGO_GLOSA = 255;
+/*
+ * Y lo demás que describe el documento, que también se hereda y también se puede
+ * cambiar. Vacío es la cadena vacía y no `null`: son el `v-model` de un
+ * `<select>`, y al emitir se traducen.
+ */
+const contacto = ref('');
+const condicion = ref('');
+const centroCosto = ref('');
+const bodega = ref('');
 
-/** La observación que de verdad se va a escribir, con su recorte a la vista. */
-const observacionRecortada = computed(
-    () => observacion.value.trim().length > LARGO_GLOSA
-);
+/** Los papeles que esta factura nombra además de los que salen solos. */
+const referencias = ref([]);
+
+const LARGO_GLOSA = 255;
 
 /** Lo que propone cada modo como observación, para saber si nadie la tocó. */
 function observacionPropuesta(cual) {
@@ -200,6 +229,16 @@ async function cargar() {
 
         propuesta.value = r;
 
+        // Lo que describe el documento, **antes** del receptor: al ponerlo, la
+        // cabecera va a leer los contactos del cliente y elegir el único que
+        // haya si el campo está vacío. Al revés, esa elección pisaría el
+        // contacto que traía la venta.
+        oc.value = r.oc || '';
+        contacto.value = r.contacto || '';
+        condicion.value = r.condicion || '';
+        centroCosto.value = r.centro_costo || '';
+        bodega.value = r.bodega || '';
+
         // Sólo lo que queda. Lo ya facturado no se vuelve a ofrecer, aunque se
         // pueda facturar de más: para eso está el campo de cantidad.
         lineas.value = r.lineas
@@ -211,9 +250,8 @@ async function cargar() {
         clienteNv.value = await idb.obtener('clientes', r.cliente);
         cliente.value = clienteNv.value;
 
-        // Lo que se hereda de la venta. Se pone después del cliente porque la
-        // observación que propone el modo comisión lo nombra.
-        oc.value = r.oc || '';
+        // La observación va después del cliente, porque la que propone el modo
+        // comisión lo nombra.
         observacion.value = observacionPropuesta(modo.value);
     } catch (e) {
         error.value = e.message;
@@ -266,15 +304,41 @@ async function abrirClientes() {
 }
 
 async function elegirCliente(codigo) {
+    const anterior = receptor.value;
+
     receptor.value = codigo;
     cliente.value = await idb.obtener('clientes', codigo);
     eligiendoCliente.value = false;
+
+    if (codigo === anterior) return;
+
+    // El contacto es de una empresa, no del documento: el de la nota de venta no
+    // trabaja en la que va a recibir esta factura. Se borra, y la cabecera pone
+    // el del cliente nuevo si tiene uno solo.
+    contacto.value = '';
+
+    /*
+     * La condición de pago es del cliente, no del pedido: se le factura a otro
+     * RUT y el plazo que ese RUT tiene pactado es otro. Se propone la suya, pero
+     * **sólo si nadie había tocado el campo** — la misma regla que la
+     * observación: lo que propuso el sistema se puede pisar, lo que escribió una
+     * persona no.
+     */
+    if (condicion.value === (propuesta.value?.condicion || '')) {
+        condicion.value = cliente.value?.condicion || '';
+    }
 }
 
 /** Volver al de la nota de venta, que es deshacer el cambio, no otra cosa. */
 function volverAlDeLaNotaVenta() {
     receptor.value = propuesta.value.cliente;
     cliente.value = clienteNv.value;
+    // Deshacer es deshacer entero: con el cliente vuelven su condición de pago y
+    // su contacto, si es que lo que hay puesto era lo que propuso el otro.
+    if (condicion.value === (clienteNv.value?.condicion || '')) {
+        condicion.value = propuesta.value.condicion || '';
+    }
+    contacto.value = propuesta.value.contacto || '';
 }
 
 let turnoProducto = 0;
@@ -318,8 +382,33 @@ function agregarProducto(p) {
 // que quiere decir «no se sabe» y no «no quedan» — bloquear ahí sería impedir
 // justo lo que la bandeja vino a permitir.
 const sinFolios = computed(() => !! propuesta.value?.folios && propuesta.value.folios.libres <= 0);
+
+/*
+ * Las referencias que salen solas, tal como las va a escribir el servidor.
+ *
+ * Vienen en la propuesta y no se calculan aquí: cuáles salen lo decide la empresa
+ * —la 801 de la orden de compra y la 802 de la nota de venta se apagan por
+ * separado— y una copia de esa regla en la pantalla es un papel con renglones que
+ * la pantalla no anunció. Lo único que se recalcula es el folio de la orden de
+ * compra, porque ese campo se puede corregir aquí.
+ */
+const refsAutomaticas = computed(() => (propuesta.value?.referencias_automaticas || []).map(
+    (r) => (r.tipo_sii === '801' ? { ...r, folio: oc.value.trim() || r.folio } : r)
+).filter((r) => String(r.folio || '').trim() !== ''));
+
+/**
+ * Una referencia a medias no se emite.
+ *
+ * Sin tipo o sin folio el DTE sale con un `<Referencia>` incompleto y el SII lo
+ * rechaza, con el folio ya gastado. Se para antes.
+ */
+const refsAMedias = computed(() => referencias.value.some(
+    (r) => ! String(r.tipo_sii || '').trim() || ! String(r.folio || '').trim()
+));
+
 const hayQueFacturar = computed(
     () => enJuego.value.some((l) => l.cantidad > 0) && (! esComision.value || totales.value.total > 0)
+        && ! refsAMedias.value
 );
 
 /** Facturar de más está permitido, pero tiene que verse. */
@@ -351,15 +440,29 @@ async function emitir() {
         nota_venta: numero.value,
         receptor: receptor.value,
 
-        // Lo que describe la venta viaja con ella, cambie o no el receptor:
-        // quién paga no cambia qué se vendió, con qué condición ni desde qué
-        // bodega. La OC acaba en el DTE como referencia 801 y la observación en
-        // la glosa del documento.
-        centro_costo: propuesta.value.centro_costo,
-        condicion: propuesta.value.condicion,
-        bodega: propuesta.value.bodega,
+        // Lo que describe el documento. Nace de la venta —quién paga no cambia
+        // qué se vendió ni desde qué bodega salió— y se puede corregir aquí,
+        // porque con el receptor cambiado el contacto y la condición de pago son
+        // de otro cliente. Va lo que quedó en los campos, no lo que propuso la
+        // nota de venta. La OC acaba en el DTE como referencia 801 y la
+        // observación en la glosa del documento.
+        contacto: contacto.value || null,
+        centro_costo: centroCosto.value || null,
+        condicion: condicion.value || null,
+        bodega: bodega.value || null,
         oc: oc.value.trim() || null,
         glosa: observacion.value.trim().slice(0, LARGO_GLOSA) || null,
+
+        // Los papeles que hay que nombrar y que el sistema no conoce. Sólo los
+        // completos: los que están a medias ya impiden emitir.
+        referencias: referencias.value
+            .filter((r) => String(r.tipo_sii || '').trim() && String(r.folio || '').trim())
+            .map((r) => ({
+                tipo_sii: String(r.tipo_sii).trim(),
+                folio: String(r.folio).trim(),
+                fecha: r.fecha || null,
+                glosa: (r.glosa || '').trim() || null,
+            })),
 
         // La comisión va con las líneas escritas a mano y **sin `nv_linea`**:
         // no factura nada de lo vendido, así que no puede consumir saldo. La
@@ -512,19 +615,6 @@ function cantidad(n) {
                         <div v-if="propuesta.vendedor">
                             <span>Vendedor</span><b>{{ nombreDe('vendedores', propuesta.vendedor) }}</b>
                         </div>
-                        <!-- Lo que la factura hereda de la venta, a la vista.
-                             No se edita aquí: son datos de la venta, y
-                             corregirlos en la factura dejaría dos verdades. -->
-                        <div v-if="propuesta.condicion">
-                            <span>Condición de pago</span>
-                            <b>{{ nombreDe('condiciones_venta', propuesta.condicion) }}</b>
-                        </div>
-                        <div v-if="propuesta.centro_costo">
-                            <span>Centro de costo</span><b>{{ propuesta.centro_costo }}</b>
-                        </div>
-                        <div v-if="propuesta.bodega">
-                            <span>Bodega</span><b>{{ nombreDe('bodegas', propuesta.bodega) }}</b>
-                        </div>
                     </div>
                 </div>
 
@@ -584,20 +674,19 @@ function cantidad(n) {
                      documento tributario. -->
                 <div class="seccion"><h2>Lo que va en la factura</h2></div>
 
-                <label>Orden de compra del cliente</label>
-                <input v-model="oc" type="text" placeholder="Sin orden de compra" maxlength="18">
-                <p class="ayuda">
-                    Va al DTE como referencia <b>Orden de Compra</b>. Es lo que le sirve a quien
-                    recibe la factura para cuadrarla contra lo que encargó.
-                </p>
+                <CabeceraFactura v-model:contacto="contacto"
+                                 v-model:condicion="condicion"
+                                 v-model:centro-costo="centroCosto"
+                                 v-model:bodega="bodega"
+                                 v-model:oc="oc"
+                                 v-model:glosa="observacion"
+                                 :receptor="receptor"
+                                 :heredado="propuesta"
+                                 :a-otro="aOtro"
+                                 :largo-glosa="LARGO_GLOSA" />
 
-                <label>Observación</label>
-                <textarea v-model="observacion" rows="2"
-                          placeholder="Lo que tiene que leer el cliente"></textarea>
-                <p class="ayuda" v-if="observacionRecortada">
-                    <b>No cabe entera.</b> En la factura caben {{ LARGO_GLOSA }} caracteres y
-                    llevas {{ observacion.trim().length }}: se escribirá cortada ahí.
-                </p>
+                <ReferenciasDte v-model="referencias" :automaticas="refsAutomaticas"
+                                :fecha-por-omision="propuesta.fecha || ''" />
 
                 <!-- La comisión: líneas escritas a mano, sin enlace a las de la
                      nota de venta y sin consumir su saldo. -->
@@ -713,6 +802,9 @@ function cantidad(n) {
                     </button>
                     <p class="ayuda centrado" v-if="sinFolios">
                         Sin folios no hay documento que emitir.
+                    </p>
+                    <p class="ayuda centrado" v-else-if="refsAMedias">
+                        Hay una referencia sin tipo o sin folio: el SII rechazaría el documento.
                     </p>
                     <p class="ayuda centrado" v-else-if="esComision && ! hayQueFacturar">
                         Falta el monto: una línea en cero no cobra nada.

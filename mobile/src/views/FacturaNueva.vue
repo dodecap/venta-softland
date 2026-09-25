@@ -14,7 +14,9 @@ import AppIcon from '../components/AppIcon.vue';
 import Aviso from '../components/Aviso.vue';
 import Cantidad from '../components/Cantidad.vue';
 import Buscador from '../components/Buscador.vue';
+import CabeceraFactura from '../components/CabeceraFactura.vue';
 import CargaProductos from '../components/CargaProductos.vue';
+import ReferenciasDte from '../components/ReferenciasDte.vue';
 import Selector from '../components/Selector.vue';
 import Vacio from '../components/Vacio.vue';
 
@@ -30,12 +32,40 @@ import Vacio from '../components/Vacio.vue';
  * escribe quien factura, porque no hay documento anterior que lo mande, y las
  * líneas se eligen a mano. Lo que no cambia: gasta un folio, no se deshace, y
  * necesita señal.
+ *
+ * ## La cabecera es la misma que la de cualquier factura
+ *
+ * Y tiene que estarlo. Durante un tiempo esta pantalla preguntaba el cliente, el
+ * vendedor y la glosa, y **mandaba el centro de costo y la condición de venta
+ * sin enseñarlos**: salían del usuario y de la ficha del cliente, nadie los veía
+ * y no había forma de corregirlos. En un documento tributario eso no es un campo
+ * que falta, es un dato escrito a ciegas. Los campos viven en
+ * `CabeceraFactura.vue`, que es el mismo que usa la factura de una nota de venta.
+ *
+ * ## Y aquí las referencias importan más que en ninguna parte
+ *
+ * Una factura suelta no tiene nota de venta que la explique. Si el cliente exige
+ * que se nombre su HES, su contrato o su resolución —y las eléctricas y las
+ * forestales lo exigen—, este es el único sitio donde se puede decir.
  */
 
 const router = useRouter();
 
 const form = ref({
-    cliente: '', vendedor: '', moneda: '01', centro_costo: null, condicion: null, glosa: '', lineas: [],
+    cliente: '',
+    vendedor: '',
+    moneda: '01',
+    // Vacíos y no `null`: son el `v-model` de un `<select>`, y ahí el hueco es
+    // la cadena vacía. Lo que se manda al servidor se traduce a `null` al emitir.
+    contacto: '',
+    condicion: '',
+    centro_costo: '',
+    bodega: '',
+    oc: '',
+    glosa: '',
+    // Los papeles que esta factura nombra además de los suyos.
+    referencias: [],
+    lineas: [],
 });
 const cliente = ref(null);
 const folios = ref(null);
@@ -53,6 +83,9 @@ const sii = ref(null);
 const eligiendoCliente = ref(false);
 const busquedaCliente = ref('');
 const clientesHallados = ref([]);
+
+/** Si la orden de compra sale nombrada en el DTE. Lo dice la empresa. */
+const refOrdenCompra = ref(true);
 
 /*
  * El mismo bucle de carga que el editor: se busca o se escanea, se pone la
@@ -87,7 +120,7 @@ function yaEnDocumento(codigo) {
 onMounted(async () => {
     try {
         usuario.value = await db.getUsuario();
-        form.value.centro_costo = usuario.value?.cod_cc || null;
+        form.value.centro_costo = usuario.value?.cod_cc || '';
         // Sin nota de venta detrás no hay de quién heredar el vendedor, así
         // que se elige. Se propone el propio, que es lo normal; un
         // administrador no tiene y tiene que decirlo.
@@ -96,6 +129,10 @@ onMounted(async () => {
         uf.value = Number(info?.uf) || null;
         // `?? 3` y no `|| 3`: cero decimales es una respuesta, no un hueco.
         decimalesCantidad.value = Number(info?.cant_decimales ?? 3);
+        // Si la orden de compra sale nombrada en el DTE lo decide la empresa. El
+        // teléfono lo sabe del arranque para no anunciar un renglón que no va a
+        // salir; quien manda sigue siendo el servidor al emitir.
+        refOrdenCompra.value = info?.referencia_orden_compra !== false;
         // Sin señal no hay forma de saber cuántos folios quedan: los reparte
         // Softland y no hay copia en el teléfono. Queda en `null`, que es «no
         // se sabe» y no «no quedan».
@@ -129,10 +166,17 @@ async function abrirClientes() {
 }
 
 async function elegirCliente(codigo) {
+    const anterior = form.value.cliente;
+
     form.value.cliente = codigo;
     cliente.value = await idb.obtener('clientes', codigo);
-    form.value.condicion = form.value.condicion || cliente.value?.condicion || null;
     eligiendoCliente.value = false;
+
+    // Cambiar de cliente se lleva a su contacto: es una persona de esa empresa.
+    if (codigo !== anterior) form.value.contacto = '';
+
+    // Se propone, no se impone: el campo está a la vista y se puede cambiar.
+    form.value.condicion = form.value.condicion || cliente.value?.condicion || '';
 }
 
 function agregarProducto(p, cuantos = 1) {
@@ -174,9 +218,34 @@ function aPesos(valor, monedaProducto) {
 
 const totales = computed(() => calcularTotales(form.value.lineas));
 const sinFolios = computed(() => !! folios.value && folios.value.libres <= 0);
+
+/*
+ * Las referencias que van a salir solas, para poder enseñarlas.
+ *
+ * Aquí es una sola —la orden de compra— porque no hay nota de venta detrás. Se
+ * calcula con la misma llave que usa el servidor, que viaja en el arranque: sin
+ * ella la pantalla anunciaría un renglón que la empresa tiene apagado.
+ */
+const refsAutomaticas = computed(() => (
+    refOrdenCompra.value && form.value.oc.trim()
+        ? [{ tipo_sii: '801', folio: form.value.oc.trim() }]
+        : []
+));
+
+/**
+ * Una referencia a medias no se emite.
+ *
+ * Sin tipo o sin folio el DTE sale con un `<Referencia>` incompleto y el SII lo
+ * rechaza — con el folio ya gastado. Se para antes, no después.
+ */
+const refsAMedias = computed(() => form.value.referencias.some(
+    (r) => ! String(r.tipo_sii || '').trim() || ! String(r.folio || '').trim()
+));
+
 const puedeEmitir = computed(
     () => !! form.value.cliente && !! form.value.vendedor && form.value.lineas.length > 0
         && form.value.lineas.every((l) => l.cantidad > 0)
+        && ! refsAMedias.value
         && ! sinFolios.value
 );
 
@@ -195,9 +264,24 @@ async function emitir() {
         client_uuid: nuevoUuid(),
         receptor: form.value.cliente,
         vendedor: form.value.vendedor,
-        centro_costo: form.value.centro_costo,
-        condicion: form.value.condicion,
-        glosa: form.value.glosa || null,
+        // Lo que describe el documento. Vacío es `null`: el hueco de un
+        // `<select>` es la cadena vacía, y en la base es una columna sin valor.
+        contacto: form.value.contacto || null,
+        centro_costo: form.value.centro_costo || null,
+        condicion: form.value.condicion || null,
+        bodega: form.value.bodega || null,
+        oc: form.value.oc.trim() || null,
+        glosa: form.value.glosa.trim().slice(0, 255) || null,
+        // Sólo las completas. Las que están a medias ya impiden emitir, y esto
+        // es el último filtro por si algo quedó a medio teclear.
+        referencias: form.value.referencias
+            .filter((r) => String(r.tipo_sii || '').trim() && String(r.folio || '').trim())
+            .map((r) => ({
+                tipo_sii: String(r.tipo_sii).trim(),
+                folio: String(r.folio).trim(),
+                fecha: r.fecha || null,
+                glosa: (r.glosa || '').trim() || null,
+            })),
         lineas: form.value.lineas.map((l) => ({
             producto: l.producto,
             cantidad: l.cantidad,
@@ -310,8 +394,15 @@ function cantidad(n) {
                     factura sin vendedor no aparece en las búsquedas del ERP.
                 </p>
 
-                <label>Glosa</label>
-                <input v-model="form.glosa" maxlength="200" placeholder="Lo que explica la factura">
+                <CabeceraFactura v-model:contacto="form.contacto"
+                                 v-model:condicion="form.condicion"
+                                 v-model:centro-costo="form.centro_costo"
+                                 v-model:bodega="form.bodega"
+                                 v-model:oc="form.oc"
+                                 v-model:glosa="form.glosa"
+                                 :receptor="form.cliente" />
+
+                <ReferenciasDte v-model="form.referencias" :automaticas="refsAutomaticas" />
 
                 <div class="seccion">
                     <h2>Detalle</h2>
@@ -385,6 +476,9 @@ function cantidad(n) {
                     <template v-if="! form.cliente">Falta elegir el cliente.</template>
                     <template v-else-if="! form.vendedor">Falta elegir el vendedor.</template>
                     <template v-else-if="! form.lineas.length">Falta agregar al menos un producto.</template>
+                    <template v-else-if="refsAMedias">
+                        Hay una referencia sin tipo o sin folio: el SII rechazaría el documento.
+                    </template>
                     <template v-else>Alguna línea va con cantidad cero.</template>
                 </p>
             </template>

@@ -27,8 +27,9 @@
 const NOMBRE = 'venta-softland';
 // La 2 agrega `motivos_perdida` y la 3 el almacén de PDF: la migración solo
 // crea los almacenes que falten, así que subir el número es todo lo que hace
-// falta.
-const VERSION = 9;
+// falta. La 10 agrega `referencias_dte`, los tipos de documento que se pueden
+// nombrar en una referencia del DTE.
+const VERSION = 10;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -48,6 +49,7 @@ export const ALMACENES = {
     cargos: { clave: 'codigo', busqueda: ['nombre'] },
     regiones: { clave: 'codigo' },
     motivos_perdida: { clave: 'codigo' },
+    referencias_dte: { clave: 'codigo' },
     centros_costo: { clave: 'codigo', busqueda: ['codigo', 'nombre'] },
     giros: { clave: 'codigo', busqueda: ['nombre'] },
     comunas: { clave: 'codigo', busqueda: ['nombre'] },

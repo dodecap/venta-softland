@@ -2,6 +2,7 @@
 
 namespace App\Services\Dte;
 
+use App\Support\Texto;
 use RuntimeException;
 
 /**
@@ -275,11 +276,20 @@ class Sii
             throw new RuntimeException("No se pudo hablar con el SII ({$url}): {$error}");
         }
 
+        // Lo que contesta el SII no siempre es UTF-8: los `.jws` declaran
+        // `ISO-8859-1` y sus glosas llevan acentos —«Envío Aceptado Conforme»—,
+        // así que una «í» viene en un byte. Se normaliza aquí, que es por donde
+        // entra todo, y no en cada sitio que lee un elemento: aguas abajo esa
+        // glosa acaba en `dte_doccab.Motivo` —donde el controlador ODBC la
+        // rechazaría igual que rechazó el XML de la factura 238— y en una
+        // respuesta JSON, que no admite otra cosa.
+        $respuesta = Texto::cadena((string) $respuesta);
+
         if ($codigo >= 400) {
-            throw new RuntimeException("El SII contestó {$codigo} en {$url}: ".$this->resumenDe((string) $respuesta));
+            throw new RuntimeException("El SII contestó {$codigo} en {$url}: ".$this->resumenDe($respuesta));
         }
 
-        return (string) $respuesta;
+        return $respuesta;
     }
 
     /**

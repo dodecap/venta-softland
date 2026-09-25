@@ -167,6 +167,39 @@ error concreto, y el error está dicho.
    ventanas de Softland pasarían a decir la verdad para los documentos de la app
    y mentira para los demás. Hoy callan de forma pareja, que es más honesto.
 
+10. **Heredar es una propuesta, no un candado.** Los seis campos que describen
+    una factura —contacto, condición de venta, centro de costo, bodega, orden de
+    compra y observación— se enseñan y se pueden cambiar. Enseñarlos como texto
+    valía mientras el receptor era el de la venta; con el receptor cambiado el
+    argumento se cae, porque la condición de pago y el contacto son **del
+    cliente** y no del pedido, y heredar los del cliente final es escribir un
+    documento tributario con los datos de quien no lo recibe. Mandarlos sin
+    enseñarlos es peor: un dato que nadie ve es un dato que nadie corrige.
+
+    Dos no se preguntan, y es a propósito. **La fecha**, porque un DTE lleva la
+    del día en que se emite y emitir y mandar al SII son el mismo acto justamente
+    para que no se separen. Y **el vendedor**, que se hereda y sólo se pregunta
+    cuando no hay nota de venta detrás.
+
+11. **Una factura puede nombrar los papeles que el cliente le pida.** Hay
+    clientes grandes —eléctricas, forestales, mineras— que no pagan una factura
+    que no nombre su HES, su contrato marco o su resolución. Ese papel no está en
+    Softland y no se deduce de nada: lo sabe quien factura. Van al DTE como
+    `<Referencia>`, además de las automáticas —la 801 de la orden de compra y la
+    802 de la nota de venta—, y salen impresas con su fecha, que es lo que
+    administración busca.
+
+    El tipo sale de `DTE_SiiTDocRef`, que es de donde sale el rótulo impreso, y
+    **la app no interpreta esa lista**: ofrece lo que declare, incluidas las
+    filas que alguien puso a mano en esta base. Lo que sí hace el servidor es
+    negarse a un código que el maestro no declare: un código inventado es un
+    folio gastado en un documento que el SII rechaza.
+
+    Y el código y el folio son **texto los dos**. `CodRefSII` es `varchar(3)` y
+    este maestro trae `HES`; por `(int)` daba `0` y caía en el 33 por omisión, o
+    sea una referencia diciendo «factura electrónica» donde el cliente pidió su
+    HES. El folio admite `272-OC00008216`, que como entero es `272`.
+
 ## Dónde vive cada cosa
 
 | Salto | Dónde vive el enlace |
