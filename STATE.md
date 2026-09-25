@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-25 — versión **0.49.1**
+2026-09-25 — versión **0.49.2**
 
 ## Resumen del estado actual
-**Versión 0.49.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.49.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -764,6 +764,27 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
 
+### 0.49.2 — Cifrar sólo si el tráfico sale de la máquina
+
+- [x] **La conexión a SQL Server ya no pide TLS cuando la base está en la misma
+      máquina.** Lo decide `SoftlandConnection::cifrado()` por el host, con
+      `SOFTLAND_DB_ENCRYPT` por encima en los dos sentidos. Antes estaba escrito
+      a mano en `config/database.php`, y era la pieza que fallaba en los tres
+      cortes del 24 y el 25 de septiembre. Comprobado en producción:
+      `sys.dm_exec_connections.encrypt_option` da `FALSE`.
+- [x] **`ConectorSoftland` reintenta la apertura de la conexión** hasta tres
+      veces, con 150 ms y 300 ms de espera, y sólo los fallos medidos que se
+      arreglan solos. Enganchado por el binding `db.connector.sqlsrv`, que es lo
+      que `ConnectionFactory` mira antes de fabricar el suyo. El registro del
+      reintento va en su propio `try`: una fachada sin contenedor no puede tapar
+      el fallo que se está resolviendo.
+- [x] **Revertido el `MaxConnectionsPerChild 10000`** del día anterior: se puso
+      para reciclar un trabajador envejecido y esa hipótesis quedó refutada.
+- [x] **19 pruebas nuevas** (`tests/Unit/ConexionSoftlandTest.php`): las siete
+      formas de escribir «esta máquina», la llave de la empresa en los dos
+      sentidos, seis mensajes de error clasificados y el bucle de reintentos
+      contado intento a intento. Las 108 del proyecto pasan.
+
 ### 0.49.1 — Elegir de un maestro es escribir, no navegar
 
 - [x] **`Selector.vue` es un solo control.** Era un campo de filtrar encima de un
@@ -827,42 +848,66 @@ comprobaciones del teléfono pasando.
 
 ## Incidencias
 
-### 2026-09-25 · Segunda vez: la API dejó de conectar a SQL Server por Apache
+### 2026-09-25 · La API dejó de conectar a SQL Server, tres veces, y no era lo que parecía
 
-A las 15:25 volvió el `SQLSTATE[08001] … Encryption not supported on the client`
-de la incidencia del día anterior, otra vez **sólo por Apache**: desde la consola
-`ventas:probe` conectaba en ese mismo momento. **Reiniciar `Apache2.4` lo
-arregló**, como la vez anterior.
+Tres cortes en dos días con el mismo error —`SQLSTATE[08001] … Encryption not
+supported on the client` en `ventas.api_token` y `ventas.usuario`, que es lo
+primero que toca cualquier petición con sesión—: el 24 a las 13:21, y el 25 a
+las 15:25 y a las 16:47. Las dos primeras veces se dieron por arregladas
+reiniciando `Apache2.4`.
 
-No fue el despliegue: la 0.49.0 llevaba tres horas sirviendo bien, y el error
-aparece en `api_token` y en `usuario`, que es lo primero que toca cualquier
-petición con sesión.
+**El registro de accesos desmontó las dos explicaciones que se habían
+escrito aquí**, y las dos estaban mal:
 
-Con dos observaciones el patrón ya se puede escribir:
+- **No es un trabajador envejecido.** El proceso que fallaba el 25 se había
+  creado a las 15:36:40, o sea que tenía 80 minutos y 648 descriptores, no un
+  día. La mitigación del `MaxConnectionsPerChild` se quedó sin argumento y se
+  **revirtió** (respaldo en `httpd-mpm.conf.respaldo-20260925`, `httpd -t` en
+  «Syntax OK»).
+- **No es un proceso envenenado, y reiniciar Apache nunca arregló nada.** Los
+  500 van **a rachas y mezclados con peticiones que van bien en el mismo
+  minuto**: 55 bien y una mal a las 16:55, 50 bien a las 16:03. Y las rachas
+  volvieron a las 15:57, **21 minutos después** del reinicio que supuestamente
+  las había curado, para parar solas a las 16:01. Lo que se veía como «el
+  reinicio lo arregla» era la racha acabándose.
 
-| | 24-09 | 25-09 |
-|---|---|---|
-| Trabajador de Apache vivo desde | 23/09 18:10 (~19 h) | 24/09 16:53 (~22 h) |
-| Memoria física libre | 1,4 GB de 24 | 826 MB de 24 |
-| Consola (memoria compartida) | conecta | conecta |
-| Reiniciar Apache | lo arregla | lo arregla |
+Lo que sí está medido:
 
-El trabajador lleva alrededor de un día vivo y la máquina está muy justa de
-memoria —`sqlservr.exe` sostiene 8,8 GB— cuando deja de poder levantar el
-contexto de cifrado del paquete de login, que va cifrado aunque
-`ForceEncryption` esté apagado.
+| | |
+|---|---|
+| 500 del 14 al 23 de septiembre | 0, con miles de peticiones al día |
+| 500 el 24 | 27 |
+| 500 el 25 | 72, en rachas de 11:05, 15:04, 15:23, 15:57, 16:20, 16:39, 16:47 y 16:50 |
+| Registro de Windows | ni un error de SChannel |
+| 120 conexiones cortas seguidas desde la consola | 0 fallos, con TLS y sin él |
+| Memoria física libre | 887 MB de 24.357 (3,6 %), 27.799 MB comprometidos de 36.502 |
 
-**Mitigación aplicada el mismo día**: `MaxConnectionsPerChild` estaba en `0` en
-el bloque `mpm_winnt_module` de `C:\xampp\apache\conf\extra\httpd-mpm.conf` —el
-trabajador no se reciclaba nunca— y se puso en `10000`, con respaldo en
-`httpd-mpm.conf.respaldo-20260925`, `httpd -t` en «Syntax OK» y Apache
-reiniciado. Ahora el proceso se rota solo mucho antes de llegar a un día de
-vida, que es la edad a la que ha fallado las dos veces.
+El error es del **arranque de TLS en el cliente**, no del servidor de base de
+datos ni de la red: la base está en esta misma máquina. Y la máquina no tiene
+memoria: 396 procesos con 26.701 MB de conjunto de trabajo, `sqlservr.exe`
+9.020 MB sin tope configurado, `claude` 25 procesos con 3.305 MB, `brave` 26 con
+2.027 MB, `powershell` 4 con 1.281 MB, `SSMS` 531 MB.
 
-**No es una causa probada, es una mitigación.** Si el error vuelve con un
-trabajador joven, la hipótesis del proceso envejecido se cae y hay que mirar la
-memoria de la máquina, que es el otro factor común: 826 MB libres de 24 GB, con
-`sqlservr.exe` sosteniendo 8,8 GB sin tope configurado.
+**Lo arreglado en la 0.49.2**, que es lo que estaba en nuestra mano:
+
+1. **No se pide TLS donde no hace falta.** `config/database.php` tenía
+   `'encrypt' => 'yes'` escrito a mano sobre una conexión que no sale de la
+   máquina y con `TrustServerCertificate`, o sea cifrando contra un certificado
+   que nadie comprueba: una pieza móvil que no protege de nada, y justo la que
+   se rompe. Ahora lo decide `SoftlandConnection::cifrado()` por el host, y con
+   la base en otra máquina sí se cifra. Comprobado en producción:
+   `sys.dm_exec_connections.encrypt_option` da `FALSE`.
+2. **Un fallo de milisegundos no puede ser un 500 en el teléfono de un
+   vendedor.** `App\Support\ConectorSoftland` reintenta hasta tres veces, sólo
+   al conectar —que es lo único idempotente por definición— y sólo los fallos
+   que están medidos que se arreglan solos; una contraseña equivocada sube al
+   primer intento.
+
+**Lo que queda, y no es del código**: la máquina de producción trabaja con el
+3,6 % de la memoria libre, y con escritorio encima —navegadores, SSMS, 25
+procesos de `claude`—. `sqlservr.exe` no tiene `max server memory` puesto, así
+que se queda con lo que puede. Mientras siga así, el siguiente síntoma será
+otro, no éste.
 
 ### 2026-09-25 · La factura 238 se guardó y no se pudo enviar al SII
 
@@ -905,13 +950,10 @@ en marcha desde el 21/08; y el 8086 lo sirve el Apache de XAMPP y no el
 despliegue había sido el día anterior a las 03:44 y la app funcionó toda la
 jornada.
 
-Lo que quedaba: el proceso trabajador de Apache llevaba vivo desde el 23/09 a
-las 18:10 y dejó de poder levantar el contexto de cifrado a media vida —el
-paquete de login va cifrado aunque `ForceEncryption` esté apagado—, con la
-máquina a 1,4 GB libres de 24. **Reiniciar `Apache2.4` lo arregló**, y no ha
-vuelto a salir. **No hay causa probada**: con una sola observación no da para
-más. Si reaparece, hay un segundo punto para trazar la línea, y la mitigación
-conocida es reciclar el trabajador (`MaxConnectionsPerChild`).
+**Lo que se escribió aquí ese día —el trabajador envejecido— quedó refutado al
+día siguiente**: ver la incidencia de arriba. El trabajador que fallaba el 25
+tenía 80 minutos, y reiniciar Apache no arreglaba nada: las rachas paraban
+solas. Lo arreglado está en la 0.49.2.
 
 Lo que sí quedó demostrado y arreglado es otra cosa: el servidor corría con
 `APP_ENV=local` y `APP_DEBUG=true`, así que el error salió **en la pantalla del

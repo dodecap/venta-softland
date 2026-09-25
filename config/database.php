@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SoftlandConnection;
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
@@ -128,7 +129,16 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'schema' => env('SOFTLAND_DB_SCHEMA', 'ventas'),
-            'encrypt' => 'yes',
+            // Cifrar sólo si el tráfico sale de la máquina: lo decide
+            // `SoftlandConnection::cifrado()`, que al aplicar la conexión
+            // guardada conoce el host de verdad. Aquí se resuelve con el del
+            // env, que es el respaldo. `cifrado_forzado` es la llave de la
+            // empresa que quiera cifrar igual, y `apply()` no la toca.
+            'cifrado_forzado' => env('SOFTLAND_DB_ENCRYPT'),
+            'encrypt' => SoftlandConnection::cifrado(
+                env('SOFTLAND_DB_HOST', 'localhost\\MSSQLSERVER2022'),
+                env('SOFTLAND_DB_ENCRYPT'),
+            ),
             'trust_server_certificate' => env('SOFTLAND_DB_TRUST_CERT', true),
         ],
 

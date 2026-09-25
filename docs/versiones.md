@@ -42,6 +42,47 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.49.2 — Cifrar sólo si el tráfico sale de la máquina
+*2026-09-25*
+
+Tres cortes en dos días con el mismo error —`SQLSTATE[08001] … Encryption not
+supported on the client` en lo primero que toca cualquier petición con sesión— y
+dos explicaciones escritas que el registro de accesos desmontó: el trabajador de
+Apache que fallaba tenía 80 minutos y no un día, y reiniciar Apache no arreglaba
+nada, porque los 500 van a rachas mezcladas con peticiones que van bien en el
+mismo minuto y las rachas paran solas. La historia completa está en las
+incidencias de `STATE.md`.
+
+- **No se pide TLS donde no hace falta.** `config/database.php` tenía
+  `'encrypt' => 'yes'` escrito a mano sobre una conexión que **no sale de la
+  máquina** —SQL Server está en `srv` y no escucha en la red, que es la razón de
+  que exista esta API— y encima con `TrustServerCertificate`, o sea cifrando
+  contra un certificado que nadie comprueba. No protegía de nada y era una pieza
+  móvil más: justo la que se rompe. Ahora lo decide
+  `SoftlandConnection::cifrado()` mirando el host, y con la base en otra máquina
+  sí se cifra. `SOFTLAND_DB_ENCRYPT` manda sobre la regla, en los dos sentidos.
+- **Un fallo de milisegundos no puede ser un 500 en el teléfono de un vendedor.**
+  `App\Support\ConectorSoftland` reintenta hasta tres veces, **sólo al
+  conectar** —que es lo único idempotente por definición: todavía no se ha
+  mandado ninguna instrucción— y sólo los fallos que están medidos que se
+  arreglan solos. Una contraseña equivocada sube al primer intento, porque
+  reintentarla tres veces sigue dando lo mismo y tarda el triple en decirlo.
+- **Y anotar el reintento no puede ser lo que rompa la conexión.** El registro
+  va en un `try` propio: esto corre al abrir la base, que es antes de muchas
+  cosas, y la excepción de una fachada sin contenedor taparía justo el fallo que
+  se está intentando resolver.
+- Revertida la mitigación del día anterior (`MaxConnectionsPerChild` de `10000`
+  a `0`): se había puesto para reciclar un trabajador envejecido, y esa
+  hipótesis se cayó.
+- Comprobado en producción: `sys.dm_exec_connections.encrypt_option` da `FALSE`,
+  las 108 pruebas pasan, `ventas:compatibilidad --todo` pasa y `/api/ping`
+  contesta `0.49.2` con la base delante.
+
+Lo que **no** arregla esto, y no es del código: la máquina de producción trabaja
+con el 3,6 % de la memoria libre (887 MB de 24.357), con escritorio encima y
+`sqlservr.exe` sin `max server memory` puesto. Mientras siga así, el siguiente
+síntoma será otro.
+
 ### 0.49.1 — Elegir de un maestro es escribir, no navegar
 *2026-09-25*
 

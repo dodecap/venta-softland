@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Http\Respuestas;
+use App\Support\ConectorSoftland;
 use App\Support\MailConfig;
 use App\Support\SoftlandConnection;
 use Illuminate\Contracts\Routing\ResponseFactory;
@@ -21,6 +22,12 @@ class AppServiceProvider extends ServiceProvider
             ResponseFactory::class,
             fn ($app) => new Respuestas($app[ViewFactory::class], $app['redirect']),
         );
+
+        // Conectar a SQL Server puede fallar por un instante y arreglarse
+        // solo; eso no puede ser un 500 en el teléfono de un vendedor. Ver
+        // `App\Support\ConectorSoftland`. `ConnectionFactory` mira este
+        // binding antes de fabricar el conector de serie.
+        $this->app->bind('db.connector.sqlsrv', fn () => new ConectorSoftland);
     }
 
     public function boot(): void

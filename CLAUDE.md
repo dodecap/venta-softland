@@ -44,6 +44,18 @@ Servidor prueba los dos esquemas y guarda `res.url`, no lo que se escribió.
   Lo suyo (usuarios, tokens, notificaciones) vive ahí; el flujo de ventas se
   escribe en las tablas nativas de Softland. Nunca se toca el esquema `softland`
   fuera del flujo documentado.
+- **Se cifra la conexión sólo si sale de la máquina**, y lo decide
+  `SoftlandConnection::cifrado()` por el host. Con la base aquí al lado, TLS no
+  protege de nada —y con `TrustServerCertificate`, menos: cifra contra un
+  certificado que nadie comprueba—, pero es una pieza móvil, y es la que se
+  rompió tres veces en dos días: bajo presión de memoria el ODBC Driver 17 no
+  consigue arrancar el cifrado y contesta `SQLSTATE[08001] … Encryption not
+  supported on the client`, a rachas y mezclado con peticiones que van bien.
+- **Conectar se reintenta; lo demás no.** `ConectorSoftland` repite hasta tres
+  veces **sólo la apertura de la conexión**, que es lo único idempotente por
+  definición —todavía no se ha mandado ninguna instrucción—, y sólo los fallos
+  medidos que se arreglan solos. Una contraseña equivocada sube al primer
+  intento.
 
 **Modelo de ejecución** — importa, porque las piezas se construyen en máquinas distintas:
 - El código se escribe en el repo de esta máquina.
@@ -985,7 +997,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.49.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.49.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado
