@@ -181,8 +181,15 @@ tocar nada de esto:
   del alta de clientes va por el RUT, que es la clave en Softland.
 - Toda traducción de código a nombre pasa por `mobile/src/catalogos.js`.
   Ninguna pantalla lee un maestro chico por su cuenta.
-- Para elegir un código de un maestro largo se usa `Selector.vue`, no un
-  `<select>` pelado: 2.009 giros en un desplegable de Android no se navegan.
+- Para elegir un código de un maestro se usa `Selector.vue`, no un `<select>`
+  pelado: 2.009 giros en un desplegable de Android no se navegan. Y es **un solo
+  control**, no un filtro encima de un `<select>`: se toca el campo, se escribe y
+  se toca lo que salió. Con los dos separados, poner un centro de costo de los
+  594 costaba cuatro gestos y la ventana nativa de Android. El filtro mira el
+  nombre **y el código**, la lista va **en el flujo** —flotando la recorta la
+  tarjeta que contiene el formulario— y con filtro puesto **sólo se enseñan
+  coincidencias**: colar ahí la opción elegida hacía que una búsqueda sin
+  resultados enseñara una fila con aire de resultado.
 - Toda cantidad se escribe con `Cantidad.vue`, nunca con un `<input number>`
   pelado: las flechitas nativas no salen en Android, así que pasar de 2 a 3
   obligaba a abrir el teclado y teclear. Menos a la izquierda y más a la
@@ -978,7 +985,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.49.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.49.1**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

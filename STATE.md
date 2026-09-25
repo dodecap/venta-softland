@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-25 — versión **0.49.0**
+2026-09-25 — versión **0.49.1**
 
 ## Resumen del estado actual
-**Versión 0.49.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.49.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -763,6 +763,25 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 12 clavados y los campos a 16, que es lo que evita el zoom de Android. Nada
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
+
+### 0.49.1 — Elegir de un maestro es escribir, no navegar
+
+- [x] **`Selector.vue` es un solo control.** Era un campo de filtrar encima de un
+      `<select>`: poner un centro de costo de los 594 costaba cuatro gestos y la
+      ventana nativa de Android. Ahora se toca el campo, se escribe y se toca lo
+      que salió. El filtro mira el nombre **y el código**, la lista va en el flujo
+      —flotando la recorta la tarjeta—, la tecla «listo» elige la primera, hay
+      fila para quitar lo puesto y un código que el maestro no trae se enseña tal
+      cual. Cambia en las once pantallas que eligen de un maestro, porque la regla
+      se escribe una vez.
+
+**Medido a 360 px en las tres escalas** (0,92 · 1 · 1,1): la fila de la lista va
+a 44 px clavados, el campo a 16, el código a 12, la lista tope en 282 px y nada
+desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
+esta máquina, así que son medidas del DOM. Comprobado además sobre una maqueta
+desechable —ya borrada— que abrir, filtrar por nombre y por código, elegir,
+quitar, salir sin elegir y hacerlo todo dentro de un `<label>` dan lo que tienen
+que dar.
 
 ### 0.49.0 — La factura completa, y los papeles que nombra
 

@@ -42,6 +42,49 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.49.1 — Elegir de un maestro es escribir, no navegar
+*2026-09-25*
+
+- **`Selector.vue` pasa a ser un solo control.** Era un campo de filtrar
+  **encima** de un `<select>`, y eso hacía que poner un centro de costo de los
+  594 costara cuatro gestos y dos capas: tocar el filtro, escribir, tocar el
+  `<select>`, esperar la ventana nativa de Android y tocar la opción. Ahora se
+  toca el campo, se escribe y se toca lo que salió — dos gestos y ninguna
+  ventana nativa.
+- **El filtro mira el nombre y el código.** Quien conoce su centro de costo lo
+  conoce por el número, y antes escribir «0042» no encontraba nada.
+- **Cerrado, el campo lee el nombre puesto; abierto, lo lleva de marcador** y el
+  filtro nace vacío. Así se ve la lista entera sin borrar nada y lo que había
+  sigue a la vista en gris. Se cuela arriba aunque caiga fuera de las cuarenta
+  que se dibujan, que es la respuesta a «¿qué tengo puesto?».
+- **Con filtro, en la lista sólo hay coincidencias.** La opción puesta se colaba
+  siempre —hacía falta cuando esto era un `<select>`, donde la opción que
+  desaparecía se llevaba por delante el valor del campo—, y aquí eso hacía que un
+  filtro que no encuentra nada enseñara una fila con aire de resultado.
+- La lista va **en el flujo, no flotando**: una capa absoluta la recorta
+  cualquier ancestro con `overflow`, y estos campos viven dentro de tarjetas.
+  Empuja lo de abajo mientras está abierta, que con el teclado puesto no se
+  estaba mirando.
+- Detalles que cuestan poco y se notan: la tecla «listo» del teclado elige la
+  primera; hay una fila para quitar lo puesto, así que ya no hay que abrir para
+  elegir «— sin centro de costo —»; un código que el maestro no trae se enseña
+  tal cual en vez de dejar el campo en blanco sobre un dato que sí está
+  guardado; y «Hay N más» cuenta contra lo dibujado, que decía uno de más.
+- **Elegir no puede reabrir la lista**: estos campos van dentro de un `<label>`
+  en algunas pantallas y un `<label>` reenvía el toque al control que envuelve.
+  El toque de la fila no sube, y el `mousedown` va prevenido para que el campo no
+  pierda el foco antes de que llegue el toque.
+- Cambia en las once pantallas que eligen de un maestro —giros, comunas,
+  ciudades, cargos, vendedores, condiciones de venta, centros de costo, bodegas,
+  listas de precio, motivos de pérdida y tipos de referencia—, porque la regla se
+  escribe una vez.
+
+**Medido a 360 px en las tres escalas** (0,92 · 1 · 1,1): la fila de la lista va
+a 44 px clavados en las tres, el campo a 16 px —que es lo que evita el zoom de
+Android—, el código de la derecha a 12, la lista tope en 282 px y nada desborda
+de 360. **No hay captura**: el panel del navegador no compone imagen en esta
+máquina, así que esto son medidas del DOM.
+
 ### 0.49.0 — La factura completa, y los papeles que nombra
 *2026-09-25*
 
