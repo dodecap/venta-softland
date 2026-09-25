@@ -808,6 +808,36 @@ comprobaciones del teléfono pasando.
 
 ## Incidencias
 
+### 2026-09-25 · Segunda vez: la API dejó de conectar a SQL Server por Apache
+
+A las 15:25 volvió el `SQLSTATE[08001] … Encryption not supported on the client`
+de la incidencia del día anterior, otra vez **sólo por Apache**: desde la consola
+`ventas:probe` conectaba en ese mismo momento. **Reiniciar `Apache2.4` lo
+arregló**, como la vez anterior.
+
+No fue el despliegue: la 0.49.0 llevaba tres horas sirviendo bien, y el error
+aparece en `api_token` y en `usuario`, que es lo primero que toca cualquier
+petición con sesión.
+
+Con dos observaciones el patrón ya se puede escribir:
+
+| | 24-09 | 25-09 |
+|---|---|---|
+| Trabajador de Apache vivo desde | 23/09 18:10 (~19 h) | 24/09 16:53 (~22 h) |
+| Memoria física libre | 1,4 GB de 24 | 826 MB de 24 |
+| Consola (memoria compartida) | conecta | conecta |
+| Reiniciar Apache | lo arregla | lo arregla |
+
+El trabajador lleva alrededor de un día vivo y la máquina está muy justa de
+memoria —`sqlservr.exe` sostiene 8,8 GB— cuando deja de poder levantar el
+contexto de cifrado del paquete de login, que va cifrado aunque
+`ForceEncryption` esté apagado.
+
+**La mitigación sigue sin aplicarse**: `MaxConnectionsPerChild` está en `0` en el
+bloque `mpm_winnt_module` de `C:\xampp\apache\conf\extra\httpd-mpm.conf`, o sea
+que el trabajador no se recicla nunca. Ponerlo en unos miles lo rotaría solo
+antes de llegar a esa edad. Falta decidirlo y aplicarlo.
+
 ### 2026-09-25 · La factura 238 se guardó y no se pudo enviar al SII
 
 Un vendedor convirtió la nota de venta 2056 en factura y recibió «error del
