@@ -833,10 +833,17 @@ memoria —`sqlservr.exe` sostiene 8,8 GB— cuando deja de poder levantar el
 contexto de cifrado del paquete de login, que va cifrado aunque
 `ForceEncryption` esté apagado.
 
-**La mitigación sigue sin aplicarse**: `MaxConnectionsPerChild` está en `0` en el
-bloque `mpm_winnt_module` de `C:\xampp\apache\conf\extra\httpd-mpm.conf`, o sea
-que el trabajador no se recicla nunca. Ponerlo en unos miles lo rotaría solo
-antes de llegar a esa edad. Falta decidirlo y aplicarlo.
+**Mitigación aplicada el mismo día**: `MaxConnectionsPerChild` estaba en `0` en
+el bloque `mpm_winnt_module` de `C:\xampp\apache\conf\extra\httpd-mpm.conf` —el
+trabajador no se reciclaba nunca— y se puso en `10000`, con respaldo en
+`httpd-mpm.conf.respaldo-20260925`, `httpd -t` en «Syntax OK» y Apache
+reiniciado. Ahora el proceso se rota solo mucho antes de llegar a un día de
+vida, que es la edad a la que ha fallado las dos veces.
+
+**No es una causa probada, es una mitigación.** Si el error vuelve con un
+trabajador joven, la hipótesis del proceso envejecido se cae y hay que mirar la
+memoria de la máquina, que es el otro factor común: 826 MB libres de 24 GB, con
+`sqlservr.exe` sosteniendo 8,8 GB sin tope configurado.
 
 ### 2026-09-25 · La factura 238 se guardó y no se pudo enviar al SII
 
