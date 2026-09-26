@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-25 — versión **0.49.2**
+2026-09-26 — versión **0.49.2**
 
 ## Resumen del estado actual
 **Versión 0.49.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -763,6 +763,46 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 12 clavados y los campos a 16, que es lo que evita el zoom de Android. Nada
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
+
+### 2026-09-26 — Informe técnico y consulta de cobranzas (sin cambio de código)
+
+Dos documentos nuevos en `docs/`, y una auditoría de sólo lectura de la parte de
+la base que la app todavía no toca. **No sube la versión**: no cambia una línea
+de código ni de la app, y subirla obligaría a redesplegar y recompilar el APK
+para que Cuenta no avisara de un desfase que no existe.
+
+- [x] **`docs/informe-tecnico.md`** — qué es la app y cómo habla con la base:
+      arquitectura, los dos esquemas, el mapa de lectura y escritura tabla por
+      tabla, las reglas duras, dónde para la app y la tabla de evidencia.
+      Autocontenido, para quien no tiene el repositorio delante.
+- [x] **`docs/cobranzas-consulta.md`** — la petición a un ingeniero de procesos
+      para diseñar cobranza y recaudación, con el terreno técnico medido, 15
+      preguntas, las restricciones y lo que no sabemos.
+
+**Lo medido de la cobranza** (sólo lectura, nada escrito):
+
+- La cuenta corriente del cliente es la cuenta **`1-01-03-001`** del plan, sobre
+  **`cwmovim`** (1.286 filas, PK `CpbAno, CpbNum, MovNum`): 432 movimientos,
+  saldo **4.391.820** entre **6 clientes** de los 2.674 del padrón. El saldo no
+  está guardado: es `SUM(MovDebe) - SUM(MovHaber)`.
+- **El enlace con nuestra factura existe y calza 225 de 225**:
+  `cwmovim.NumDoc` con `TtdCod = 'EL'` ↔ `iw_gsaen.Folio` con **`Tipo = 'F'`**
+  —no `'33'`, que fue el error que costó media hora—. El movimiento de la factura
+  se referencia a sí mismo; los pagos apuntan con `MovTipDocRef`/`MovNumDocRef`
+  al documento que abonan.
+- **`iw_logcontab`** (234) contesta «¿está centralizada?»: `TipoDoc` + `Folio` →
+  `CpbAno` + `CpbNum`. La centralización está al día, con movimientos hasta el
+  folio 239.
+- **`cwtcvcl`** (2.674) ya trae el perfil de cobranza —cobrador, monto de
+  crédito, dirección de cobranza, día de pago— y **está casi vacío**: 4 con
+  cobrador, 11 con crédito, 4 con día de pago, **0 con dirección**.
+- **223 de 225 facturas tienen vencimiento igual a la fecha de emisión**, o sea
+  contado, aunque el negocio vende a 30 días: el plazo real no está llegando a
+  la base. Hoy «vencido» sólo significa «emitido y no pagado».
+
+Pendiente de aclarar: qué declaran las condiciones de venta «1» y «2» (cubren
+2.604 de 2.609 clientes y no dimos con su maestro), y si Softland trae un flujo
+propio de recaudación que haya que usar en vez de inventar uno.
 
 ### 0.49.2 — Cifrar sólo si el tráfico sale de la máquina
 
