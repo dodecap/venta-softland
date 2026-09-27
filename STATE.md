@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-26 — versión **0.49.2**
+2026-09-27 — versión **0.49.2**
 
 ## Resumen del estado actual
 **Versión 0.49.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -2391,3 +2391,24 @@ Comprobado además, el mismo día: sintaxis PHP de los nueve archivos tocados en
 el servidor igual a la del repo (0.40.0), la ruta nueva contestando 401 por el
 proxy —el guardia corre antes que la validación del RUT, que es el orden bueno—
 y ningún script de sondeo olvidado en el web root.
+
+### 2026-09-27 — Informe de cotizaciones y seguimiento (sin cambio de código)
+
+Un documento nuevo en `docs/`, para traspasarle el módulo a un técnico de
+programación que se incorpora. **No sube la versión**: no cambia una línea de
+código.
+
+- [x] **`docs/cotizaciones-seguimiento.md`** — el ciclo de vida de la cotización
+      y el seguimiento comercial, contado sin código: los cuatro estados y por
+      qué `N` es «nula», crear/corregir/entregar/perder/convertir/anular/
+      eliminar, la conversión parcial y el saldo que puede responder «no se
+      sabe», los dos ejes del seguimiento (compromiso y avance) y por qué no son
+      lo mismo, la regla de «última anotación manda» que sustituye a la columna
+      de cumplido que el ERP no tiene, la vigencia calculada, el alcance por
+      vendedor, qué funciona sin señal y qué no, los tres avisos, diez
+      invariantes y lo que hoy falta.
+
+Lo que el repaso dejó anotado como asimetría del módulo, ya recogido en el
+informe: **crear** una cotización funciona sin señal —va a la bandeja de salida
+por `client_uuid`— pero **anotar un seguimiento no**, y es justo lo que se hace
+en terreno al salir de la reunión.
