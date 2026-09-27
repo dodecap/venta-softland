@@ -182,6 +182,13 @@ Lo que queda al otro lado de esa frontera, y hoy la app no toca:
 | Movimientos (incluye la cuenta corriente) | `cwmovim` | 1.286 |
 | Bitácora de centralización | `iw_logcontab` | 234 |
 | Plan de cuentas | `cwpctas` | 174 |
+| Formas de pago, con su cuenta contable | `xwtfpago` | 5 |
+| Bitácora de cobranza del ERP | `xwcobranza` | **0** |
+| Arqueo de caja | `xwarqueo` | **0** |
+
+El módulo de tesorería y cobranza del ERP (`xw*`) tiene poblados sus maestros
+—bancos, formas de pago, estados— y **vacías todas sus tablas de movimiento**:
+existe y no se usa.
 
 La cuenta corriente del cliente es la cuenta `1-01-03-001` del plan, con 432
 movimientos y un saldo de 4.391.820 repartido entre 6 clientes. El detalle está

@@ -33,7 +33,14 @@ escribamos una línea.
 4. **La cobranza nunca es el mismo día.** Se vende, se entrega, y se paga a 30
    días o la semana siguiente. Cuando llega el momento de cobrar, el documento
    ya pasó a contabilidad.
-5. **El universo real hoy es pequeño**: la cuenta corriente de clientes tiene
+5. **El vendedor va a recibir dinero en terreno**, y de tres formas:
+   **efectivo**, **cheque** y **comprobante de transferencia ya confirmada**. Los
+   tres se parecen en la pantalla y no se parecen en nada más: el efectivo es
+   valor que queda en el bolsillo de una persona, el cheque es una promesa que
+   puede protestarse, y la transferencia es dinero que ya está en el banco pero de
+   la que el vendedor sólo recibe **evidencia**. Eso mete custodia y rendición en
+   el flujo.
+6. **El universo real hoy es pequeño**: la cuenta corriente de clientes tiene
    **432 movimientos, 6 clientes con movimiento y un saldo de 4.391.820**. El
    padrón de clientes, en cambio, tiene 2.674. Es decir: esto va a crecer, y el
    diseño no puede asumir el tamaño de hoy.
@@ -134,7 +141,53 @@ cobranza necesita: condición de venta, **monto de crédito**, **código de
 cobrador**, **dirección y teléfono de cobranza**, **día de pago**, zona, canal y
 categoría. Existe también el maestro de cobradores, `cwtcobr`.
 
-## 5. Dos hallazgos incómodos que cambian el diseño
+### Softland ya trae un módulo de cobranza, y está vacío
+
+Esto lo encontramos al final y cambia la pregunta de fondo. El módulo de
+tesorería y cobranza del ERP (tablas `xw*`) **tiene las tablas que este proyecto
+necesitaría, y no tienen ni una fila**:
+
+| Tabla | Filas | Qué es |
+|---|---|---|
+| `xwcobranza` | **0** | La bitácora de cobranza: fecha, hora, cliente, **`conversa`** (el texto de la conversación), cobrador y contacto |
+| `xwttcomp` | 2 | Tipos de **compromiso de cobranza** — el equivalente al maestro que ya usamos en cotizaciones |
+| `xwcabco`, `xwdetco` | 0, 0 | Cabecera y detalle de cobranza |
+| `xwseguimiento` | 0 | Seguimiento |
+| `xwarqueo`, `xwarqueo_det` | 0, 0 | **Arqueo de caja** |
+| `xwtbanco` | 45 | Bancos (sí poblado) |
+| `xwestraux` | 34 | Estados del auxiliar (sí poblado) |
+| `xwtfpago` | 5 | **Formas de pago** (sí poblado, ver abajo) |
+
+O sea: el ERP ya modela «quién llamó a quién, cuándo y qué dijo», el compromiso
+de pago y el arqueo de caja. Nadie lo usa.
+
+### Las formas de pago que la empresa declara
+
+`xwtfpago` mapea cada forma de pago a una **cuenta contable**, que es justo lo que
+una recaudación necesita para saber dónde entra el dinero:
+
+| Código | Descripción | Cuenta | Es efectivo |
+|---|---|---|---|
+| 1 | EFECTIVO | `1-01-01-001` | sí |
+| 2 | CHEQUE 30 DIAS | `1-01-02-002` | no |
+| 3 | CHEQUE AL DIA | `1-01-02-002` | no |
+| 4 | TARJETA DEBITO | `1-01-04-002` | no |
+| 5 | Pago en LInea | `1-01-02-003` | no |
+
+**No hay «transferencia».** Y es uno de los tres instrumentos que el vendedor va
+a traer. Lo más parecido es «Pago en Línea», que no es lo mismo. Nosotros no
+inventamos códigos de maestro —es una regla de este proyecto—, así que eso hay
+que decidirlo y darlo de alta.
+
+### Cómo se cobran hoy las facturas, de hecho
+
+Los pagos existen como movimientos `TR` metidos **a mano en un solo comprobante**:
+el `00009000`, con el mismo número de documento (14926) para varios movimientos y
+la glosa `F 233`, `F 234`… Cada uno referencia su factura, y ninguno lleva caja,
+forma de pago ni instrumento. Es decir: **hoy no hay flujo de recaudación; hay un
+asiento contable escrito a mano después de que el dinero llegó**.
+
+## 5. Tres hallazgos incómodos que cambian el diseño
 
 Los ponemos por delante porque si el proceso se diseña sin saberlos, se diseña
 para una realidad que no es la de esta empresa.
@@ -150,6 +203,12 @@ figure vencida, que es una señal inútil para priorizar.
 cobrador asignado, 11 tienen monto de crédito, **4** tienen día de pago y
 **ninguno** tiene dirección de cobranza. La condición de venta sí está puesta en
 2.609, casi toda con dos códigos («2» en 2.178 y «1» en 426).
+
+**3. El instrumento de pago nunca se registra.** De los 1.286 movimientos de
+`cwmovim`: **0** con forma de pago, **0** con banco, **0** con cuenta corriente,
+**0** con número de cheque, **0** con número de operación. Las columnas existen
+todas —el ERP las tiene— y están vacías. Sólo la caja (`CajCod`) va poblada en
+los 1.286, y con un valor genérico.
 
 Así que parte de lo que hay que diseñar no es software, es **qué datos hay que
 empezar a capturar, quién los captura y en qué momento del flujo**.
@@ -169,6 +228,16 @@ No queremos inventar lo que ya existe y funciona:
 - **Alcance por vendedor** —que es permiso y no se levanta— y ventana de 12 meses.
 
 ## 7. Lo que te pedimos que decidas
+
+### A0. La pregunta de fondo, ahora que sabemos que el módulo existe
+0. **¿Conducimos el módulo de cobranza de Softland desde el teléfono, o llevamos
+   la gestión en nuestro propio esquema y sólo le entregamos al ERP la parte del
+   dinero?** Nos importa mucho y no es una decisión técnica: si la gestión vive en
+   nuestras tablas, el Softland de escritorio no la ve, y tendríamos **dos
+   verdades sobre lo mismo** — que es el error que este proyecto evita en todo lo
+   demás (por eso el código de barras se guarda en la columna del ERP y no en una
+   tabla nuestra). Pero si el módulo está vacío porque no está licenciado, o
+   porque su flujo no sirve para un vendedor en terreno, forzarlo es peor.
 
 ### A. El objeto y sus hitos
 1. ¿Cuál es la unidad de cobranza: el documento, el vencimiento (cuota) o el
@@ -201,29 +270,45 @@ No queremos inventar lo que ya existe y funciona:
    listado de facturas para **elegir cuáles se pagan** es obligatorio.
 8. ¿Qué pasa con anticipos y con saldos a favor?
 
-### D. Dinero en terreno
-9. **¿El vendedor va a recibir efectivo o cheques, o sólo gestiona y el pago
-   entra por banco?** Esta pregunta sigue abierta de nuestro lado. Si recibe,
-   entra custodia y rendición, y eso es otro flujo entero — hay tablas de caja y
-   de rendición en el ERP, y de hecho el único movimiento de rendición que
-   encontramos funciona así.
-10. ¿Quién cobra: el vendedor que vendió, un cobrador del maestro `cwtcobr`, o
+### D. Dinero en terreno — esto ya está contestado, y es lo que más nos preocupa
+
+El vendedor **va a recibir efectivo, cheques y comprobantes de transferencia
+confirmada**. Los tres, en terreno. De ahí salen estas preguntas:
+
+9. **¿Qué significa «pagado» en cada instrumento?** Un cheque a 30 días no es
+   dinero: puede protestarse, y hasta que se cobra la deuda sigue viva de otra
+   forma. Una transferencia que el vendedor **ve confirmada en el teléfono del
+   cliente** tampoco es dinero comprobado por nosotros. ¿El saldo baja al recibir,
+   al depositar, o al conciliar con el banco? Son tres momentos distintos y el
+   cliente va a creer que pagó en el primero.
+10. **¿Qué se le entrega al cliente en el momento?** Si es un recibo numerado,
+    ¿quién reparte esos números, y qué pasa **sin señal**? Es el mismo problema
+    del folio del DTE, que resolvimos no dejando que el teléfono elija número —
+    pero aquí el cliente se va con un papel en la mano.
+11. **Custodia y rendición**: ¿cada cuánto rinde el vendedor, contra quién, y qué
+    pasa con una diferencia de caja? El ERP tiene `xwarqueo` para el arqueo y
+    vimos un caso real de rendición funcionando con documentos `RE`.
+12. **El cheque tiene datos propios** —banco, cuenta, número, fecha de cobro,
+    «páguese a»— y el ERP tiene columnas para todos. ¿Se capturan a mano, se
+    fotografía el cheque, o las dos cosas? ¿Y el comprobante de transferencia, se
+    adjunta la imagen?
+13. ¿Quién cobra: el vendedor que vendió, un cobrador del maestro `cwtcobr`, o
     administración desde la oficina? Hoy hay 4 clientes con cobrador asignado, o
     sea que el campo existe pero el rol no se usa.
 
 ### E. Lo que resta deuda sin ser un pago
-11. ¿Cómo entran las notas de crédito en el saldo por cobrar? (La app hoy sólo
+14. ¿Cómo entran las notas de crédito en el saldo por cobrar? (La app hoy sólo
     emite notas de crédito de **anulación completa**.)
-12. ¿Y los castigos, las condonaciones y los descuentos por pronto pago?
+15. ¿Y los castigos, las condonaciones y los descuentos por pronto pago?
 
 ### F. Lo legal
-13. ¿Cómo debería entrar la ley 19.983 —acuse de recibo, mérito ejecutivo— en el
+16. ¿Cómo debería entrar la ley 19.983 —acuse de recibo, mérito ejecutivo— en el
     proceso? El acuse del cliente es lo que hace exigible una factura, y hoy no lo
     estamos siguiendo en ninguna parte.
 
 ### G. Qué se mira
-14. ¿Qué tiene que ver quien cobra al abrir la app, en orden? ¿Y quien dirige?
-15. ¿Cuál es la cifra que manda: deuda total, deuda vencida, o el tramo de
+17. ¿Qué tiene que ver quien cobra al abrir la app, en orden? ¿Y quien dirige?
+18. ¿Cuál es la cifra que manda: deuda total, deuda vencida, o el tramo de
     antigüedad? ¿Con qué tramos?
 
 ## 8. Restricciones que el diseño tiene que respetar
@@ -245,9 +330,12 @@ No queremos inventar lo que ya existe y funciona:
 
 - **Qué significan las condiciones de venta «1» y «2»**, que cubren 2.604 de los
   2.609 clientes que tienen una puesta. No dimos con el maestro que las declara.
-- **Si Softland trae un flujo propio de recaudación o recibo** en el módulo
-  contable que debiéramos usar en lugar de inventar uno. Hay tablas de caja, de
-  cheques y de formas de pago, pero no hemos comprobado cómo se usan.
+- **Por qué el módulo de cobranza del ERP está vacío**: si no está licenciado,
+  si su flujo no sirve para terreno, o si simplemente nadie lo puso en marcha.
+  La respuesta decide la pregunta 0, que es la más importante de esta lista.
+- **Cómo se usan las tablas de caja y de arqueo** (`vw_tcaja`, `xwarqueo`,
+  `Rendicion_Cuenta_rendicion`). Vimos un caso real de rendición, pero no el
+  procedimiento completo.
 - **Por qué el plazo de venta no llega a la base** (hallazgo 5.1): si es un dato
   que nadie rellena, un parámetro mal puesto o un paso del proceso que no se hace.
 - **Si hay cobranza ocurriendo hoy fuera del ERP** —en una planilla, por

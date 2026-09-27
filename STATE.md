@@ -800,9 +800,41 @@ para que Cuenta no avisara de un desfase que no existe.
   contado, aunque el negocio vende a 30 días: el plazo real no está llegando a
   la base. Hoy «vencido» sólo significa «emitido y no pagado».
 
+**Y el hallazgo que reencuadra el encargo**: Softland **ya trae un módulo de
+cobranza** (tablas `xw*`) con las tablas que esto necesitaría, y **todas sus
+tablas de movimiento están vacías**. `xwcobranza` es una bitácora de cobranza con
+fecha, hora, cliente, cobrador, contacto y una columna `conversa` para el texto
+de la conversación; `xwttcomp` son tipos de compromiso de cobranza —el equivalente
+de `nwttcomp`—; `xwarqueo` es el arqueo de caja. Poblados sólo los maestros:
+`xwtbanco` 45, `xwestraux` 34, `xwtfpago` 5. Así que la pregunta de fondo no es
+«cómo diseñamos esto» sino **«conducimos el módulo del ERP o llevamos la gestión
+en nuestro esquema»**, con el riesgo conocido de tener dos verdades sobre lo mismo.
+
+Lo demás que se midió del dinero:
+
+- **`xwtfpago`** declara 5 formas de pago, cada una con su cuenta contable:
+  efectivo (`1-01-01-001`, `EsEfectivo = 1`), cheque al día y a 30 días
+  (`1-01-02-002`, `TipDocCb = 'CH'`), tarjeta de débito y pago en línea.
+  **No hay «transferencia»**, que es uno de los tres instrumentos que el vendedor
+  va a recibir — y los códigos de maestro no los inventa la app.
+- **El instrumento de pago nunca se registra**: de 1.286 movimientos, 0 con forma
+  de pago, 0 con banco, 0 con cuenta, 0 con número de cheque, 0 con número de
+  operación. Las columnas están todas y vacías.
+- **Hoy se cobra a mano**: los pagos son movimientos `TR` metidos en un solo
+  comprobante (`00009000`, documento 14926 repetido, glosa `F 233`, `F 234`), cada
+  uno referenciando su factura, sin caja ni instrumento. No hay flujo de
+  recaudación: hay un asiento escrito después de que el dinero llegó.
+
+Contestado por el dueño del proceso: **el vendedor recibirá efectivo, cheques y
+comprobantes de transferencia confirmada**. Eso mete custodia, rendición y arqueo
+en el flujo, y obliga a decidir qué significa «pagado» en cada instrumento — un
+cheque a 30 días no es dinero, y una transferencia que el vendedor ve en el
+teléfono del cliente no la comprobó nadie de la empresa.
+
 Pendiente de aclarar: qué declaran las condiciones de venta «1» y «2» (cubren
-2.604 de 2.609 clientes y no dimos con su maestro), y si Softland trae un flujo
-propio de recaudación que haya que usar en vez de inventar uno.
+2.604 de 2.609 clientes y no dimos con su maestro), y **por qué el módulo de
+cobranza del ERP está vacío** — si no está licenciado, si su flujo no sirve para
+terreno o si nadie lo puso en marcha.
 
 ### 0.49.2 — Cifrar sólo si el tráfico sale de la máquina
 
