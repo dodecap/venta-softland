@@ -45,6 +45,7 @@ class Compatibilidad
         'seguimiento' => ['El seguimiento de cotizaciones', false],
         'factura' => ['Facturar', false],
         'dte' => ['Emitir documentos tributarios electrónicos', false],
+        'cobranza' => ['Cobrar contra la cuenta corriente del cliente', false],
     ];
 
     /**
@@ -72,6 +73,23 @@ class Compatibilidad
         // Los parámetros del módulo de ventas. De aquí sale, entre otras cosas,
         // si la nota de venta nace pendiente de aprobación.
         'nwparam' => ['venta', ['CheckApruebaNv']],
+
+        // La cobranza. El saldo se calcula sobre la cuenta corriente contable
+        // —`cwcpbte` + `cwmovim`— y **no** sobre el módulo de clientes: las
+        // tablas `xw*` están vacías en cualquier instalación que facture desde
+        // inventario, que es el caso normal. Por eso no se piden aquí.
+        'cwcpbte' => ['cobranza', ['CpbAno', 'CpbNum', 'AreaCod', 'CpbFec', 'CpbMes', 'CpbEst',
+            'CpbTip', 'CpbNui', 'CpbGlo', 'CpbImp', 'CpbCon', 'Sistema', 'Proceso', 'Usuario']],
+        'cwmovim' => ['cobranza', ['CpbAno', 'CpbNum', 'MovNum', 'PctCod', 'CodAux', 'TtdCod',
+            'NumDoc', 'TipDocCb', 'NumDocCb', 'MovTipDocRef', 'MovNumDocRef', 'MovDebe',
+            'MovHaber', 'MovFe', 'MovFv', 'MovGlosa', 'MonCod', 'VendCod']],
+        // De dónde sale la cuenta de cada forma de pago, y contra qué plan de
+        // cuentas se comprueba que exista antes de escribir un asiento.
+        'iwparam' => ['cobranza', ['CtaCliente', 'CtaPagoEfec', 'CtaPagoTf', 'CtaPagoTDb',
+            'CtaPagoChDia', 'CtaPagoSAChFec']],
+        'cwpctas' => ['cobranza', ['PCCODI', 'PCDESC', 'PCNIVEL', 'PCAUXI']],
+        // El tope de crédito del cliente. No está en su ficha: está aquí.
+        'cwtcvcl' => ['cobranza', ['CodAux', 'MtoCre']],
         // El IVA de la cotización y el de la nota de venta, cada uno en su tabla.
         'NWCtImpto' => ['venta', ['CotNum', 'codimpto', 'valpctIni', 'afectoImpto', 'Impto']],
         'NW_Impto' => ['venta', ['nvNumero', 'codimpto', 'valpctIni', 'afectoImpto', 'Impto']],
@@ -296,6 +314,10 @@ class Compatibilidad
             str_starts_with($t, 'dte_') => 'dte',
             str_starts_with($t, 'iw_gsaen'), str_starts_with($t, 'iw_gmovi') => 'factura',
             in_array($t, ['nwtsegui', 'nwttcomp'], true) => 'seguimiento',
+            // `cwttdoc` lo nombra el catálogo —es el maestro `tipos_documento`—
+            // pero no es un desplegable cualquiera: sin él no se sabe con qué
+            // tipo escribir el instrumento de pago del comprobante.
+            in_array($t, ['cwcpbte', 'cwmovim', 'cwpctas', 'cwttdoc', 'cwtcvcl'], true) => 'cobranza',
             in_array($t, self::DEL_FLUJO, true) => 'venta',
             default => 'catalogo',
         };

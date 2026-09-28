@@ -816,6 +816,24 @@ saber antes de tocar nada:
 - **El tope de crédito está en `cwtcvcl.MtoCre`**, no en la ficha del cliente.
   `parBloqCantDias` lo mueve un motor de bloqueo automático del ERP y **no se
   lee desde aquí**.
+- **El saldo se sirve como un maestro, no como un informe.** La vista
+  `ventas.cartera` hace la resta y el catálogo la nombra como a cualquier tabla:
+  así hereda paginado, IndexedDB, tirón para refrescar y alcance por vendedor
+  sin reescribir ninguna de las cuatro cosas. **Y el filtro por cuenta no es
+  adorno**: sin `PctCod = iwparam.CtaCliente` salían 105 filas sumando
+  −252.800.041, porque en el mismo libro viven las facturas de proveedor y las
+  conciliaciones de caja.
+- **La cartera no lleva ventana de 12 meses.** El documento abierto más antiguo
+  es de 2024-04-30 y una deuda no caduca porque el teléfono no la baje. El
+  alcance por vendedor sí se aplica: eso es permiso, no equipaje. Y no es
+  incremental — el saldo no es una fila que cambie sino una resta que cambia
+  sola, así que se baja entera y el barrido por sello hace desaparecer lo ya
+  pagado.
+- **La antigüedad se escribe una vez**, en `mobile/src/cartera.js`: la cabecera
+  que cuenta y la lista que filtra leen de ahí. Se mide contra el vencimiento y,
+  si falta, contra la emisión — que en INNOVAGES coincidan en 223 de 225 cargos
+  no las convierte en el mismo campo. **Y la lista es de clientes, no de
+  facturas**: a nadie se le cobra una factura suelta.
 - **Antes de escribir se comprueba sin escribir.** `cobranza:verifica-comprobante`
   arma los comprobantes que ya existen y los compara: 42 idénticos, 25 idénticos
   salvo las erratas del propio comprobante —el número del traspaso tecleado como
@@ -1046,16 +1064,17 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.49.3**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.49.4**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado
 idéntico al de los 209 que el SII ya aceptó, y el sobre reproducido igual en los
 210 envíos guardados. Contra palena, en producción, el SII ya devuelve token y
 contesta las consultas de estado. **Falta el primer envío de verdad**, que es lo
-único que no se deshace. La cobranza va por el paso 1 de 6: el molde del
+único que no se deshace. La cobranza va por el paso 2 de 6: el molde del
 comprobante de ingreso reproduce los 114 que ya existen sin una sola diferencia
-propia, y todavía no se ha escrito ninguno. Ver `STATE.md`. El mapa de
+propia —todavía no se ha escrito ninguno— y la cartera ya se lee sin señal, con
+sus 27 documentos abiertos y 11.424.249. Ver `STATE.md`. El mapa de
 tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
 documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
 `docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el alta de clientes

@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-28 — versión **0.49.3**
+2026-09-28 — versión **0.49.4**
 
 ## Resumen del estado actual
-**Versión 0.49.3. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.49.4. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -763,6 +763,64 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 12 clavados y los campos a 16, que es lo que evita el zoom de Android. Nada
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
+
+### 0.49.4 — La cartera: lo que cada cliente debe, sin señal (2026-09-28)
+
+Paso 2 de la cobranza. Es **sólo lectura**: escribir el comprobante en
+contabilidad es el paso 3 y todavía no se ha escrito ninguno.
+
+- [x] **`ventas.cartera`**, una vista en nuestro esquema
+      (`2026_09_28_140000_create_vista_cartera`). Hace la resta de partida
+      abierta sobre la cuenta corriente contable —`cwmovim` agrupado por
+      `CodAux, MovTipDocRef, MovNumDocRef`, con `cwcpbte.CpbEst = 'V'`— y
+      entrega saldo, cargado, abonado, emisión, vencimiento, vendedor, moneda
+      y glosa.
+
+- [x] **Se sirve como un maestro más**, no como un informe: `Maestros` la
+      nombra igual que a cualquier tabla y con eso hereda el paginado por
+      cursor, IndexedDB, el tirón para refrescar y el alcance por vendedor sin
+      escribir ninguna de las cuatro cosas otra vez. Es el precedente de
+      `ventas.nv_atributo_valor`.
+
+- [x] **`cwttdoc` entra al catálogo** como maestro `tipos_documento` (52
+      filas). La cartera guarda `EL`, no «Factura de venta electrónica», y esos
+      códigos los inventa cada empresa.
+
+- [x] **La pantalla de Cobranza deja de ser un cartel.** Lista por cliente, con
+      su total y su antigüedad, desplegable a los documentos; buscador por
+      cliente, número y glosa; filtro por tramo; y arriba dos cifras, lo que hay
+      por cobrar y cuánto de eso está vencido.
+
+- [x] **La antigüedad se escribe una vez** (`mobile/src/cartera.js`), con 35
+      comprobaciones nuevas en `npm run pruebas` — 253 en total.
+
+**Lo medido:**
+
+- **Sin el filtro por cuenta la cartera no era la cartera**: salían 105 filas
+  sumando **−252.800.041**, porque en el mismo libro viven las facturas de
+  proveedor (`FT`) y las conciliaciones de caja (`RE`). Filtrando por
+  `iwparam.CtaCliente` quedan los **27 documentos y 11.424.249** ya medidos.
+- **El alcance por vendedor funciona y falla cerrado**: admin 27 filas, el
+  vendedor 2 ve 26 —el documento con `VendCod = '0000'` no es de nadie—, el
+  vendedor 19 ve 0 y sin contexto se ven 0.
+- **No lleva ventana de 12 meses**: el documento abierto más antiguo de
+  INNOVAGES es de **2024-04-30**, y una deuda no caduca porque el teléfono no
+  la baje. El alcance por vendedor sí se aplica: eso es permiso, no equipaje.
+- **No es incremental**: el saldo no es una fila que cambie sino una resta que
+  cambia sola, así que no hay columna que mirar. Se baja entero y el barrido
+  por sello hace que un documento ya pagado **desaparezca** del teléfono.
+- **La antigüedad se mide contra `MovFv` y, si falta, contra `MovFe`.** Que en
+  INNOVAGES coincidan en 223 de 225 cargos no las convierte en el mismo campo:
+  otra empresa sí va a usar vencimientos.
+- **`ventas:compatibilidad --todo` sigue en verde**, con `cwttdoc` deducido ya
+  del catálogo y no escrito a mano: 107 pruebas de la API en verde, 253
+  comprobaciones del teléfono, y `npm run build` sin un emoji.
+
+**Una trampa que costó dos intentos**: `new Date('2026-09-28')` es medianoche
+**UTC** y `new Date('2026-09-28T00:00:00')` es medianoche local. En Chile son
+días distintos, y un documento que vencía hoy salía con un día de atraso. Las
+fechas se cortan a `YYYY-MM-DD` y se rearman, que es lo que ya hacía
+`panel/metricas.js`.
 
 ### 0.49.3 — Cobranza: el molde del comprobante, y una sola puerta de entrada (2026-09-28)
 

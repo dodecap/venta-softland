@@ -28,8 +28,9 @@ const NOMBRE = 'venta-softland';
 // La 2 agrega `motivos_perdida` y la 3 el almacén de PDF: la migración solo
 // crea los almacenes que falten, así que subir el número es todo lo que hace
 // falta. La 10 agrega `referencias_dte`, los tipos de documento que se pueden
-// nombrar en una referencia del DTE.
-const VERSION = 10;
+// nombrar en una referencia del DTE, y la 11 `cartera`, lo que los clientes
+// deben.
+const VERSION = 11;
 
 /**
  * Los almacenes. `clave` es el keyPath; si es un arreglo, la clave es compuesta
@@ -50,6 +51,7 @@ export const ALMACENES = {
     regiones: { clave: 'codigo' },
     motivos_perdida: { clave: 'codigo' },
     referencias_dte: { clave: 'codigo' },
+    tipos_documento: { clave: 'codigo' },
     centros_costo: { clave: 'codigo', busqueda: ['codigo', 'nombre'] },
     giros: { clave: 'codigo', busqueda: ['nombre'] },
     comunas: { clave: 'codigo', busqueda: ['nombre'] },
@@ -163,6 +165,23 @@ export const ALMACENES = {
     factura_referencias: {
         clave: ['tipo', 'numero_interno', 'linea'],
         indices: { referido: 'folio_referido' },
+    },
+
+    /**
+     * Lo que cada cliente debe, documento por documento.
+     *
+     * No es una tabla de Softland: es la vista `ventas.cartera`, la resta sobre
+     * la cuenta corriente contable. La clave es la del documento en el libro
+     * —auxiliar, tipo y número—, y el número es el del documento **referido**,
+     * no el del comprobante que lo anotó.
+     *
+     * Baja entera y no se guarda nada calculado: la antigüedad la pone
+     * `cartera.js` al dibujar, porque depende del día en que se mire.
+     */
+    cartera: {
+        clave: ['cliente', 'tipo', 'numero'],
+        busqueda: ['cliente', 'numero', 'glosa'],
+        indices: { cliente: 'cliente', vencimiento: 'vencimiento' },
     },
 
     /** Estado de la sincronización: una fila por maestro. No viene del servidor. */

@@ -927,6 +927,37 @@ input:focus, select:focus, textarea:focus {
 }
 .saldo-lineas li + li { margin-top: calc(2px * var(--d)); }
 
+/*
+ * Un documento dentro de la persiana de su cliente, en la cartera.
+ *
+ * La cifra va a la derecha y alineada entre filas: sumar de cabeza tres saldos
+ * desalineados es justo lo que hace que alguien coja la calculadora. El texto
+ * de 12 px no escala con `--d` porque ya está en el piso de lectura.
+ */
+.doc-cartera {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: calc(6px * var(--d)) 0;
+    border-top: 1px solid var(--fondo);
+}
+.doc-cartera:first-child { border-top: 0; }
+.doc-cartera .texto { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.doc-cartera .texto b {
+    font-size: calc(13px * var(--d));
+    font-weight: 600;
+    color: var(--texto);
+    overflow-wrap: anywhere;
+}
+.doc-cartera .texto small { font-size: 12px; color: var(--texto-suave); }
+.doc-cartera .cifra {
+    flex: 0 0 auto;
+    font-size: calc(14px * var(--d));
+    font-weight: 700;
+    color: var(--indigo);
+    font-variant-numeric: tabular-nums;
+}
+
 .ayuda {
     font-size: 12px;
     color: var(--texto-suave);

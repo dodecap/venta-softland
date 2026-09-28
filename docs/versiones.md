@@ -42,6 +42,38 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.49.4 — La cartera: lo que cada cliente debe, sin señal
+*2026-09-28*
+
+El paso 2 de la cobranza: **leer** lo que los clientes deben. Todavía no cobra
+nada — escribir el comprobante en contabilidad es el paso siguiente.
+
+**El saldo se sirve como un maestro.** La vista `ventas.cartera` hace la resta
+de partida abierta sobre la cuenta corriente contable —`cwmovim` con su
+comprobante en `V`— y el catálogo la nombra como a cualquier otra tabla. Con eso
+hereda el paginado por cursor, IndexedDB, el tirón para refrescar y el alcance
+por vendedor sin escribir ninguna de las cuatro cosas otra vez.
+
+**Sin el filtro por cuenta la cartera no era la cartera.** Salían 105 filas
+sumando −252.800.041: en el mismo libro viven las facturas de proveedor y las
+conciliaciones de caja. Filtrando por `iwparam.CtaCliente` quedan los 27
+documentos y 11.424.249 que ya estaban medidos.
+
+**No lleva ventana de 12 meses.** El documento abierto más antiguo es de
+2024-04-30 y una deuda no caduca porque el teléfono no la baje. El alcance por
+vendedor sí, que eso es permiso y no equipaje.
+
+**La antigüedad se escribe una vez** (`mobile/src/cartera.js`): seis tramos, y de
+ahí leen la cabecera que cuenta y la lista que filtra. Se mide contra el
+vencimiento y, si falta, contra la emisión — que en INNOVAGES coincidan en 223
+de 225 cargos no las convierte en el mismo campo.
+
+**La lista es de clientes, no de facturas**, porque así se cobra: se llama a una
+persona y se le habla de todo lo que debe. Ordenada por lo más atrasado.
+
+Y `cwttdoc` baja como maestro: sin él la pantalla diría «EL Nº 25» en vez de
+«Factura de venta electrónica Nº 25», y esos códigos los inventa cada empresa.
+
 ### 0.49.3 — Cobranza: el molde del comprobante de ingreso, y una sola puerta de entrada
 *2026-09-28*
 

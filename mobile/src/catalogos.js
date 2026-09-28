@@ -27,6 +27,10 @@ const CHICOS = [
     // que decir «Orden de Compra/Orden de Servicio», y el papel imprimiría el
     // número en vez del rótulo que el cliente lleva años leyendo.
     'referencias_dte',
+    // Los tipos de documento de la contabilidad: cincuenta y tantas filas. Sin
+    // ellas la cartera diría «EL Nº 25» donde tiene que decir «Factura de venta
+    // electrónica Nº 25», y esos códigos los inventa cada empresa.
+    'tipos_documento',
     // Estos cuatro son más gordos (2.009 giros, 937 ciudades, 594 centros de
     // costo, 352 comunas) pero van igual: sin ellos la ficha del cliente
     // muestra «C28 · 08301 · LANGE», que no le dice nada a nadie.

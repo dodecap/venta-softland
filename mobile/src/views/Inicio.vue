@@ -106,7 +106,7 @@ const FLUJO = [
     { icono: 'factura', rotulo: 'Facturar', ruta: '/facturas' },
     { icono: 'cliente', rotulo: 'Clientes', ruta: '/clientes' },
     { icono: 'producto', rotulo: 'Productos', ruta: '/productos' },
-    { icono: 'cobranza', rotulo: 'Cobranza', ruta: '/cobranza', fase: 'Fase 5' },
+    { icono: 'cobranza', rotulo: 'Cobranza', ruta: '/cobranza' },
 ];
 
 /* ------------------------------------------------------------------ ámbito

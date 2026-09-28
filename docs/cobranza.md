@@ -170,11 +170,60 @@ asiento de apertura, que abona a seis clientes a la vez.
 |---|---|---|
 | 0 | `cobranza:verifica-comprobante` — reproducir lo existente sin escribir | **hecho** |
 | 1 | `Cobranza\Cuentas` — el mapa deducido de `iwparam` y completado en `ventas.config` | **hecho** |
-| 2 | La cartera: leer el saldo por documento, sin señal | pendiente |
+| 2 | La cartera: leer el saldo por documento, sin señal | **hecho** |
 | 3 | `Recaudacion` — escribir el comprobante en `V`, idempotente por `client_uuid` | pendiente |
 | 4 | `Credito` — el tope de `cwtcvcl.MtoCre` y el bloqueo | pendiente |
 | 5 | `/setup` en modo reconfigurar | pendiente |
 | 6 | Transbank, detrás de su llave de configuración | pendiente |
+
+### Cómo quedó el paso 2: la cartera
+
+**El saldo se sirve como un maestro, no como un informe.** Es la vista
+`ventas.cartera`, y el catálogo la nombra igual que a cualquier otra tabla. Así
+hereda gratis lo que ya funciona: paginado por cursor, IndexedDB, el tirón para
+refrescar y el alcance por vendedor. Un controlador propio habría sido escribir
+otra vez las cuatro cosas.
+
+```sql
+CREATE OR ALTER VIEW ventas.cartera AS ...
+    WHERE LTRIM(RTRIM(m.PctCod)) = <cuenta del cliente>
+      AND m.MovTipDocRef <> '00' AND m.CodAux <> '0000000000'
+    GROUP BY m.CodAux, m.MovTipDocRef, CAST(m.MovNumDocRef AS int)
+    HAVING SUM(m.MovDebe - m.MovHaber) > 0
+```
+
+- **El filtro por cuenta no es adorno.** Sin él salían **105 filas sumando
+  −252.800.041**: en el mismo libro conviven las facturas de proveedor (`FT`) y
+  las conciliaciones de caja (`RE`), que no son cartera de nadie. Con la cuenta
+  puesta —`iwparam.CtaCliente`, y `ventas.config` sólo si hace falta
+  rellenarla— quedan los **27 documentos y 11.424.249** que ya estaban medidos.
+- **La vista lee la configuración, no la lleva escrita.** La cuenta del cliente
+  sale de `ventas.config` y, si está vacía, de `iwparam`: la misma regla de
+  siempre, campo vacío = manda el ERP. La vista no puede llamar a
+  `Cobranza\Cuentas`, así que reproduce esa preferencia en SQL — es el único
+  sitio donde esa regla está escrita dos veces, y está anotado en la migración.
+- **No lleva ventana de 12 meses.** El documento abierto más antiguo de
+  INNOVAGES es de 2024-04-30, y una deuda no caduca porque el teléfono no la
+  baje. El alcance por vendedor sí se aplica, como siempre: es permiso, no
+  equipaje. Medido: admin 27 filas, el vendedor 2 ve 26 —el documento con
+  `VendCod='0000'` no es de nadie— y sin contexto, cero.
+- **No es incremental y se barre por sello.** El saldo no es una fila que
+  cambie sino una resta que cambia sola: no hay columna que mirar. Se baja
+  entero, y eso hace además que un documento ya pagado **desaparezca** del
+  teléfono en vez de quedarse.
+- **La antigüedad la calcula el teléfono, y una sola vez.** `mobile/src/cartera.js`
+  tiene los seis tramos —por vencer · vence hoy · hasta 30 · 31 a 60 · 61 a 90 ·
+  más de 90—, y de ahí leen la cabecera que cuenta y la lista que filtra. Es la
+  regla de `situacion()` otra vez: dos copias son un «3 vencidas» encima de una
+  lista de cuatro. Se mide contra `MovFv` y, si falta, contra `MovFe`; que en
+  INNOVAGES coincidan en 223 de 225 cargos no las convierte en el mismo campo.
+- **La lista es de clientes, no de facturas.** A nadie se le cobra una factura
+  suelta: se le llama y se le habla de todo lo que debe. Se ordena por lo más
+  atrasado y, a igualdad, por monto — la pregunta de la mañana es a quién hay
+  que llamar.
+- **`cwttdoc` baja como maestro.** La cartera guarda `EL`, no «Factura de venta
+  electrónica», y esos códigos los inventa cada empresa. Sin el maestro la
+  pantalla diría «EL Nº 25».
 
 ### Lo que ya está decidido para el paso 3
 

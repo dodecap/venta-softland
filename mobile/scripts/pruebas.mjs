@@ -12,6 +12,7 @@ import { calcularSaldo } from '../src/saldo.js';
 import { estado as estadoCompromiso, cuando, hora, sumarDias, resumen as resumenCompromisos } from '../src/seguimiento.js';
 import { avisaDeVersion, comparar, esMasNueva } from '../src/version.js';
 import { deVendedores } from '../src/alcance.js';
+import { diasVencido, tramoDe, vencido, resumen as resumenCartera, porCliente } from '../src/cartera.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -500,6 +501,74 @@ es(deVendedores([2])({ vendedor: '2' }), true, 'el código puede llegar como nú
 
     // La 8554 está vendida y tiene compromiso para el 27: sigue contando.
     es(suyos.proximo, 1, 'el compromiso de una vendida se clasifica por su fecha');
+}
+
+// ---- la cartera: la antigüedad se mide una sola vez
+/*
+ * La regla vive en `cartera.js` porque la usan dos sitios a la vez: las
+ * pastillas de arriba cuentan por tramo y la lista filtra por tramo. Aquí se
+ * fijan los bordes, que es donde se equivoca cualquiera: el día del
+ * vencimiento **no** está vencido, y el siguiente sí.
+ */
+{
+    const hoy = new Date('2026-09-28T15:00:00');
+    const doc = (vencimiento, saldo = 1000) => ({ cliente: '76', tipo: 'FE', numero: 1, vencimiento, saldo });
+
+    es(diasVencido(doc('2026-09-28'), hoy), 0, 'vence hoy: cero días');
+    es(diasVencido(doc('2026-09-27'), hoy), 1, 'ayer: un día');
+    es(diasVencido(doc('2026-10-05'), hoy), -7, 'por vencer: días negativos');
+    // La hora no cuenta: un documento de esta mañana no lleva medio día vencido.
+    es(diasVencido({ vencimiento: '2026-09-28T23:59:00' }, hoy), 0, 'la hora no mueve el conteo');
+    es(diasVencido({ emision: '2026-09-20' }, hoy), 8, 'sin vencimiento se cae a la emisión');
+    es(diasVencido({}, hoy), null, 'sin ninguna fecha no hay antigüedad');
+    es(diasVencido({ vencimiento: 'nada' }, hoy), null, 'una fecha ilegible no es una fecha');
+
+    es(tramoDe(doc('2026-09-28'), hoy).id, 'hoy', 'el día del vencimiento es su propio tramo');
+    es(vencido(doc('2026-09-28'), hoy), false, 'el día del vencimiento todavía no está vencido');
+    es(tramoDe(doc('2026-09-27'), hoy).id, 'd30', 'un día de atraso ya es el primer tramo');
+    es(vencido(doc('2026-09-27'), hoy), true, 'un día de atraso sí está vencido');
+    es(tramoDe(doc('2026-08-29'), hoy).id, 'd30', '30 días: todavía el primer tramo');
+    es(tramoDe(doc('2026-08-28'), hoy).id, 'd60', '31 días: el segundo');
+    es(tramoDe(doc('2026-07-30'), hoy).id, 'd60', '60 días: aún el segundo');
+    es(tramoDe(doc('2026-07-29'), hoy).id, 'd90', '61 días: el tercero');
+    es(tramoDe(doc('2026-06-30'), hoy).id, 'd90', '90 días: aún el tercero');
+    es(tramoDe(doc('2026-06-29'), hoy).id, 'mas90', '91 días: más de 90');
+    es(tramoDe(doc('2024-04-30'), hoy).id, 'mas90', 'el más viejo de INNOVAGES');
+    es(tramoDe(doc('2026-10-31'), hoy).id, 'por_vencer', 'lo que no vence todavía');
+    es(tramoDe({}, hoy), null, 'sin fecha no hay tramo');
+
+    const cartera = [
+        doc('2024-04-30', 6653685),   // más de 90
+        doc('2026-09-27', 100000),    // hasta 30
+        doc('2026-09-28', 50000),     // vence hoy
+        doc('2026-10-15', 200000),    // por vencer
+        { cliente: '77', tipo: 'FE', numero: 9, saldo: 7000 },   // sin fecha
+    ];
+    const r = resumenCartera(cartera, hoy);
+    es(r.documentos, 5, 'el resumen cuenta todo, tenga fecha o no');
+    es(r.total, 7010685, 'el total es la suma de los saldos');
+    es(r.atrasado, 6753685, 'atrasado es sólo lo que pasó de su vencimiento');
+    es(r.sinFecha, 1, 'lo que no se puede clasificar se dice, no se esconde');
+    es(r.tramos.length, 4, 'los tramos vacíos no gastan una fila');
+    es(r.tramos[0].id, 'mas90', 'los tramos salen del más urgente al menos');
+    es(r.tramos[3].id, 'por_vencer', 'y lo que no vence, al final');
+    es(resumenCartera([], hoy).tramos.length, 0, 'una cartera vacía no tiene tramos');
+    es(resumenCartera(null, hoy).total, 0, 'sin cartera, cero');
+
+    // Se cobra por cliente, no por factura: se llama a una persona y se le
+    // habla de todo lo que debe.
+    const grupos = porCliente([
+        { cliente: 'B', saldo: 500, vencimiento: '2026-09-20' },
+        { cliente: 'A', saldo: 100, vencimiento: '2026-01-01' },
+        { cliente: 'B', saldo: 300, vencimiento: '2026-09-10' },
+        { cliente: 'C', saldo: 900, vencimiento: '2026-12-01' },
+    ], hoy);
+    es(grupos.length, 3, 'un grupo por cliente');
+    es(grupos[0].cliente, 'A', 'primero el más atrasado, no el que más debe');
+    es(grupos[1].cliente, 'B', 'después el siguiente en antigüedad');
+    es(grupos[1].total, 800, 'el total del cliente suma sus documentos');
+    es(grupos[1].dias, 18, 'la antigüedad del cliente es la de su documento más viejo');
+    es(grupos[2].cliente, 'C', 'lo que no ha vencido, al final');
 }
 
 console.log(`OK — ${hechas} comprobaciones`);

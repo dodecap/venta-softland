@@ -77,6 +77,21 @@ class Maestros
                 'campos' => ['codigo' => 'CodPerd', 'nombre' => 'desPerd'],
                 'etiqueta' => 'nombre',
             ],
+            /*
+             * Los tipos de documento de la contabilidad — `cwttdoc`.
+             *
+             * Los declara cada empresa, así que «EL» no significa lo mismo en
+             * todas: aquí es la factura de venta electrónica. Baja al teléfono
+             * porque la cartera guarda el código y no el nombre, y un renglón
+             * que dice «EL Nº 25» no se cobra.
+             */
+            'tipos_documento' => [
+                'titulo' => 'Tipos de documento',
+                'tabla' => 'softland.cwttdoc',
+                'clave' => ['CodDoc'],
+                'campos' => ['codigo' => 'CodDoc', 'nombre' => 'DesDoc'],
+                'etiqueta' => 'nombre',
+            ],
             'monedas' => [
                 'titulo' => 'Monedas',
                 'tabla' => 'softland.cwtmone',
@@ -400,6 +415,48 @@ class Maestros
 
                         static::soloSusVendedores($s, 'cab.CodVendedor', $ctx);
                     });
+                },
+            ],
+            /*
+             * Lo que el cliente debe, documento a documento.
+             *
+             * Es una **vista nuestra** (`ventas.cartera`), no una tabla de
+             * Softland: el saldo no está guardado en ninguna parte, se calcula
+             * restando el haber del debe sobre la cuenta corriente contable. La
+             * vista hace la resta y el filtro —comprobantes vigentes y sólo la
+             * cuenta del cliente— para que aquí sea un maestro como los demás.
+             * El porqué de cada filtro está en su migración.
+             *
+             * **No lleva ventana de doce meses**, y es lo contrario que en el
+             * resto de los documentos: una factura de hace dos años sin pagar
+             * es exactamente a lo que se va a cobrar. La más vieja de INNOVAGES
+             * es de 2024-04-30, y esconderla sería esconder la deuda más antigua
+             * justo en la pantalla que existe para cobrarla.
+             *
+             * Tampoco es incremental: no hay columna que diga que un saldo
+             * cambió, porque el saldo no es una fila sino una resta. Se baja
+             * entero, que es la misma regla de las cotizaciones y lo que además
+             * hace que un documento ya pagado desaparezca del teléfono.
+             */
+            'cartera' => [
+                'titulo' => 'Cartera por cobrar',
+                'tabla' => 'ventas.cartera',
+                'clave' => ['cliente', 'tipo', 'numero'],
+                'campos' => [
+                    'cliente' => 'cliente',
+                    'tipo' => 'tipo',
+                    'numero' => 'numero:entero',
+                    'cargado' => 'cargado:decimal',
+                    'abonado' => 'abonado:decimal',
+                    'saldo' => 'saldo:decimal',
+                    'emision' => 'emision:fecha',
+                    'vencimiento' => 'vencimiento:fecha',
+                    'vendedor' => 'vendedor',
+                    'moneda' => 'moneda',
+                    'glosa' => 'glosa',
+                ],
+                'filtro' => function (Builder $q, array $ctx, bool $ventana = true) {
+                    static::soloSusVendedores($q, 'vendedor', $ctx);
                 },
             ],
             /*

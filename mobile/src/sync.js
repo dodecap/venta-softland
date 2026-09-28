@@ -75,6 +75,9 @@ export const GRUPOS = {
         'facturas', 'factura_lineas', 'factura_referencias', 'referencias_dte', 'dte_estado'],
     facturas: ['facturas', 'factura_lineas', 'factura_referencias', 'referencias_dte', 'dte_estado'],
     clientes: ['clientes', 'contactos'],
+    // La cartera se baja con los clientes detrás: la lista de cobranza enseña
+    // el nombre de quien debe, y un código de auxiliar sin nombre no se cobra.
+    cobranza: ['cartera', 'clientes', 'tipos_documento'],
     productos: ['productos', 'precios'],
 };
 
