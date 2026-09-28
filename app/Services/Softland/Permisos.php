@@ -58,6 +58,37 @@ class Permisos
     public const FACTURA_OTRO_CLIENTE = ['IW', 'Iw_FacLin', 'NVOtroAuxiliar'];
 
     /**
+     * Cobrar: los cuatro controles del comprobante contable.
+     *
+     * No se inventó ninguno. `cw_cpbte` es el formulario de comprobantes del
+     * Softland de escritorio y éstos son sus controles, con la descripción que
+     * ve el administrador del ERP en su pantalla de perfiles:
+     *
+     * - `agrega` — «Ingresar Comprobantes». Sin esto no se escribe nada.
+     * - `pendiente` — «Permitir Grabar Comprobantes Vigentes». Es el que decide
+     *   si el comprobante puede nacer en `V`. Y aquí **es obligatorio**, porque
+     *   esta app no guarda a medias: un comprobante en `P` conserva sus
+     *   movimientos y descuadra la cartera de quien lo mire sin filtrar. Quien
+     *   no lo tenga, no cobra desde el teléfono.
+     * - `SobreSaldo` — «Permite pagar más del saldo». Sin él, un abono no puede
+     *   pasarse de lo que el documento debe.
+     * - `elimina` — «Eliminar Comprobantes». Borrar es lo que esta app ofrece
+     *   para deshacer; no hace falta `eliminaOtros` porque sólo se borra lo que
+     *   escribió ella, y eso lo dice `cwcpbte.Proceso`.
+     *
+     * Medido en INNOVAGES: los tienen `ddecap` y `mpiano` enteros, y `DEMO` y
+     * `jpalomin` todos menos `elimina`. Los otros doce usuarios, ninguno — que
+     * es exactamente lo que se espera de un vendedor.
+     */
+    public const COBRO_AGREGA = ['CW', 'cw_cpbte', 'agrega'];
+
+    public const COBRO_VIGENTE = ['CW', 'cw_cpbte', 'pendiente'];
+
+    public const COBRO_SOBRE_SALDO = ['CW', 'cw_cpbte', 'SobreSaldo'];
+
+    public const COBRO_ELIMINA = ['CW', 'cw_cpbte', 'elimina'];
+
+    /**
      * Lo ya preguntado en esta petición.
      *
      * Una misma comprobación se repite dentro de una emisión —la propuesta, la

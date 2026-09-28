@@ -20,6 +20,7 @@ import Editor from './views/Editor.vue';
 import Facturar from './views/Facturar.vue';
 import FacturaNueva from './views/FacturaNueva.vue';
 import Cobranza from './views/Cobranza.vue';
+import Cobro from './views/Cobro.vue';
 import Facturas from './views/Facturas.vue';
 import Factura from './views/Factura.vue';
 import Aprobaciones from './views/Aprobaciones.vue';
@@ -58,6 +59,9 @@ const router = createRouter({
         { path: '/avisos', component: Avisos },
         { path: '/cuenta', component: Cuenta },
         { path: '/cobranza', component: Cobranza, meta: { tab: true } },
+        // Cobrarle a un cliente es una pantalla de adentro: se apila sobre la
+        // cartera y se sale con «atrás». Cobrar es una acción, no un sitio.
+        { path: '/cobranza/:cliente', component: Cobro },
 
         // Consulta del catálogo y de los documentos, todo desde IndexedDB.
         // `/clientes/nuevo` y `/clientes/77234300` son la misma pantalla: la

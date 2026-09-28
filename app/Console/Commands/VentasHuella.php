@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Cobranza\Recaudacion;
 use App\Services\Dte\Facturacion;
 use App\Services\Sii\Traduccion;
 use Illuminate\Console\Command;
@@ -246,6 +247,25 @@ class VentasHuella extends Command
             $this->line(sprintf('   %-16s %6d  (softland.iw_gsaen, Proceso = «%s»)', 'facturas', $n, Facturacion::PROCESO));
         } catch (Throwable) {
             $this->line('   <fg=yellow>No se pudo contar en softland.iw_gsaen.</>');
+        }
+
+        // La cobranza sí estampa `Proceso` en la cabecera, así que aquí el
+        // filtro vale. Los movimientos se cuentan aparte porque son lo que de
+        // verdad mueve la cuenta corriente del cliente, y son varios por
+        // comprobante: uno por documento abonado y otro por forma de pago.
+        try {
+            $cpb = $conn->table('softland.cwcpbte')->where('Proceso', Recaudacion::PROCESO);
+            $n = (clone $cpb)->count();
+            $mov = $conn->table('softland.cwmovim as m')
+                ->join('softland.cwcpbte as c', function ($j) {
+                    $j->on('c.CpbAno', '=', 'm.CpbAno')->on('c.CpbNum', '=', 'm.CpbNum');
+                })
+                ->where('c.Proceso', Recaudacion::PROCESO)->count();
+
+            $this->line(sprintf('   %-16s %6d  (softland.cwcpbte, Proceso = «%s»)', 'cobros', $n, Recaudacion::PROCESO));
+            $this->line(sprintf('   %-16s %6d  (softland.cwmovim, de esos comprobantes)', 'sus asientos', $mov));
+        } catch (Throwable) {
+            $this->line('   <fg=yellow>No se pudo contar en softland.cwcpbte.</>');
         }
 
         // El catálogo de giros es la única escritura de la app en un maestro

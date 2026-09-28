@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-28 — versión **0.49.4**
+2026-09-28 — versión **0.50.0**
 
 ## Resumen del estado actual
-**Versión 0.49.4. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.50.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -763,6 +763,80 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 12 clavados y los campos a 16, que es lo que evita el zoom de Android. Nada
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
+
+### 0.50.0 — Cobrar: el comprobante de ingreso (2026-09-28)
+
+Paso 3 de la cobranza, y lo primero de esta app que **mueve la cuenta corriente
+de un cliente**. Todavía **no se ha escrito ningún cobro que se quede**: lo que
+hay es la escritura probada de punta a punta contra la base de verdad,
+deshaciéndola.
+
+- [x] **`app/Services/Cobranza/Recaudacion.php`** — escribe el comprobante:
+      cabecera, movimientos y la fila del mapa en una transacción, con el
+      correlativo tomado dentro bajo `UPDLOCK, HOLDLOCK` y reintento ante choque
+      de clave primaria. `Comprobante` sigue diciendo qué forma tiene el
+      asiento; esto dice quién puede escribirlo, contra qué se comprueba y qué
+      pasa si llega dos veces.
+
+- [x] **Los cuatro permisos del ERP** (`Permisos::COBRO_*`, todos de
+      `cw_cpbte`): ingresar, grabar vigente, pagar más del saldo y eliminar. Se
+      exigen los dos primeros antes de escribir nada. Medido: `ddecap` y
+      `mpiano` los tienen los cuatro; `DEMO` y `jpalomin`, todos menos eliminar;
+      los otros doce, ninguno.
+
+- [x] **`ventas.documento_app` lleva `ano`**
+      (`2026_09_28_150000_add_ano_documento_app`): la clave de un comprobante es
+      `CpbAno` + `CpbNum` y el número se reinicia cada año. Se amplió el mapa en
+      vez de abrir otro, porque el `client_uuid` es único entre **todo** lo que
+      la app escribe.
+
+- [x] **`CobranzaController`** y cuatro rutas: la propuesta por cliente
+      —documentos, medios con cuenta, permisos del ERP y lo que falte por
+      configurar—, escribir, ver y borrar.
+
+- [x] **`cobranza:ensayo`** — escribe un cobro **de verdad** en INNOVAGES con
+      las mismas funciones que usa el teléfono y deshace la transacción. Seis
+      comprobaciones: el asiento es el que dijo `Comprobante` campo a campo,
+      cuadra leído de la base, **el saldo de la cartera baja lo abonado**,
+      repetir el `client_uuid` no escribe un segundo asiento, borrarlo lo deja
+      como estaba, y los portazos son portazos (404 de documento ajeno, 404 de
+      alcance, 403 de permiso). Pasan las seis.
+
+- [x] **La pantalla de cobrar** (`mobile/src/views/Cobro.vue`), colgada de la
+      fila del cliente en la cartera, con sus reglas en `mobile/src/cobro.js` —
+      18 comprobaciones nuevas, 271 en total.
+
+- [x] **`ventas:huella` cuenta los cobros** y sus asientos, por
+      `cwcpbte.Proceso`.
+
+**Lo medido:**
+
+- **No hay base de pruebas que sirva.** `INNOVAGES_TEST` tiene `cwcpbte` y
+  `cwmovim` vacías y **no tiene `iwparam`, `cwpctas` ni `cwttdoc`**: ni cuentas
+  que resolver, ni plan contra el que comprobarlas, ni disparadores. Un ensayo
+  ahí sale en verde sin ejercitar nada. Por eso se escribe aquí y se deshace, y
+  por eso `Recaudacion` no admite «otra base».
+- **El ensayo pasa** con el saldo entero y con abonos parciales, en efectivo,
+  cheque y transferencia, contra los dos clientes con deuda. La base queda
+  idéntica: 27 documentos abiertos, 11.424.249, cero filas en `LogCwcpbte`, cero
+  movimientos huérfanos.
+- **`APP_NAME()` desde PHP es `PHP`**, y los dos disparadores de bitácora de
+  `cwmovim` sólo escriben `if PatIndex('%SQL%', APP_NAME()) > 0`: la bitácora de
+  movimientos del ERP **no registra** lo que escribe esta app. La de cabeceras,
+  `LogCwcpbte`, no lleva esa guarda y sí la registra.
+- **Anular no existe en contabilidad.** `CpbEst` sólo tiene vigente y borrador,
+  y las 407 cabeceras llevan `CpbAnoRev = '0000'`: no hay un reverso real que
+  reproducir. Corregir es borrar y volver a escribir.
+- **La propuesta de INNOVAGES ofrece cinco formas de pago** —efectivo, cheque al
+  día, cheque a fecha, transferencia y tarjeta de débito—, todas con cuenta
+  sacada de `iwparam`. Faltan tres por configurar: tarjeta de crédito, depósito
+  y pago en línea.
+
+**Queda pendiente y es una decisión, no un olvido:** el cobro **necesita señal**.
+El recibo es el número del comprobante y ese número lo reparte el servidor
+dentro de su transacción. Encolarlo en la bandeja de salida es posible —lo hace
+el DTE— pero pide el flujo de «se emite sola cuando el mundo sigue igual, se
+pregunta cuando cambió», y eso es trabajo propio.
 
 ### 0.49.4 — La cartera: lo que cada cliente debe, sin señal (2026-09-28)
 

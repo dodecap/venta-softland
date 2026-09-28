@@ -26,6 +26,8 @@ import {
     ScanBarcode, ScanLine, Zap, ZapOff, SwitchCamera,
     Share2, Smartphone, Minus, Trash2, TrendingDown, TrendingUp, TriangleAlert, Type,
     Timer, UserCog, UserPlus, Users, UsersRound, WifiOff, X,
+    HandCoins,
+    Receipt,
 } from 'lucide-vue-next';
 
 /*
@@ -70,6 +72,11 @@ export const ICONOS = {
 
     // ---- Dinero ----
     cobranza: { glifo: CreditCard, variante: 'dinero' },
+    // Cobrar es el acto —recibir la plata—; el comprobante es el papel que
+    // queda. Son dos conceptos porque en la pantalla salen en sitios
+    // distintos: uno es el botón y el otro, lo que hay después de pulsarlo.
+    cobrar: { glifo: HandCoins, variante: 'dinero' },
+    comprobante: { glifo: Receipt, variante: 'dinero' },
     estadistica: { glifo: ChartNoAxesCombined, variante: 'dinero' },
 
     /*

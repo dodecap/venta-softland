@@ -263,6 +263,31 @@ export const api = {
     // fisco.
     borrarFactura: (tipo, numeroInterno) =>
         pedir(`/facturas/${tipo}/${numeroInterno}`, { method: 'DELETE' }),
+    // ---- Cobranza ----
+    /*
+     * Qué se le puede cobrar a un cliente, y con qué.
+     *
+     * La cartera ya está en IndexedDB, pero esto no la repite por gusto: trae
+     * además **las formas de pago que la empresa tiene configuradas** y **lo
+     * que Softland le concede a este usuario**, que son cosas del servidor y
+     * cambian sin que el teléfono se entere. Se pide antes de teclear nada,
+     * para poder apagar el botón con el motivo escrito.
+     */
+    propuestaCobro: (cliente) => pedir(`/cobranza/${encodeURIComponent(cliente)}`),
+    /*
+     * Escribe el comprobante de ingreso en la contabilidad.
+     *
+     * El teléfono manda a quién, con qué forma de pago y cuánto a cada
+     * documento. La cuenta contable, la fecha de emisión de cada documento y
+     * el número del comprobante los pone el servidor — igual que no se deciden
+     * aquí los impuestos ni los folios.
+     */
+    cobrar: (cobro) => pedir('/cobros', { method: 'POST', body: cobro }),
+    cobro: (ano, numero) => pedir(`/cobros/${ano}/${numero}`),
+    // Borrar, que no es anular: en contabilidad no existe el estado nulo, y
+    // el número del comprobante vuelve al pozo.
+    borrarCobro: (ano, numero) => pedir(`/cobros/${ano}/${numero}`, { method: 'DELETE' }),
+
     marcarCompartido: (tipo, numero, canal) => pedir(
         `/${tipo === 'cotizacion' ? 'cotizaciones' : 'notas-venta'}/${numero}/compartido`,
         { method: 'POST', body: { canal } },

@@ -32,11 +32,13 @@ import Vacio from '../components/Vacio.vue';
  * documento cuelga de cada uno, y el orden es por antigüedad y no por monto
  * — la pregunta de la mañana es a quién hay que llamar, no quién debe más.
  *
- * ## Esto no cobra todavía
+ * ## Cobrar cuelga del cliente, no del documento
  *
- * Es sólo lectura. Escribir el comprobante de ingreso es el paso siguiente, y
- * lo hace el servidor: el teléfono manda la forma de pago y no elige ninguna
- * cuenta contable, igual que no decide impuestos.
+ * El botón de cobrar está en la fila del cliente y lleva a `Cobro.vue`, donde
+ * se elige qué documentos se abonan. No hay un «cobrar» por documento a
+ * propósito: quien paga paga una cantidad, y esa cantidad se reparte entre lo
+ * que debe. Empezar por un documento suelto obligaría a volver atrás en cuanto
+ * el cliente pagara un peso más de lo que ese documento tenía.
  */
 
 const router = useRouter();
@@ -255,12 +257,19 @@ function tipoDe(d) {
                             </div>
                             <div class="cifra">{{ monto(d.saldo, d.moneda) }}</div>
                         </div>
+
+                        <button class="boton cobrar-cliente"
+                                @click.stop="router.push(`/cobranza/${g.cliente}`)">
+                            <AppIcon name="cobrar" :size="18" color="currentColor" />
+                            Cobrar
+                        </button>
                     </Persiana>
                 </div>
             </div>
 
             <p class="ayuda centrado" v-if="grupos.length">
-                Cobrar —escribir el comprobante de pago en contabilidad— llega en el paso siguiente.
+                Cobrar escribe el comprobante de ingreso en la contabilidad de Softland,
+                y eso necesita señal: el número lo pone el servidor.
             </p>
         </div>
     </div>

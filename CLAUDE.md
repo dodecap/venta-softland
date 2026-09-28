@@ -779,7 +779,7 @@ ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:t
 
 ## La cobranza
 
-Desde la 0.49.3 la app cobra contra la cuenta corriente del cliente **en
+Desde la 0.50.0 la app cobra contra la cuenta corriente del cliente **en
 contabilidad**. El plan y lo medido están en `docs/cobranza.md`. Lo que hay que
 saber antes de tocar nada:
 
@@ -842,6 +842,51 @@ saber antes de tocar nada:
 ```bash
 ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan cobranza:verifica-comprobante --todos"
 ```
+
+Y antes de estrenar la escritura, `cobranza:ensayo` **escribe un cobro de verdad
+y lo deshace**:
+
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan cobranza:ensayo"
+```
+
+Lo que hay que saber de escribir el cobro:
+
+- **No hay base de pruebas que sirva, y por eso se ensaya aquí.** La heredada
+  —`INNOVAGES_TEST`— tiene `cwcpbte` y `cwmovim` vacías y **no tiene `iwparam`,
+  `cwpctas` ni `cwttdoc`**: ni cuentas que resolver, ni plan contra el que
+  comprobarlas, ni los disparadores del ERP. El ensayo escribe en la base de
+  verdad, con las mismas funciones que usa el teléfono, y deshace la
+  transacción. Por eso `Recaudacion` no admite «otra base»: un camino que nunca
+  se recorre no está probado.
+- **Se escribe en `V` o no se escribe.** Un borrador conserva sus movimientos y
+  descuadra la cartera de quien lo mire mal. Quien no pueda grabar vigente no
+  cobra desde aquí.
+- **Los permisos son los del ERP**, los cuatro de `cw_cpbte` (`Permisos::COBRO_*`):
+  ingresar, grabar vigente, pagar más del saldo y eliminar. Ningún rol de la app
+  los sustituye.
+- **La cabecera va antes que los movimientos.** `CWMovim_CWCpbte_ITRIG` deshace
+  la transacción entera si un movimiento llega sin su comprobante; al borrar,
+  `CWCpbte_CWMovim_DTRIG` los barre solo.
+- **`ventas.documento_app` lleva `ano`**, porque la clave de un comprobante es
+  año + número y el número se reinicia cada año. Se amplió el mapa en vez de
+  abrir otro: el `client_uuid` es único entre todo lo que la app escribe.
+- **La idempotencia de vuelta es más laxa que la de la factura, a propósito.**
+  `cwcpbte` no tiene columna de creación —`FechaUlMod` se mueve si contabilidad
+  toca el asiento— y los dos errores no cuestan igual: dar por escrito lo que no
+  lo está duplica un asiento, y eso no se ve hasta que alguien cuadra el mes. Se
+  reconoce por el cliente, el total y nuestra marca en `Proceso`.
+- **Anular no existe.** `CpbEst` sólo tiene vigente y borrador, y las 407
+  cabeceras llevan el reverso en ceros: no hay uno real que reproducir. Corregir
+  es borrar y volver a escribir, y sólo lo nuestro.
+- **El cobro necesita señal, y se dice.** El recibo es el número del
+  comprobante, y ese número lo pone el servidor dentro de su transacción. Lo que
+  se encola sin red sería un recibo con un hueco donde va lo único que el
+  cliente mira.
+- **Las reglas del formulario viven en `mobile/src/cobro.js`.** Las usan el
+  botón que se apaga y el cuerpo que se manda. Y **lo que no se ha podido
+  preguntar no se diagnostica**: si la propuesta no llegó, no hay permisos que
+  negar ni formas de pago que echar en falta.
 
 
 ## El alta de clientes desde el SII
@@ -1064,17 +1109,19 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.49.4**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.50.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado
 idéntico al de los 209 que el SII ya aceptó, y el sobre reproducido igual en los
 210 envíos guardados. Contra palena, en producción, el SII ya devuelve token y
 contesta las consultas de estado. **Falta el primer envío de verdad**, que es lo
-único que no se deshace. La cobranza va por el paso 2 de 6: el molde del
-comprobante de ingreso reproduce los 114 que ya existen sin una sola diferencia
-propia —todavía no se ha escrito ninguno— y la cartera ya se lee sin señal, con
-sus 27 documentos abiertos y 11.424.249. Ver `STATE.md`. El mapa de
+único que no se deshace. La cobranza va por el paso 3 de 6: el molde del
+comprobante reproduce los 114 que ya existen sin una sola diferencia propia, la
+cartera se lee sin señal —27 documentos abiertos, 11.424.249— y **la app ya sabe
+escribir el cobro**, probado escribiéndolo de verdad y deshaciéndolo
+(`cobranza:ensayo`, seis comprobaciones). Todavía no se ha escrito ninguno que
+se quede. Ver `STATE.md`. El mapa de
 tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
 documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
 `docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el alta de clientes

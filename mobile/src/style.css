@@ -958,6 +958,105 @@ input:focus, select:focus, textarea:focus {
     font-variant-numeric: tabular-nums;
 }
 
+/* ---------- Cobrar: elegir qué documentos se abonan ---------- */
+/*
+ * La fila entera es el interruptor —tocar abona el saldo completo, que es lo
+ * que pasa casi siempre— y el importe sólo aparece cuando hay algo que
+ * corregir. El recuadro de la izquierda mide 44 px, que no se escalan.
+ */
+.doc-cobro {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    padding: calc(8px * var(--d)) 12px;
+    margin-bottom: 8px;
+}
+
+.doc-cobro.elegido { border-color: var(--cian); box-shadow: 0 0 0 3px rgba(38, 189, 239, .16); }
+
+.doc-cobro .marca {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--borde);
+    border-radius: 11px;
+    background: var(--fondo);
+    color: var(--texto-suave);
+}
+
+.doc-cobro.elegido .marca { background: var(--cian); border-color: var(--cian); color: #fff; }
+
+.doc-cobro .texto { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.doc-cobro .texto b {
+    font-size: calc(13px * var(--d));
+    font-weight: 600;
+    color: var(--texto);
+    overflow-wrap: anywhere;
+}
+.doc-cobro .texto small { font-size: 12px; color: var(--texto-suave); }
+
+.doc-cobro .importe { flex: 0 0 auto; text-align: right; max-width: 45%; }
+.doc-cobro .importe .saldo {
+    font-size: 12px;
+    color: var(--texto-suave);
+    font-variant-numeric: tabular-nums;
+}
+/* 16 px sin escalar: por debajo Android hace zoom al enfocar el campo. */
+.doc-cobro .importe input {
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px 9px;
+    text-align: right;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+}
+.doc-cobro .importe .exceso { display: block; margin-top: 3px; font-size: 12px; color: var(--rojo); }
+
+.resumen-cobro {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: calc(12px * var(--d)) 14px;
+    background: var(--blanco);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    margin-bottom: 12px;
+}
+.resumen-cobro span { font-size: calc(13px * var(--d)); color: var(--texto-suave); }
+.resumen-cobro b {
+    font-size: calc(20px * var(--d));
+    font-weight: 800;
+    color: var(--indigo);
+    font-variant-numeric: tabular-nums;
+}
+
+/* El comprobante ya escrito: una cifra y poco más. */
+.comprobante-hecho { text-align: center; }
+.comprobante-hecho .cifra {
+    margin-top: 10px;
+    font-size: calc(24px * var(--d));
+    font-weight: 800;
+    color: var(--indigo);
+    font-variant-numeric: tabular-nums;
+}
+
+/* El botón de cobrar vive dentro de la persiana del cliente, debajo de sus
+   documentos: se llega a él después de haber visto lo que debe. */
+.cobrar-cliente {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: calc(10px * var(--d)) 0 2px;
+}
+
 .ayuda {
     font-size: 12px;
     color: var(--texto-suave);

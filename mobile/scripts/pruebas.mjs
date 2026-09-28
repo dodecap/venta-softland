@@ -13,6 +13,7 @@ import { estado as estadoCompromiso, cuando, hora, sumarDias, resumen as resumen
 import { avisaDeVersion, comparar, esMasNueva } from '../src/version.js';
 import { deVendedores } from '../src/alcance.js';
 import { diasVencido, tramoDe, vencido, resumen as resumenCartera, porCliente } from '../src/cartera.js';
+import { aplicaciones, exceso, impedimento, totalAbonado } from '../src/cobro.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -569,6 +570,65 @@ es(deVendedores([2])({ vendedor: '2' }), true, 'el código puede llegar como nú
     es(grupos[1].total, 800, 'el total del cliente suma sus documentos');
     es(grupos[1].dias, 18, 'la antigüedad del cliente es la de su documento más viejo');
     es(grupos[2].cliente, 'C', 'lo que no ha vencido, al final');
+}
+
+/*
+ * Cobrar: la aritmética del formulario y el orden de los motivos.
+ *
+ * Lo que se comprueba aquí no es contabilidad —eso lo prueba
+ * `cobranza:ensayo` contra la base de verdad— sino que el botón se apague por
+ * el motivo correcto y que lo que se manda sea lo elegido y nada más.
+ */
+{
+    const docs = [
+        { tipo: 'EL', numero: 25, saldo: 1000 },
+        { tipo: 'EL', numero: 26, saldo: 500 },
+    ];
+
+    es(totalAbonado({}), 0, 'sin nada elegido no se abona nada');
+    es(totalAbonado({ 'EL-25': 400, 'EL-26': 500 }), 900, 'el total suma los abonos');
+    es(totalAbonado({ 'EL-25': '400' }), 400, 'un importe escrito como texto cuenta igual');
+
+    es(exceso(docs[0], {}), 0, 'un documento sin elegir no se pasa de nada');
+    es(exceso(docs[0], { 'EL-25': 1000 }), 0, 'abonar el saldo entero no es exceso');
+    es(exceso(docs[0], { 'EL-25': 1200 }), 200, 'lo que pasa del saldo se mide');
+
+    const envio = aplicaciones(docs, { 'EL-26': 500 });
+    es(envio.length, 1, 'sólo va lo elegido');
+    es(envio[0].numero, 26, 'y va con su número, no con su posición');
+    es(aplicaciones(docs, { 'EL-25': 0 }).length, 0, 'un abono en cero no se manda');
+
+    // El orden de los motivos: el primero que aplica es el que se dice.
+    const base = {
+        conectado: true,
+        consultado: true,
+        problemas: [],
+        permisos: { cobrar: true, sobre_saldo: false },
+        medios: [{ codigo: 'efectivo' }],
+        medio: 'efectivo',
+        total: 1000,
+        excede: false,
+        fecha: '2026-09-28',
+    };
+
+    es(impedimento(base), '', 'con todo puesto se puede cobrar');
+    es(impedimento({ ...base, fecha: '' }) !== '', true, 'sin fecha del pago no se cobra');
+    es(impedimento({ ...base, total: 0 }) !== '', true, 'sin documentos elegidos no se cobra');
+    es(impedimento({ ...base, excede: true }) !== '', true, 'abonar de más sin permiso no se cobra');
+    es(impedimento({ ...base, excede: true, permisos: { cobrar: true, sobre_saldo: true } }), '',
+        'con «Permite pagar más del saldo» sí');
+    es(impedimento({ ...base, conectado: false, total: 0 }).includes('señal'), true,
+        'sin señal se dice eso, no que falten documentos');
+    es(impedimento({ ...base, permisos: { cobrar: false }, total: 0 }).includes('Softland'), true,
+        'sin permiso del ERP se dice eso antes que pedir documentos');
+    // Lo que no se ha podido preguntar no se diagnostica: sin respuesta del
+    // servidor no hay permisos que negar ni formas de pago que echar en falta.
+    es(impedimento({ ...base, consultado: false, permisos: { cobrar: false }, medios: [] })
+        .includes('servidor'), true,
+        'si la propuesta no llegó se dice eso, y no que falte un permiso');
+    es(impedimento({ ...base, problemas: ['Falta la cuenta del cliente.'], permisos: { cobrar: false } }),
+        'Falta la cuenta del cliente.',
+        'lo que la empresa no tiene configurado va antes que lo que le falta al usuario');
 }
 
 console.log(`OK — ${hechas} comprobaciones`);

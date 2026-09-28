@@ -171,7 +171,7 @@ asiento de apertura, que abona a seis clientes a la vez.
 | 0 | `cobranza:verifica-comprobante` — reproducir lo existente sin escribir | **hecho** |
 | 1 | `Cobranza\Cuentas` — el mapa deducido de `iwparam` y completado en `ventas.config` | **hecho** |
 | 2 | La cartera: leer el saldo por documento, sin señal | **hecho** |
-| 3 | `Recaudacion` — escribir el comprobante en `V`, idempotente por `client_uuid` | pendiente |
+| 3 | `Recaudacion` — escribir el comprobante en `V`, idempotente por `client_uuid` | **hecho** |
 | 4 | `Credito` — el tope de `cwtcvcl.MtoCre` y el bloqueo | pendiente |
 | 5 | `/setup` en modo reconfigurar | pendiente |
 | 6 | Transbank, detrás de su llave de configuración | pendiente |
@@ -225,19 +225,119 @@ CREATE OR ALTER VIEW ventas.cartera AS ...
   electrónica», y esos códigos los inventa cada empresa. Sin el maestro la
   pantalla diría «EL Nº 25».
 
-### Lo que ya está decidido para el paso 3
+### Cómo quedó el paso 3: cobrar
+
+`Cobranza\Recaudacion` escribe el comprobante; `Cobranza\Comprobante` sigue
+diciendo qué forma tiene. Están separados a propósito: la forma se contrasta
+contra los 114 reales sin tocar la base, y eso es lo que hace
+`cobranza:verifica-comprobante`.
 
 - **Se escribe en `V`, no en `P`.** Un borrador conserva sus movimientos pero no
   lo ve nadie y descuadra la cartera de quien lo mire mal; los dos borradores
   vivos de INNOVAGES son la prueba. Guardar a medias no es más seguro, es peor.
+  Quien no pueda grabar vigente, no cobra desde aquí.
 - **La transacción es una.** Cabecera, movimientos y la fila de
   `ventas.documento_app` que lo enlaza con el `client_uuid`. El correlativo se
-  toma dentro, con reintento ante choque de clave primaria.
-- **El asiento tiene que cuadrar, y eso se comprueba en el servicio**, no en el
-  controlador: un comprobante descuadrado es un problema de contabilidad, no de
-  pantalla.
-- **Corregir es reversar.** Lo entregado no se edita. Borrar sólo lo que escribió
-  esta app, y eso lo dice `cwcpbte.Proceso`.
+  toma dentro, con reintento ante choque de clave primaria. **La cabecera va
+  antes que los movimientos**: `CWMovim_CWCpbte_ITRIG` deshace la transacción
+  entera si un movimiento llega sin su comprobante.
+- **El mapa de idempotencia ahora lleva año.** La clave de un comprobante es
+  `CpbAno` + `CpbNum`, y el número se reinicia cada año: sin la columna, el
+  `client_uuid` de un cobro de enero de 2027 apuntaría al de enero de 2026. Se
+  amplió `ventas.documento_app` en vez de abrir una tabla nueva, porque el
+  `client_uuid` es único entre **todo** lo que la app escribe —el teléfono tiene
+  una sola bandeja de salida— y esa garantía la da su índice único.
+- **La comprobación de vuelta es más laxa que la de la factura, y a propósito.**
+  Allí se exige que el instante de creación coincida; aquí no hay columna de
+  creación que valga —`cwcpbte` sólo tiene `FechaUlMod`, que se mueve si
+  contabilidad toca el asiento— y equivocarse no cuesta lo mismo en los dos
+  sentidos: dar por escrito algo que no lo está **duplica un asiento**, y eso no
+  se ve hasta que alguien cuadra el mes. Se reconoce por lo que no cambia: que
+  el comprobante siga existiendo, que lleve nuestra marca en `Proceso` y que
+  abone a ese cliente ese total.
+- **Los permisos son los del ERP.** Los cuatro salen de `cw_cpbte` y se
+  preguntan en `Permisos::COBRO_*`: ingresar, grabar vigente, pagar más del
+  saldo y eliminar. Ningún rol de la app los sustituye. Medido en INNOVAGES:
+  `ddecap` y `mpiano` los tienen los cuatro, `DEMO` y `jpalomin` todos menos
+  eliminar, y los otros doce usuarios ninguno.
+- **El saldo se comprueba al escribir, contra la cartera y con el alcance del
+  usuario puesto.** Lo que el teléfono creía saber no decide nada: un documento
+  que no está en esa cartera es un 404, y abonar de más sin el permiso del ERP,
+  un 422.
+- **`MovFe` se lee de la base.** Es la emisión del documento que se paga, no la
+  fecha del pago, que va en `MovFv`. Si la mandara el aparato, un dato viejo en
+  IndexedDB acabaría escrito en el libro.
+- **Corregir es borrar y volver a escribir.** Lo entregado no se edita, y
+  **anular no existe**: `CpbEst` sólo tiene vigente y borrador, y las 407
+  cabeceras llevan el par de reverso en ceros — no hay un solo reverso real
+  contra el que contrastar uno nuestro. Se borra sólo lo que escribió esta app,
+  y eso lo dice `cwcpbte.Proceso`. Los movimientos no hay que tocarlos:
+  `CWCpbte_CWMovim_DTRIG` los barre al irse la cabecera.
+
+### Cómo se probó sin estrenar nada
+
+`cobranza:ensayo` **escribe un cobro de verdad en INNOVAGES y lo deshace**.
+
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan cobranza:ensayo"
+```
+
+No hay base de pruebas que sirva para esto, y eso se midió: la heredada
+—`INNOVAGES_TEST`— tiene `cwcpbte` y `cwmovim` vacías y **no tiene `iwparam`,
+`cwpctas` ni `cwttdoc`**. No hay de dónde sacar las cuentas, ni plan de cuentas
+contra el que comprobarlas, ni los disparadores del ERP. Un ensayo ahí saldría
+en verde sin haber ejercitado nada de lo que puede fallar, que es peor que no
+probar. Así que se escribe aquí, con las mismas funciones que usa el teléfono,
+dentro de una transacción que se deshace.
+
+Se comprueban seis cosas, en este orden:
+
+1. Que el asiento escrito sea **el que dijo `Comprobante`**, campo a campo.
+2. Que **cuadre** ya escrito, leído de la base y no del arreglo.
+3. Que **el saldo de la cartera baje lo abonado**. Es lo que enlaza las tres
+   piezas —la vista, el filtro por cuenta y las filas escritas— y lo que ninguna
+   demuestra por su cuenta.
+4. Que **repetir el `client_uuid` no escriba un segundo asiento**.
+5. Que **borrarlo lo deje como estaba**: sin cabecera, sin movimientos y con el
+   saldo de vuelta.
+6. Que **los portazos sean portazos**: documento que no está en esa cartera
+   (404), cartera de otro vendedor (404) y usuario sin el permiso del ERP (403).
+
+Pasan las seis, con el saldo entero y con abonos parciales, en efectivo, cheque
+y transferencia, contra los dos clientes con deuda. Y la base queda idéntica: 27
+documentos abiertos, 11.424.249, ni una fila en `LogCwcpbte`.
+
+Un detalle medido de paso: `APP_NAME()` desde PHP es `PHP`, y los dos
+disparadores de bitácora de `cwmovim` sólo escriben `if PatIndex('%SQL%',
+APP_NAME()) > 0`. O sea que **la bitácora de movimientos del ERP no registra lo
+que escribe esta app**. La de cabeceras, `LogCwcpbte`, no lleva esa guarda y sí
+la registra.
+
+### La pantalla de cobrar
+
+- **Cuelga del cliente, no del documento.** El botón está en la fila del cliente
+  de la cartera. Quien paga paga una cantidad y esa cantidad se reparte entre lo
+  que debe; empezar por un documento suelto obligaría a volver atrás en cuanto
+  el cliente pagara un peso más de lo que ese documento tenía.
+- **Hace falta señal, y se dice.** El recibo es el número del comprobante y ese
+  número no existe hasta que el servidor lo escribe. Una cotización sin señal se
+  guarda y se manda luego; un cobro sin señal sería un papel con un hueco donde
+  va lo único que el cliente va a mirar.
+- **Una forma de pago por cobro.** El servidor admite varias —el asiento lleva
+  una fila al debe por instrumento— pero la pantalla ofrece una: quien paga en
+  terreno paga con una cosa. Repartir un cobro entre dos instrumentos es trabajo
+  de escritorio.
+- **La fecha del pago se pregunta; la del comprobante, no.** `MovFv` es el día
+  en que se movió la plata: quien transfirió el 1 y a quien le arman el
+  comprobante el 20 tiene que quedar con el 1.
+- **Lo que no se ha podido preguntar no se diagnostica.** Si la propuesta no
+  llegó, no hay medios de pago ni permisos que enseñar; decir entonces «la
+  empresa no tiene formas de pago configuradas» es inventarse un motivo. Lo que
+  pasó es que no hubo respuesta, y eso es lo que se dice.
+- **Las reglas del formulario viven en `mobile/src/cobro.js`**, no en la
+  pantalla: las usan el botón que se apaga y el cuerpo que se manda, y dos
+  copias serían un botón encendido sobre un cobro que el servidor va a
+  rechazar.
 
 ### Lo del paso 4, que hay que decir claro
 

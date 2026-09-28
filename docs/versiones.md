@@ -42,6 +42,55 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.50.0 — Cobrar: el comprobante de ingreso, escrito y deshecho antes de estrenarlo
+*2026-09-28*
+
+El paso 3 de la cobranza, y el primero que **mueve la cuenta corriente de un
+cliente**. `Cobranza\Recaudacion` escribe el comprobante de ingreso en la
+contabilidad de Softland: cabecera, movimientos y la fila del mapa, todo en una
+transacción.
+
+**Se escribe vigente o no se escribe.** Softland admite dejarlo en borrador y le
+conserva los movimientos —los ocho documentos que en INNOVAGES parecían pagados
+de más eran dos borradores que nadie borró—, así que un guardado a medias no es
+más seguro: es un saldo equivocado esperando. Quien no tenga «Permitir Grabar
+Comprobantes Vigentes» en el ERP, no cobra desde aquí.
+
+**Los permisos que mandan son los del ERP**, no el rol de la app: los cuatro
+controles de `cw_cpbte` —ingresar, grabar vigente, pagar más del saldo y
+eliminar—, preguntados en `Permisos`. Subirle el rol a alguien en esta app no
+puede darle en contabilidad lo que el administrador de Softland le negó.
+
+**El saldo se comprueba al escribir**, contra `ventas.cartera` y con el alcance
+por vendedor puesto; lo que el teléfono creía saber no decide nada. Y `MovFe`
+—la emisión del documento que se paga, que no es la fecha del pago— se lee de
+la base: si la mandara el aparato, un dato viejo en IndexedDB acabaría escrito
+en el libro.
+
+**Se probó escribiendo de verdad y deshaciéndolo.** `cobranza:ensayo` escribe un
+cobro en INNOVAGES con las mismas funciones que usa el teléfono y deshace la
+transacción. No hay base de pruebas que sirva —la heredada tiene `cwcpbte` y
+`cwmovim` vacías y ni `iwparam`, ni `cwpctas`, ni `cwttdoc`, ni los
+disparadores—, y salir en verde sin haber ejercitado nada es peor que no probar.
+Se comprueban seis cosas: que el asiento sea el que dijo `Comprobante`, que
+cuadre leído de la base, que **el saldo de la cartera baje lo abonado**, que
+repetir el `client_uuid` no escriba un segundo asiento, que borrarlo lo deje
+todo como estaba y que los portazos sean portazos. Pasan las seis, con abono
+entero y parcial, en efectivo, cheque y transferencia, y la base queda idéntica:
+27 documentos abiertos y 11.424.249.
+
+**`ventas.documento_app` ahora lleva año.** La clave de un comprobante es
+`CpbAno` + `CpbNum` y el número se reinicia cada año.
+
+**Anular no existe en contabilidad**, así que corregir es borrar y volver a
+escribir. Sólo lo que escribió esta app, y eso lo dice `cwcpbte.Proceso`.
+
+En el teléfono, la pantalla de cobrar cuelga del cliente y no del documento
+—quien paga paga una cantidad y esa cantidad se reparte entre lo que debe—, y
+**necesita señal**: el número del comprobante lo pone el servidor, y un cobro
+sin señal sería un recibo con un hueco donde va lo único que el cliente va a
+mirar. Sus reglas viven en `mobile/src/cobro.js`, no en la pantalla.
+
 ### 0.49.4 — La cartera: lo que cada cliente debe, sin señal
 *2026-09-28*
 

@@ -1,10 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\ActualizacionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AvisoController;
 use App\Http\Controllers\Api\CatalogoController;
 use App\Http\Controllers\Api\ClienteController;
-use App\Http\Controllers\Api\ActualizacionController;
+use App\Http\Controllers\Api\CobranzaController;
 use App\Http\Controllers\Api\ConfiguracionController;
 use App\Http\Controllers\Api\CotizacionController;
 use App\Http\Controllers\Api\FacturaController;
@@ -128,6 +129,18 @@ Route::middleware('auth.api')->group(function () {
     // documento que no salió de aquí nunca existió para el fisco.
     Route::delete('/facturas/{tipo}/{numero}', [FacturaController::class, 'destroy'])
         ->where('tipo', '[FBN]')->whereNumber('numero');
+
+    // Cobrar. Escribe un asiento en la contabilidad del cliente, así que los
+    // permisos que manda son los del ERP —`cw_cpbte`— y no el rol de la app.
+    // La propuesta va delante para poder apagar el botón antes de teclear.
+    Route::get('/cobranza/{cliente}', [CobranzaController::class, 'propuesta'])
+        ->where('cliente', '[0-9kK-]+');
+    Route::post('/cobros', [CobranzaController::class, 'store']);
+    Route::get('/cobros/{ano}/{numero}', [CobranzaController::class, 'show'])
+        ->where('ano', '[0-9]{4}')->where('numero', '[0-9]{8}');
+    // Borrar, que no es anular: en contabilidad no existe el estado nulo.
+    Route::delete('/cobros/{ano}/{numero}', [CobranzaController::class, 'destroy'])
+        ->where('ano', '[0-9]{4}')->where('numero', '[0-9]{8}');
 
     Route::get('/notas-venta/aprobaciones', [NotaVentaController::class, 'pendientes']);
     Route::get('/notas-venta/{numero}', [NotaVentaController::class, 'show'])->whereNumber('numero');
