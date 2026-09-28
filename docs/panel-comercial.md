@@ -147,9 +147,13 @@ El vocabulario de `Evento` es limpio y sirve tal cual de actividad reciente:
   cuota, objetivo o cartera. `ND_Presupuesto` tiene 36 filas **todas en cero**;
   `WG_Presup` (7 filas) es presupuesto contable por mes, no por vendedor.
   → La meta tiene que ser un dato de la app.
-- **Cobranza.** `xwcobranza` está vacía. `cwmovim` tiene 594 movimientos con
-  cliente, pero de **9 clientes** en total. No hay saldo por documento ni
-  antigüedad de cartera que valga la pena mostrar.
+- **Cobranza.** `xwcobranza` está vacía, y eso sigue siendo cierto. Lo que era
+  falso es la conclusión: se miró el módulo de clientes y no la **cuenta
+  corriente contable**, que es donde vive el saldo. Agrupando `cwmovim` por
+  `CodAux, MovTipDocRef, MovNumDocRef` y **filtrando los comprobantes vigentes**
+  (`CpbEst='V'`) salen 27 documentos abiertos y 11.424.249 de cartera. Hay saldo
+  por documento y hay antigüedad. Medido de nuevo el 2026-09-27; ver
+  `cobranza.md`.
 - **Ejecución de servicios.** `otproyectos`: 1 fila. `nd_otmovi`: 111 filas sin
   relación con la nota de venta. No hay OT, ni horas, ni recursos, ni agenda.
 - **Despachos.** `iw_encpicking`: 1 fila. `nvCantDesp` en cero en las 2.242

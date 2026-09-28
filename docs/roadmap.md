@@ -13,8 +13,10 @@ se puede improvisar después.
 
 - Instalador `/setup`: valida la conexión SQL, exige la contraseña del usuario
   `softland`, crea el esquema `ventas` y registra al administrador.
-- Autenticación doble: contra `wisusuarios` (cifrado propio de Softland) para
-  quien tiene licencia, o contraseña propia para el vendedor de terreno.
+- Autenticación **única**: contra `wisusuarios`, con el cifrado propio de
+  Softland. La segunda puerta —contraseña propia en `ventas.usuario`— se cerró
+  en la 0.49.3: quien entra tiene que poder firmar lo que escribe en el ERP, y
+  desde la cobranza eso incluye un asiento contable.
 - Tokens Bearer por dispositivo, revocables uno a uno.
 - Usuarios con rol (`vendedor`/`supervisor`/`facturacion`/`admin`), jefe,
   código de vendedor de Softland, bodega, lista de precios, centro de costo y

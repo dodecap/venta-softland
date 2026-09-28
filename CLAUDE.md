@@ -777,6 +777,55 @@ autorización— sin emitir ni gastar un folio:
 ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan dte:token"
 ```
 
+## La cobranza
+
+Desde la 0.49.3 la app cobra contra la cuenta corriente del cliente **en
+contabilidad**. El plan y lo medido están en `docs/cobranza.md`. Lo que hay que
+saber antes de tocar nada:
+
+- **El saldo no está en el módulo de clientes.** Las tablas `xw*` están
+  instaladas y vacías en INNOVAGES, y ése es el caso normal cuando se factura
+  desde inventario. El saldo vive en la cuenta corriente contable, `cwcpbte` +
+  `cwmovim`, y se calcula agrupando por `CodAux, MovTipDocRef, MovNumDocRef`.
+  **La app escribe siempre en CW y nunca depende de `xw`**: depender de un
+  módulo que media instalación no usa es no poder cobrar en media instalación.
+- **Sólo cuentan los comprobantes vigentes.** `CpbEst='V'`. Un borrador
+  conserva sus movimientos: los 8 documentos que parecían pagados de más eran
+  dos borradores que nadie borró. Por eso la app tampoco guarda a medias —
+  escribe en `V` o no escribe.
+- **El asiento tiene una fila al haber por documento abonado y una al debe por
+  instrumento de pago**, en ese orden, enlazadas por `TtdCod`/`NumDoc` contra
+  `TipDocCb`/`NumDocCb`. El importe del debe es la suma de lo que ese
+  instrumento abonó, y el asiento tiene que cuadrar — se comprueba en
+  `Cobranza\Comprobante`, no en el controlador.
+- **Las dos fechas de la fila del haber no son la misma fecha.** `MovFe` es la
+  emisión del documento que se paga; `MovFv` es la **fecha del pago**. Medido:
+  en 185 abonos, `MovFv` no coincide ni una vez con el vencimiento de la
+  factura. Quien transfiere el día 1 y a quien le arman el comprobante el 20
+  tiene que quedar con el día 1.
+- **El correlativo es `MAX + 1` por año y prefijo de mes, sobre los tres
+  sistemas.** CW, IW y PW comparten la serie de `CpbNum`: contar sólo los
+  nuestros da un número ya usado. Se toma bajo `UPDLOCK, HOLDLOCK`. `CpbNui` es
+  otro correlativo y **no es único** — se reproduce porque el ERP lo escribe,
+  no se busca nada por él.
+- **Las cuentas no se preguntan: están en `iwparam`.** El mapa forma de pago →
+  cuenta contable ya existe en cualquier instalación que facture. `ventas.config`
+  sólo rellena los huecos, con la regla de siempre: campo vacío = manda el ERP.
+  Y **no baja al teléfono**: el aparato manda la forma de pago y el servidor
+  resuelve la cuenta, como con los impuestos.
+- **El tope de crédito está en `cwtcvcl.MtoCre`**, no en la ficha del cliente.
+  `parBloqCantDias` lo mueve un motor de bloqueo automático del ERP y **no se
+  lee desde aquí**.
+- **Antes de escribir se comprueba sin escribir.** `cobranza:verifica-comprobante`
+  arma los comprobantes que ya existen y los compara: 42 idénticos, 25 idénticos
+  salvo las erratas del propio comprobante —el número del traspaso tecleado como
+  2223, 223 y 2224 en el mismo asiento— y **cero diferencias nuestras**.
+
+```bash
+ssh srv "cd C:\xampp\htdocs\venta-softland && C:\xampp\php\php.exe artisan cobranza:verifica-comprobante --todos"
+```
+
+
 ## El alta de clientes desde el SII
 
 Desde la 0.40.0 el alta de un cliente se llena con lo que el SII publica: se
@@ -997,17 +1046,19 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.49.2**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.49.3**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado
 idéntico al de los 209 que el SII ya aceptó, y el sobre reproducido igual en los
 210 envíos guardados. Contra palena, en producción, el SII ya devuelve token y
 contesta las consultas de estado. **Falta el primer envío de verdad**, que es lo
-único que no se deshace. Ver `STATE.md`. El mapa de
+único que no se deshace. La cobranza va por el paso 1 de 6: el molde del
+comprobante de ingreso reproduce los 114 que ya existen sin una sola diferencia
+propia, y todavía no se ha escrito ninguno. Ver `STATE.md`. El mapa de
 tablas del flujo de ventas está en `docs/flujo-ventas-softland.md`, el motor de
 documentos en `docs/motor-documentos.md`, la auditoría del panel comercial en
 `docs/panel-comercial.md`, la emisión de DTE en `docs/dte.md`, el alta de clientes
-desde el SII en `docs/alta-clientes-sii.md`, la puesta en marcha en una empresa
-nueva en `docs/instalacion.md`, el historial de
+desde el SII en `docs/alta-clientes-sii.md`, la cobranza en `docs/cobranza.md`,
+la puesta en marcha en una empresa nueva en `docs/instalacion.md`, el historial de
 versiones en `docs/versiones.md` y el plan por fases en `docs/roadmap.md`.

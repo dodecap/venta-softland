@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-27 — versión **0.49.2**
+2026-09-28 — versión **0.49.3**
 
 ## Resumen del estado actual
-**Versión 0.49.2. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.49.3. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -764,6 +764,72 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
 
+### 0.49.3 — Cobranza: el molde del comprobante, y una sola puerta de entrada (2026-09-28)
+
+Dos cosas, y la segunda resultó ser requisito de la primera.
+
+- [x] **Se cerró la segunda puerta de entrada.** Había dos formas de
+      autenticarse: contra `wisusuarios` con el cifrado de Softland, o con una
+      contraseña propia guardada en `ventas.usuario`. La segunda ya no existe.
+      La migración `2026_09_28_100000_usuario_solo_con_softland` **borra la
+      columna `password`** y deja `softland_user` en `NOT NULL`; el
+      `AuthController` ya sólo valida contra el ERP, la pantalla de Usuarios
+      perdió el campo y el alta comprueba que el usuario exista de verdad en
+      `wisusuarios`, no sólo que tenga la forma. Los cinco usuarios de
+      INNOVAGES ya tenían el suyo: no hubo nada que migrar y nadie perdió el
+      acceso (comprobado: el login sigue contestando 422 a una clave mala, no
+      500).
+
+      **La razón no es de higiene**: desde la cobranza, quien entra escribe un
+      **asiento contable**, y `cwcpbte.Usuario` tiene que decir quién fue. Un
+      usuario que no existe en el ERP no puede firmar nada.
+
+- [x] **El molde del comprobante de ingreso, comprobado sin escribir ninguno.**
+      `app/Services/Cobranza/Cuentas.php` deduce de `iwparam` el mapa de forma
+      de pago a cuenta contable —que ya estaba ahí, completo— y lo completa con
+      `ventas.config`, clave `cobranza`.
+      `app/Services/Cobranza/Comprobante.php` arma el asiento fila a fila, sin
+      tocar la base.
+
+- [x] **`cobranza:verifica-comprobante`** reproduce los 114 comprobantes de
+      ingreso que ya existen y los compara campo a campo:
+
+      ```
+      reproducidos idénticos      : 42
+      idénticos salvo las erratas : 25
+      no son un cobro de cartera  : 15
+      borradores sin movimientos  : 32
+      DIFERENCIAS NUESTRAS        : 0
+      ```
+
+      El correlativo recalculado acierta en **404 de 407**; los tres que no,
+      llevan el hueco que deja un comprobante borrado.
+
+**Lo medido, que es lo que vale para mañana** (todo en `docs/cobranza.md`):
+
+- **El asiento**: una fila al haber por documento abonado —cuenta del cliente,
+  `CodAux`, y el documento en `MovTipDocRef`/`MovNumDocRef`— y una al debe por
+  instrumento de pago, con la suma de lo que abonó. **El haber va delante de su
+  debe** (67 de los 82 comprobantes con movimientos), enlazados por
+  `TtdCod`/`NumDoc` contra `TipDocCb`/`NumDocCb`.
+- **`MovFe` y `MovFv` no son la misma fecha**: la primera es la emisión del
+  documento que se paga y la segunda es **la fecha del pago**. En 185 abonos,
+  `MovFv` no coincide ni una vez con el vencimiento de la factura, y es
+  constante dentro de cada instrumento en 147 de 149.
+- **El correlativo es `MAX + 1` por año y prefijo de mes, sobre los tres
+  sistemas**: CW, IW y PW comparten la serie de `CpbNum`. `CpbMes` puede no
+  coincidir con el prefijo (5 filas). `CpbNui` es otro correlativo y **no es
+  único** — IW y PW lo dejan en cero siempre.
+- **Los disparadores**: `CWMovim_CWCpbte_ITRIG` exige que la cabecera exista
+  antes del movimiento, y `CWCpbte_CWMovim_DTRIG` **barre los movimientos al
+  borrar la cabecera**.
+- **Las 25 «erratas» son del dato, no del molde**, y se comprueban una a una en
+  la fila real antes de perdonarlas: en `2024-00002000` el mismo traspaso está
+  tecleado como 2223, 223 y 2224 dentro del mismo asiento. Es justo lo que
+  desaparece cuando el número se escribe una vez y en un sitio.
+
+**Todavía no se ha escrito ningún comprobante.** Eso es el paso 3.
+
 ### 2026-09-26 — Informe técnico y consulta de cobranzas (sin cambio de código)
 
 Dos documentos nuevos en `docs/`, y una auditoría de sólo lectura de la parte de
@@ -1037,6 +1103,28 @@ se añadió a los paquetes de `deploy.sh` y de la publicación, donde no estaba:
 sin eso el arreglo no llegaba a un servidor instalado desde el tar.
 
 ## Pendiente / próximos pasos
+- [ ] **Fase 5 — cobranza.** Van los pasos 0 y 1 de 6. El plan entero está en
+      `docs/cobranza.md`; lo que queda:
+      - **Paso 2 — la cartera.** Leer el saldo por documento y su antigüedad,
+        con el filtro `CpbEst='V'`, y que se vea sin señal. El alcance por
+        vendedor se aplica igual que en el resto: `mobile/src/alcance.js`.
+      - **Paso 3 — escribir el comprobante.** Una transacción: cabecera,
+        movimientos y la fila de `ventas.documento_app` que lo enlaza con el
+        `client_uuid`. Correlativo bajo `UPDLOCK, HOLDLOCK` con reintento ante
+        choque de clave primaria. **Se escribe en `V`**, nunca en `P`.
+        Corregir es reversar, y borrable es sólo lo que escribió la app —lo
+        dice `cwcpbte.Proceso`—.
+      - **Paso 4 — el crédito.** `cwtcvcl.MtoCre` (2.674 filas, 11 con tope) y
+        el bloqueo. **`parBloqCantDias` no se toca**: lo mueve un motor de
+        bloqueo automático del ERP. `nwparam.CheckApruebaBloqueado` y
+        `CheckApruebaSobregirado` están hoy los dos en `'N'`.
+      - **Paso 5 — `/setup` en modo reconfigurar**: ver y cambiar la conexión
+        SQL, y la configuración de cobranza. Sin sesión y sin tercera página.
+      - **Paso 6 — Transbank**, detrás de su llave de configuración.
+- [ ] **Faltan tres cuentas por configurar en INNOVAGES**: tarjeta de crédito
+      (`CtaPagoTCr`), depósito y pago en línea. `iwparam` las trae vacías y no
+      se inventan — se piden en la pantalla de configuración del paso 5. Hasta
+      entonces esos medios no se ofrecen, que es lo correcto.
 - [x] **Publicar la primera versión en GitHub.** Hecha el 2026-09-23: la
       `v0.47.2`, con las tres piezas. `gh release create` devolvió un 422
       —«Release.tag_name already exists»— al publicar su borrador, porque la
@@ -1747,9 +1835,12 @@ cuando alguien cuadra el mes.
 - **No existe ninguna tabla de metas de venta en Softland.** `ND_Presupuesto`
   tiene 36 filas todas en cero y `WG_Presup` es presupuesto contable. La meta
   tiene que ser un dato de la app (`ventas.meta`, todavía sin crear).
-- **La cobranza no tiene fuente utilizable.** `xwcobranza` está vacía y
-  `cwmovim` tiene movimientos de 9 clientes. Es fase 5 de verdad, no un widget
-  que falte encender.
+- ~~**La cobranza no tiene fuente utilizable.**~~ **Era falso, y el error fue
+  mirar el módulo equivocado.** `xwcobranza` sigue vacía, pero el saldo no vive
+  ahí: vive en la cuenta corriente contable. Agrupando `cwmovim` por
+  `CodAux, MovTipDocRef, MovNumDocRef` y filtrando `CpbEst='V'` salen **27
+  documentos abiertos y 11.424.249** de cartera, sin un solo saldo negativo.
+  Medido de nuevo el 2026-09-27; ver `docs/cobranza.md`.
 - **Hay un solo vendedor activo** (`VenCod` 2, con 173 de las 185 cotizaciones
   de 12 meses). El ámbito EQUIPO se construye igual, pero aquí muestra una fila
   con dato y tres vacías.

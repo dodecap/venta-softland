@@ -11,7 +11,6 @@ use App\Support\SoftlandCipher;
 use App\Support\SoftlandConfig;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -225,18 +224,26 @@ class AuthController extends Controller
         return $row && SoftlandCipher::verify($row->PassWord ?? '', $password);
     }
 
+    /**
+     * La verdad está en `wisusuarios`, y en ningún otro sitio.
+     *
+     * Hasta la 0.49.2 había una segunda puerta —contraseña propia en
+     * `ventas.usuario`— para el vendedor sin licencia Softland. Se cerró: quien
+     * entra tiene que poder firmar lo que escribe en el ERP, y eso se firma con
+     * un usuario de `wisusuarios` (`cwcpbte.Usuario`, `varchar(8)`). Sin él, el
+     * comprobante de un cobro quedaría firmado por nadie.
+     */
     private function claveValida(Usuario $u, string $password): bool
     {
-        // Con login Softland la verdad está en wisusuarios (cifrado propio de Softland).
-        if ($u->softland_user) {
-            $row = DB::connection('softland')->selectOne(
-                'SELECT PassWord FROM softland.wisusuarios WHERE Usuario = ?',
-                [$u->softland_user]
-            );
-
-            return $row && SoftlandCipher::verify($row->PassWord ?? '', $password);
+        if (! $u->softland_user) {
+            return false;
         }
 
-        return $u->password && Hash::check($password, $u->password);
+        $row = DB::connection('softland')->selectOne(
+            'SELECT PassWord FROM softland.wisusuarios WHERE Usuario = ?',
+            [$u->softland_user]
+        );
+
+        return $row && SoftlandCipher::verify($row->PassWord ?? '', $password);
     }
 }

@@ -42,6 +42,40 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.49.3 — Cobranza: el molde del comprobante de ingreso, y una sola puerta de entrada
+*2026-09-28*
+
+Dos cosas, y la segunda es requisito de la primera.
+
+**Se cerró la segunda puerta de entrada.** Había dos formas de autenticarse:
+contra `wisusuarios` con el cifrado de Softland, o con una contraseña propia
+guardada en `ventas.usuario`. La segunda ya no existe — la columna `password`
+se fue con la migración y `softland_user` pasó a ser obligatoria. La razón no
+es de seguridad abstracta: desde la cobranza, quien entra escribe un **asiento
+contable**, y `cwcpbte.Usuario` tiene que decir quién fue. Un usuario que no
+existe en el ERP no puede firmar nada. Los cinco usuarios de INNOVAGES ya
+tenían el suyo, así que no hubo nada que migrar.
+
+**Y el molde del comprobante de ingreso, comprobado sin escribir ninguno.**
+`Cobranza\Cuentas` deduce de `iwparam` el mapa de forma de pago a cuenta
+contable —que ya estaba ahí, completo, en cualquier instalación que facture— y
+`Cobranza\Comprobante` arma el asiento fila a fila. El comando nuevo
+`cobranza:verifica-comprobante` reproduce los 114 comprobantes que ya existen y
+los compara: **42 idénticos, 25 idénticos salvo las erratas del propio
+comprobante y cero diferencias nuestras**. El correlativo recalculado acierta
+en 404 de 407; los tres que no, llevan el hueco de un comprobante borrado.
+
+Las «erratas» merecen el nombre: en `2024-00002000` el mismo traspaso está
+tecleado como 2223, 223 y 2224 dentro del mismo asiento. El comando las perdona
+sólo después de comprobarlas una a una en la fila real, y las cuenta aparte —
+son justamente lo que desaparece cuando el número se escribe una vez y en un
+sitio.
+
+Todavía no se ha escrito ningún comprobante. Lo medido está en
+`docs/cobranza.md`, incluida la corrección de una conclusión que era falsa: se
+había mirado el módulo de clientes (`xw*`, vacío) y no la cuenta corriente
+contable, que tiene 27 documentos abiertos y 11.424.249 de cartera.
+
 ### 0.49.2 — Cifrar sólo si el tráfico sale de la máquina
 *2026-09-25*
 

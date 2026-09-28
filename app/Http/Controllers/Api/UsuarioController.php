@@ -10,17 +10,16 @@ use App\Services\Notificaciones\Notificador;
 use App\Services\Softland\Catalogos;
 use App\Support\Rut;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
 /**
  * Gestión de usuarios desde la app (solo rol admin).
  *
- * Un usuario de esta app no es un usuario de Softland: puede tener licencia
- * Softland (`softland_user`, y entonces valida contra `wisusuarios`) o ser un
- * vendedor en terreno con contraseña propia. Lo que sí necesita para vender es
- * un **código de vendedor** (`ven_cod`, de `softland.cwtvend`): es lo que queda
- * estampado en la cotización y en la nota de venta.
+ * Un usuario de esta app **siempre** tiene usuario de Softland: la clave vive
+ * en `wisusuarios` y aquí no se guarda ninguna. Lo que además necesita para
+ * vender es un **código de vendedor** (`ven_cod`, de `softland.cwtvend`), que
+ * es lo que queda estampado en la cotización y en la nota de venta; son dos
+ * cosas distintas y un administrador no tiene por qué tener la segunda.
  */
 class UsuarioController extends Controller
 {
@@ -40,7 +39,6 @@ class UsuarioController extends Controller
                 'activo' => (bool) $u->activo,
                 'softland_user' => $u->softland_user,
                 'jefe_nombre' => $u->jefe_id ? ($porId[$u->jefe_id]->nombre ?? null) : null,
-                'tiene_password' => (bool) $u->password,
             ])->values(),
             'roles' => Usuario::ROLES,
         ]);
@@ -157,8 +155,10 @@ class UsuarioController extends Controller
         return $request->validate([
             'nombre' => 'required|string|max:120',
             'email' => ['nullable', 'email', 'max:150', Rule::unique('softland.ventas.usuario', 'email')->ignore($id)],
-            'password' => 'nullable|string|min:6|max:120',
-            'softland_user' => ['nullable', 'string', 'max:20', Rule::unique('softland.ventas.usuario', 'softland_user')->ignore($id)],
+            // A la app se entra sólo con usuario de Softland. Ocho caracteres
+            // porque eso mide `wisusuarios.Usuario`, que es también el largo de
+            // `cwcpbte.Usuario`: lo que no quepa ahí no puede firmar un asiento.
+            'softland_user' => ['required', 'string', 'max:8', Rule::unique('softland.ventas.usuario', 'softland_user')->ignore($id)],
             'rut' => 'nullable|string|max:20',
             'ven_cod' => 'nullable|string|max:4',
             'cod_bode' => 'nullable|string|max:10',
@@ -175,9 +175,12 @@ class UsuarioController extends Controller
 
     private function llenar(Usuario $u, array $d): void
     {
-        // Sin email ni usuario Softland no hay forma de iniciar sesión.
-        if (empty($d['email']) && empty($d['softland_user'])) {
-            abort(422, 'El usuario necesita un correo o un usuario de Softland para poder entrar.');
+        // El usuario de Softland tiene que existir de verdad. La validación de
+        // formato no basta: un nombre tecleado a mano que no está en
+        // `wisusuarios` crea una cuenta con la que nadie puede entrar —la clave
+        // se comprueba allí— y que además no puede firmar un asiento.
+        if (! $this->catalogos->existeUsuarioSoftland($d['softland_user'])) {
+            abort(422, 'El usuario «'.$d['softland_user'].'» no existe en Softland.');
         }
         if (! empty($d['rut']) && ! Rut::esValido($d['rut'])) {
             abort(422, 'El RUT no es válido.');
@@ -186,7 +189,7 @@ class UsuarioController extends Controller
         $u->fill([
             'nombre' => $d['nombre'],
             'email' => $d['email'] ?? null,
-            'softland_user' => $d['softland_user'] ?? null,
+            'softland_user' => $d['softland_user'],
             'rut' => ! empty($d['rut']) ? Rut::formatear($d['rut']) : null,
             'ven_cod' => $d['ven_cod'] ?? null,
             'cod_bode' => $d['cod_bode'] ?? null,
@@ -199,11 +202,6 @@ class UsuarioController extends Controller
             'habilitado' => (bool) ($d['habilitado'] ?? false),
             'activo' => (bool) ($d['activo'] ?? true),
         ]);
-
-        // La contraseña propia solo se toca si viene; en blanco = se mantiene.
-        if (! empty($d['password'])) {
-            $u->password = Hash::make($d['password']);
-        }
 
         // Un usuario no puede ser su propio jefe.
         if ($u->jefe_id && $u->id && (int) $u->jefe_id === (int) $u->id) {

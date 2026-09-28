@@ -65,6 +65,21 @@ class Catalogos
             ])->all();
     }
 
+    /**
+     * ¿Existe ese usuario en Softland?
+     *
+     * Se pregunta por la tabla y no por la lista de `usuariosSoftland()`: la
+     * lista es para dibujar un selector y el alta llega por la API, donde el
+     * nombre puede venir de cualquier parte.
+     */
+    public function existeUsuarioSoftland(string $usuario): bool
+    {
+        return $this->conn()
+            ->table('softland.wisusuarios')
+            ->where('Usuario', trim($usuario))
+            ->exists();
+    }
+
     /** Bodegas (softland.iw_tbode). */
     public function bodegas(): array
     {

@@ -30,7 +30,7 @@ useCapa(computed(() => editando.value !== null), () => { editando.value = null; 
 
 function vacio() {
     return {
-        id: null, nombre: '', email: '', password: '', softland_user: '', rut: '',
+        id: null, nombre: '', email: '', softland_user: '', rut: '',
         ven_cod: '', cod_bode: '', cod_lista: '', cod_cc: '', rol: 'vendedor',
         jefe_id: '', tope_descuento_pct: 0, tope_monto_nv: 0,
         habilitado: false, activo: true,
@@ -71,7 +71,6 @@ function editar(u) {
     form.value = {
         ...vacio(),
         ...u,
-        password: '',                 // nunca se precarga
         jefe_id: u.jefe_id ?? '',
         email: u.email ?? '',
         softland_user: u.softland_user ?? '',
@@ -111,7 +110,14 @@ async function guardar() {
         tope_monto_nv: Number(form.value.tope_monto_nv) || 0,
     };
     delete payload.id;
-    if (!payload.password) delete payload.password;
+
+    // Se comprueba aquí para no gastar un viaje y para decirlo donde está el
+    // campo: el servidor lo rechaza igual, pero con el error arriba del todo.
+    if (!payload.softland_user) {
+        error.value = 'Elige el usuario de Softland: sin él no puede entrar.';
+        guardando.value = false;
+        return;
+    }
 
     try {
         if (editando.value === 'nuevo') {
@@ -220,24 +226,20 @@ function color(u) {
 
                     <label>Usuario de Softland</label>
                     <select v-model="form.softland_user" @change="desdeSoftland">
-                        <option value="">— sin licencia Softland —</option>
+                        <option value="">— elegir —</option>
                         <option v-for="s in opciones.usuarios_softland" :key="s.usuario" :value="s.usuario">
                             {{ s.usuario }} — {{ s.nombre }}
                         </option>
                     </select>
                     <p class="ayuda">
-                        Si tiene usuario Softland, entra con esa misma contraseña y no hay
-                        una segunda clave que mantener.
+                        Obligatorio: entra con su misma contraseña de Softland y no hay una
+                        segunda clave que mantener. Es además lo que firma lo que escriba
+                        en el ERP.
                     </p>
 
                     <label>Correo</label>
                     <input v-model="form.email" type="email" autocapitalize="off" spellcheck="false">
-                    <p class="ayuda">Sirve para entrar y es donde llegan las notificaciones.</p>
-
-                    <label>Contraseña propia</label>
-                    <input v-model="form.password" type="password" autocomplete="new-password"
-                           :placeholder="editando === 'nuevo' ? 'Mínimo 6 caracteres' : 'En blanco = no cambiar'">
-                    <p class="ayuda">Solo para quien no tiene usuario Softland.</p>
+                    <p class="ayuda">Es donde llegan las notificaciones.</p>
 
                     <label>Código de vendedor (Softland)</label>
                     <select v-model="form.ven_cod" @change="desdeVendedor">

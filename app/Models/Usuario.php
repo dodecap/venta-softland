@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Usuario de la app. Vive en `ventas.usuario`, dentro de la base Softland.
  *
- * Dos formas de autenticarse:
- *  - `softland_user`: valida contra `softland.wisusuarios` (cifrado propio de Softland).
- *  - password propia: hash bcrypt en esta tabla, para vendedores sin licencia Softland.
+ * Una sola forma de autenticarse: `softland_user` contra `softland.wisusuarios`
+ * (cifrado propio de Softland). Aquí no se guarda ninguna contraseña, y esa es
+ * la razón de que la tabla no tenga columna para ella: quien entra tiene que
+ * poder firmar lo que escribe en el ERP.
  *
  * `ven_cod` enlaza con el vendedor de Softland (`softland.cwtvend`): es lo que
  * queda estampado en la cotización y en la nota de venta.
@@ -23,8 +24,6 @@ class Usuario extends Model
     protected $table = 'ventas.usuario';
 
     protected $guarded = ['id'];
-
-    protected $hidden = ['password'];
 
     protected $casts = [
         'habilitado' => 'boolean',
