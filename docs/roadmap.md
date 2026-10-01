@@ -187,3 +187,31 @@ puesta a propósito, así que se actualiza de una en una y comparando.
   plantillas aprobadas y pago por conversación; es decisión de negocio.
 - Cobranza: pagos y saldo del cliente.
 - Panel del supervisor: avance por vendedor.
+
+## El asistente de voz — planificado
+
+Tampoco estaba en el plan: sale de que el vendedor en terreno tiene las dos
+manos ocupadas y las preguntas que hace —¿tiene cotización pendiente?, ¿qué
+seguimientos tengo atrasados?, dame la dirección— ya están todas contestadas por
+la app, cada una a tres toques de distancia. Lo que falta no son los datos, es el
+enrutador. El plan, las mediciones y lo que no se hace están en
+`docs/asistente-voz.md`.
+
+Dos decisiones que lo resumen: **lo que lee se contesta, lo que escribe se
+propone** —una cotización dictada abre `Editor.vue` y la confirma una persona—, y
+**el teléfono no llama a la API**, la llama el servidor, igual que con el padrón
+del SII.
+
+El **stock** entra aquí por primera vez, y por eso la fase lleva una medición
+propia: INNOVAGES no lo lleva (`iw_stock` vacía, 0 filas), pero una distribuidora
+o una ferretería sí, y «¿hay?» es su pregunta principal. Se diseña ahora y nace
+apagada donde no hay nada que contestar.
+
+| Paso | Estado |
+|---|---|
+| 1. El asistente escrito, sin voz | pendiente |
+| 2. Turnos y desambiguación | pendiente |
+| 3. La voz, el permiso y `ia_disponible` | pendiente |
+| 4. El borrador de cotización | pendiente |
+| 5. El stock, donde lo haya | pendiente |
+| 6. Las cuarenta frases y la medición | pendiente |

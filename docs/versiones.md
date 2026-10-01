@@ -42,6 +42,65 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.51.1 — El asistente de voz: el plan
+*2026-10-01*
+
+- **`docs/asistente-voz.md`** — el plan de un asistente al que el vendedor
+  pregunta en voz alta con las dos manos ocupadas. **No cambia una línea de
+  código todavía**: es la decisión, lo medido y lo que no se va a hacer.
+- Lo que lo hace viable es que **casi todo está construido**: cotizaciones
+  pendientes, seguimientos atrasados, el compromiso vivo, la dirección, la
+  deuda y los KPI ya los contesta la app. Lo que falta no son los datos, es el
+  enrutador — unas doce herramientas que son llamadas a los servicios que ya
+  existen, ejecutadas con `AlcancePorVendedor` y `Permisos` como cualquier otra
+  petición.
+- **El prompt no es una frontera de seguridad.** La frontera es que la
+  herramienta no existe, o que viene acotada antes de que el modelo la vea. De
+  ahí que los datos del ERP entrando en el contexto —el nombre de un cliente,
+  la observación de una cotización— no puedan hacer nada: en esa conversación
+  no hay ninguna herramienta que escriba.
+- **Lo que lee se contesta; lo que escribe se propone.** Una cotización dictada
+  abre `Editor.vue` ya rellena y la confirma una persona: «tres» y «trece» se
+  confunden en un micrófono, y es la misma regla del alta desde el SII un nivel
+  más arriba. Y **el teléfono no llama a la API**, la llama el servidor — la
+  llave no puede ir en un APK que se descompila.
+- **El stock entra por primera vez, y por eso lleva medición propia.**
+  INNOVAGES no lo lleva —`iw_stock`, `iw_stockseries` e `iwistock` con 0 filas—
+  pero una distribuidora o una ferretería sí, y «¿hay?» es su pregunta
+  principal. Se diseña ahora y nace apagada donde no hay nada que contestar: la
+  herramienta se declara sólo si hay productos inventariables **y** la tabla
+  tiene filas.
+- Tres mediciones que cambiaron ese diseño. El grano de `iw_stock` es
+  **partida y pieza** —lote y número de serie—, así que el stock de un producto
+  es una **suma** y el maestro tiene que ser una vista que agrupa, como
+  `ventas.cartera` es una vista que resta. `iw_tprod.Inventariable` está en sí
+  en **331 de 1.229** productos con la tabla vacía, así que «este producto no
+  lleva stock», «esta empresa no lleva stock» y «hay cero» son **tres
+  respuestas distintas** y contestar «no hay» a las tres es decir que una
+  licencia no se vende. Y `iw_tbode` **no tiene** la columna `TipoBod` que sí
+  está en `iw_stock`, así que qué distingue ese carácter no está medido y
+  sumar sobre él sin medirlo es prometer mercadería que no es de la empresa.
+- **Físico no es disponible, y la app ya sabe la diferencia.** Lo que se puede
+  prometer es el stock menos lo apalabrado en notas de venta vivas, que ya lo
+  calcula `Saldo.php` con el enlace del propio Softland. Se informa y no se
+  bloquea: `IngresaSobreStock = S` dice que el ERP deja vender por encima, y la
+  app no es más estricta que el ERP.
+- **El stock no es equipaje: no se guarda en IndexedDB.** Los demás maestros
+  bajan porque un cliente no se muda mientras el vendedor conduce; un stock de
+  esta mañana es **peor** que ningún stock, porque con él se promete lo que
+  otro vendió a mediodía. Se pregunta en el momento, y sin señal la respuesta
+  es «no lo sé ahora».
+- El plan son seis pasos y **el primero no lleva voz**: el mismo asistente
+  escrito en un campo de texto, para probar el enrutado y la desambiguación sin
+  pelear con el micrófono. Si escribiendo no sirve, hablando tampoco.
+- El sexto son **cuarenta frases reales con su respuesta correcta**. Sin eso
+  «mejoró» es una opinión, y cambiar de modelo o recortar el prompt no se
+  deciden a ojo.
+- Lo que no se hace, y está escrito para que no se borre: **no se emite un DTE
+  por voz, nunca** —lo único que no se deshace no se dicta—, no se cobra por
+  voz, no se escribe en Softland desde el modelo, no se manda audio a ningún
+  tercero y no se dicta un código de producto, que para eso está el escáner.
+
 ### 0.51.0 — Cómo llegar al cliente, con el mapa que el vendedor ya tiene
 *2026-10-01*
 

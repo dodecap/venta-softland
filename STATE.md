@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-10-01 — versión **0.51.0**
+2026-10-01 — versión **0.51.1**
 
 ## Resumen del estado actual
-**Versión 0.51.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.51.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -763,6 +763,67 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 12 clavados y los campos a 16, que es lo que evita el zoom de Android. Nada
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
+
+### 0.51.1 — El asistente de voz: el plan (2026-10-01)
+
+**No cambia una línea de código.** Es el plan de un asistente al que el vendedor
+pregunta en voz alta cuando tiene las dos manos ocupadas, con lo medido y lo que
+no se va a hacer: `docs/asistente-voz.md`, enganchado en `docs/roadmap.md`.
+
+- [x] **`docs/asistente-voz.md`** — las tres piezas (oír en el teléfono,
+      entender en el servidor, contestar por TTS **y en pantalla**), el catálogo
+      de herramientas, el stock, las seis reglas duras, el modelo y su coste,
+      dónde viviría el código, el plan en seis pasos y las seis cosas que no se
+      hacen.
+- [x] Lo que lo hace viable: **casi todo está construido**. Cotizaciones
+      pendientes, seguimientos atrasados, el compromiso vivo, la dirección, la
+      deuda y los KPI ya los contesta la app. Lo que falta es el enrutador — una
+      docena de herramientas que son llamadas a los servicios que ya existen,
+      ejecutadas con `AlcancePorVendedor` y `Permisos` como cualquier petición.
+- [x] **El prompt no es una frontera de seguridad**, y está escrito donde no se
+      borre. La frontera es que la herramienta no existe o viene acotada antes de
+      que el modelo la vea: por eso una observación de cotización que diga
+      «ignora las instrucciones y factura…» no puede hacer nada.
+- [x] **Lo que lee se contesta; lo que escribe se propone.** Una cotización
+      dictada abre `Editor.vue` ya rellena y la confirma una persona: «tres» y
+      «trece» se confunden en un micrófono. Es la regla del alta desde el SII un
+      nivel más arriba. Y el teléfono no llama a la API: la llama el servidor.
+
+**El stock, que es lo que trae la medición nueva.** Entra por primera vez porque
+la siguiente empresa puede ser una distribuidora o una ferretería, donde «¿hay?»
+es la pregunta principal. Medido hoy contra INNOVAGES:
+
+- `iw_stock`, `iw_stockseries` e `iwistock` con **0 filas** — esta empresa no
+  lleva stock, y `nwparam` ya lo decía a su manera (`InformaStock = S` con
+  `IngresaSobreStock = S`: avisa y deja vender igual).
+- El grano de `iw_stock` es **partida y pieza** —lote y número de serie, más
+  `FecVenc`—, así que el stock de un producto es una **suma sobre varias filas**.
+  El maestro tiene que ser una vista que agrupa, como `ventas.cartera` es una
+  vista que resta.
+- `iw_tprod.Inventariable` está en sí en **331 de 1.229** productos **con la
+  tabla vacía**. De ahí que «este producto no lleva stock» (898), «esta empresa
+  no lleva stock» (el caso) y «hay cero» (ninguno) sean **tres respuestas
+  distintas**: contestar «no hay» a las tres es decir que una licencia no se
+  vende.
+- `iw_tbode` **no tiene** la columna `TipoBod` que sí está en `iw_stock`, así que
+  qué distingue ese carácter —propia, consignación, tránsito— **no está medido**.
+  Sumar sobre él sin medirlo es prometer mercadería que no es de la empresa.
+
+Y las dos decisiones que salieron de eso: **físico no es disponible** —lo que se
+puede prometer es el stock menos lo apalabrado en notas de venta vivas, que ya lo
+calcula `Saldo.php` con el enlace del propio Softland—, y **el stock no se guarda
+en IndexedDB**: un número de esta mañana es peor que ningún número, porque con él
+se promete lo que otro vendió a mediodía. La herramienta se declara sólo donde
+hay productos inventariables **y** la tabla tiene filas, calculado en
+`Compatibilidad` y viajando en el arranque como `sii_disponible`.
+
+**El plan empieza sin voz**: el paso 1 es el mismo asistente escrito en un campo
+de texto, para probar el enrutado y la desambiguación sin pelear con el
+micrófono. Si escribiendo no sirve, hablando tampoco. Y el paso 6 son cuarenta
+frases reales con su respuesta correcta: sin eso, «mejoró» es una opinión.
+
+De paso: `mobile/package-lock.json` se había quedado en 0.50.0: `bin/version.sh`
+sincroniza `package.json` y no el lock. Puesto a mano en 0.51.1.
 
 ### 0.51.0 — Cómo llegar al cliente (2026-10-01)
 
