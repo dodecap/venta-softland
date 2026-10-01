@@ -21,7 +21,7 @@ import {
     ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleHelp, CircleUser, ClipboardList,
     CloudDownload, CloudUpload, Copy, CreditCard, Database, FileDown, FileText, Image, Inbox, Info,
     Hourglass, LayoutDashboard, Link2,
-    LogOut, Mail, MailCheck, MailX, Package, Plus, RefreshCw, Route, Search, SearchX,
+    LogOut, Mail, MailCheck, MailX, Navigation, Package, Plus, RefreshCw, Route, Search, SearchX,
     LifeBuoy, Percent, Server, Settings, ShieldCheck, ShoppingCart, ReceiptText, SlidersHorizontal,
     ScanBarcode, ScanLine, Zap, ZapOff, SwitchCamera,
     Share2, Smartphone, Minus, Trash2, TrendingDown, TrendingUp, TriangleAlert, Type,
@@ -69,6 +69,10 @@ export const ICONOS = {
     codigoBarras: { glifo: ScanBarcode, variante: 'catalogo' },
     inventario: { glifo: Boxes, variante: 'catalogo' },
     ruta: { glifo: Route, variante: 'catalogo' },
+    // Cómo llegar a la dirección del cliente. Va con el cian del catálogo
+    // porque es un dato de la ficha mirado desde la calle, no un paso del
+    // flujo de venta: lleva al mismo sitio esté la cotización como esté.
+    comoLlegar: { glifo: Navigation, variante: 'catalogo' },
 
     // ---- Dinero ----
     cobranza: { glifo: CreditCard, variante: 'dinero' },

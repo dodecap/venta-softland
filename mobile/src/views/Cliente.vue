@@ -5,6 +5,7 @@ import { api } from '../api';
 import { db } from '../db';
 import { idb } from '../idb';
 import { nombre as nombreDe } from '../catalogos';
+import { comoLlegar, destinoDe } from '../mapa';
 import { encolar, enviarPendientes, pendienteDe, descartar, porEnviar } from '../pendientes';
 import { conectado } from '../red';
 import { useCapa } from '../nav';
@@ -469,6 +470,35 @@ const ubicacion = computed(() => [
     nombreDe('comunas', cliente.value?.comuna),
     nombreDe('ciudades', cliente.value?.ciudad),
 ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · '));
+
+/*
+ * A dónde hay que ir, y si hay a dónde.
+ *
+ * Vacío cuando la ficha no trae calle, y entonces el botón no se dibuja: una
+ * comuna sola no es una dirección, y dejar al vendedor en el centro geométrico
+ * de Maipú es peor que decirle que esta ficha no tiene dónde.
+ */
+const destino = computed(() => (cliente.value ? destinoDe(cliente.value) : ''));
+
+/**
+ * Abre la aplicación de mapas del teléfono con la ruta hasta el cliente.
+ *
+ * Lo que puede fallar es que no haya ninguna instalada, y eso se dice: un botón
+ * que no hace nada al pulsarlo parece la app rota.
+ */
+async function irAlCliente() {
+    error.value = '';
+
+    try {
+        const { navegando } = await comoLlegar(cliente.value);
+
+        if (! navegando) {
+            aviso.value = 'Tu aplicación de mapas no arranca la guía sola: pulsa «Cómo llegar» ahí.';
+        }
+    } catch (e) {
+        error.value = e.message;
+    }
+}
 </script>
 
 <template>
@@ -522,6 +552,12 @@ const ubicacion = computed(() => [
                         <div v-if="cliente.email_dte"><span>Correo para DTE</span><b>{{ cliente.email_dte }}</b></div>
                     </div>
                 </div>
+
+                <button v-if="destino" class="boton secundario con-icono"
+                        :title="destino" @click="irAlCliente">
+                    <AppIcon name="comoLlegar" :size="18" color="currentColor" />
+                    Cómo llegar
+                </button>
 
                 <Aviso tipo="info" v-if="avisoSii">{{ avisoSii }}</Aviso>
 

@@ -42,6 +42,52 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.51.0 — Cómo llegar al cliente, con el mapa que el vendedor ya tiene
+*2026-10-01*
+
+- La ficha del cliente ofrece **Cómo llegar**: abre la aplicación de mapas del
+  teléfono con la ruta hasta su dirección. Es lo que faltaba para que la ficha
+  sirva en la calle y no sólo en el escritorio.
+- **No hay ningún mapa dibujado dentro de la app, a propósito.** Dibujarlo
+  exigiría una llave de Google dentro del APK —que se descompila, el mismo
+  argumento por el que la llave del SII vive en el servidor—, una cuenta de
+  facturación por instalación —y aquí la regla es un repositorio y N
+  instalaciones— y megas de APK, y aun así el mapa sin señal no se dibujaría.
+  Lo que se hace es pasarle el destino a la app que el vendedor ya usa, que ya
+  tiene su cuenta y sus preferencias de tráfico. Cero llaves, cero permisos.
+- **Dos intenciones, y el orden importa** (`MapaPlugin`). `google.navigation:`
+  arranca la guía paso a paso, que es lo que significa «cómo llegar» para quien
+  está en la calle, pero no la atiende cualquier aplicación; si no la atiende
+  ninguna se cae a `geo:`, que la atienden todas —Waze, Maps, las de mapas sin
+  conexión— y deja el punto con el botón de ir al lado. Un toque más, pero
+  nunca un callejón sin salida, y la pantalla dice cuál de las dos salió.
+- El plugin se escribe aquí y no se trae de npm, por el mismo criterio que dejó
+  escrito `CalendarioPlugin`: son treinta líneas para lanzar una intención. Y
+  hace algo que un `openUrl` pelado no haría — probar la segunda cuando la
+  primera no encuentra quien la atienda, que desde JavaScript no se puede
+  saber.
+- **Una comuna sola no es una dirección.** Sin calle el botón no se dibuja:
+  mandar al vendedor al centro geométrico de Maipú es peor que decirle que esa
+  ficha no tiene dónde.
+- **Un código que no se pudo traducir no viaja al mapa.** `catalogos.nombre()`
+  devuelve el código cuando no sabe traducirlo, que es lo correcto en una
+  pantalla —«08301» al menos se puede buscar en Softland— y lo contrario de lo
+  que sirve aquí: metido en la dirección es ruido que puede desplazar el
+  acierto del buscador.
+- El país va siempre, y es la única pieza del destino que no sale de la ficha:
+  sin él, «Serrano 123, Santiago» cae en cualquiera de los Santiagos del
+  continente. Y la comuna repetida como ciudad —«Santiago · Santiago», que es
+  la mitad de las fichas— va una sola vez.
+- Icono nuevo en el mapa de conceptos: `comoLlegar`, con el cian del catálogo,
+  porque es un dato de la ficha mirado desde la calle y no un paso del flujo.
+- Nueve comprobaciones más en `npm run pruebas` (280): el armado de la
+  dirección, el país, la comuna repetida, la ficha sin calle y el código sin
+  traducir.
+- **Lo que esto no hace: el orden óptimo de las visitas del día.** Eso necesita
+  las coordenadas de cada cliente y Softland no las guarda —`cwtauxi` tiene
+  texto libre—, así que son dos pasos previos: geocodificar y medir cuántas
+  aciertan. Queda para su propia versión.
+
 ### 0.50.0 — Cobrar: el comprobante de ingreso, escrito y deshecho antes de estrenarlo
 *2026-09-28*
 

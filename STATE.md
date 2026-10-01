@@ -4,10 +4,10 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-09-28 — versión **0.50.0**
+2026-10-01 — versión **0.51.0**
 
 ## Resumen del estado actual
-**Versión 0.50.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
+**Versión 0.51.0. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
 y el panel de control comercial hasta el paso 4 de su plan.** El servidor (API Laravel) está en
 `srv:C:\xampp\htdocs\venta-softland`, publicado por Apache en
 `http://172.30.205.106:8086/venta-softland` y ya instalado: el esquema `ventas`
@@ -764,6 +764,44 @@ px (otra vez el 13 por 0,92 dando 11,96, que el `max()` atrapa), el detalle va a
 desborda de 360. **No hay captura**: el panel del navegador no compone imagen en
 esta máquina, así que esto son medidas del DOM, no una revisión visual.
 
+### 0.51.0 — Cómo llegar al cliente (2026-10-01)
+
+La ficha del cliente ya servía en el escritorio; esto es lo que le faltaba para
+servir en la calle. **No hay ningún mapa dibujado dentro de la app**: se le pasa
+el destino a la aplicación de mapas que el vendedor ya tiene.
+
+- [x] **`mobile/src/mapa.js`** — arma la dirección y lanza la intención. El país
+      va siempre (sin él, «Serrano 123, Santiago» cae en cualquiera de los
+      Santiagos del continente), la comuna repetida como ciudad va una sola vez,
+      y un código que no se pudo traducir **se deja fuera**: `catalogos.nombre()`
+      devuelve el código cuando no sabe traducirlo —correcto en una pantalla,
+      ruido dentro de una dirección—.
+- [x] **`MapaPlugin.java`**, registrado a mano en `MainActivity` como el del
+      calendario. Prueba dos intenciones en orden: `google.navigation:`, que
+      arranca la guía paso a paso y no la atiende cualquiera, y `geo:`, que la
+      atienden todas y deja el punto con el botón de ir al lado. Devuelve cuál
+      de las dos salió, y la pantalla lo dice.
+- [x] **Botón «Cómo llegar» en la ficha del cliente**, con el icono `comoLlegar`
+      (Lucide `Navigation`, cian de catálogo). **No se dibuja sin calle**: una
+      comuna sola no es una dirección, y el centro geométrico de Maipú no es la
+      puerta de nadie.
+- [x] Respaldo en el navegador de desarrollo: abre Google Maps por URL. Sirve
+      para comprobar qué dirección le estamos pasando al mapa, que es justo la
+      parte que se puede equivocar.
+
+**Por qué no un mapa incrustado**: exigiría una llave de Google dentro del APK
+—que se descompila, el mismo argumento por el que la llave del SII vive en el
+servidor—, una cuenta de facturación por instalación —y aquí la regla es un
+repositorio y N instalaciones— y megas de APK, y aun así no se dibujaría sin
+señal. La app de mapas del teléfono ya está instalada, ya tiene cuenta y ya sabe
+las preferencias de tráfico de su dueño.
+
+**Comprobado**: 280 comprobaciones del teléfono (nueve nuevas sobre el armado de
+la dirección), `npm run build` y la guardia de iconos, y `compileDebugJavaWithJavac`
+con el plugin nuevo. **Sin revisión en el teléfono todavía**: la ficha del
+cliente está detrás del login, así que la intención —las dos— está probada por
+compilación y por lectura, no pulsada.
+
 ### 0.50.0 — Cobrar: el comprobante de ingreso (2026-09-28)
 
 Paso 3 de la cobranza, y lo primero de esta app que **mueve la cuenta corriente
@@ -1253,6 +1291,19 @@ sin eso el arreglo no llegaba a un servidor instalado desde el tar.
       - **Paso 5 — `/setup` en modo reconfigurar**: ver y cambiar la conexión
         SQL, y la configuración de cobranza. Sin sesión y sin tercera página.
       - **Paso 6 — Transbank**, detrás de su llave de configuración.
+- [ ] **La ruta del día, que es otro problema.** «Cómo llegar» lleva a un
+      cliente; el orden óptimo de las seis visitas de la jornada necesita las
+      **coordenadas** de cada uno, y Softland no las guarda —`cwtauxi` tiene
+      texto libre—. Son dos pasos previos antes de prometer nada: geocodificar
+      la cartera a una tabla del esquema `ventas` y **medir cuántas aciertan**,
+      porque la dirección que el SII recorta en 15 caracteres no se geocodifica
+      sola. Optimizar el orden de verdad es la Routes API, de pago y desde el
+      servidor: una intención de Android respeta el orden que se le dé, no lo
+      mejora.
+- [ ] **Pulsar «Cómo llegar» en un teléfono de verdad.** La cadena
+      `google.navigation:` → `geo:` está probada por compilación y por lectura;
+      falta ver cuál de las dos atiende el teléfono del vendedor y si la guía
+      arranca donde tiene que arrancar.
 - [ ] **Faltan tres cuentas por configurar en INNOVAGES**: tarjeta de crédito
       (`CtaPagoTCr`), depósito y pago en línea. `iwparam` las trae vacías y no
       se inventan — se piden en la pantalla de configuración del paso 5. Hasta

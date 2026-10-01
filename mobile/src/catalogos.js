@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { idb } from './idb';
+import { idb } from './idb.js';
 
 /*
  * Traductor de códigos a nombres.

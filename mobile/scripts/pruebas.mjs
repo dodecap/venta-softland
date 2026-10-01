@@ -14,6 +14,7 @@ import { avisaDeVersion, comparar, esMasNueva } from '../src/version.js';
 import { deVendedores } from '../src/alcance.js';
 import { diasVencido, tramoDe, vencido, resumen as resumenCartera, porCliente } from '../src/cartera.js';
 import { aplicaciones, exceso, impedimento, totalAbonado } from '../src/cobro.js';
+import { destino, destinoDe, sabeDondeVive } from '../src/mapa.js';
 
 let hechas = 0;
 const es = (a, b, que) => { assert.equal(a, b, `${que}: esperaba «${b}» y salió «${a}»`); hechas++; };
@@ -629,6 +630,31 @@ es(deVendedores([2])({ vendedor: '2' }), true, 'el código puede llegar como nú
     es(impedimento({ ...base, problemas: ['Falta la cuenta del cliente.'], permisos: { cobrar: false } }),
         'Falta la cuenta del cliente.',
         'lo que la empresa no tiene configurado va antes que lo que le falta al usuario');
+}
+
+// ---- mapa: la dirección que se le pasa a la app de mapas
+{
+    es(destino({ direccion: 'Av. Apoquindo 4700 of. 1201', comuna: 'Las Condes', ciudad: 'Santiago' }),
+        'Av. Apoquindo 4700 of. 1201, Las Condes, Santiago, Chile',
+        'calle, comuna, ciudad y país');
+    // Repetir la palabra no ayuda a geocodificar y queda feo en el mapa.
+    es(destino({ direccion: 'Serrano 123', comuna: 'Santiago', ciudad: 'Santiago' }),
+        'Serrano 123, Santiago, Chile', 'comuna y ciudad iguales van una vez');
+    es(destino({ direccion: 'Serrano 123', comuna: 'SANTIAGO', ciudad: 'Santiago' }),
+        'Serrano 123, SANTIAGO, Chile', 'y da igual cómo esté escrita');
+    es(destino({ direccion: '  Los Olmos 55  ', ciudad: 'Temuco' }),
+        'Los Olmos 55, Temuco, Chile', 'sin comuna, y sin los espacios de la ficha');
+
+    // Una comuna sola no es una dirección: con esto el botón no se dibuja.
+    es(destinoDe({ direccion: '', comuna: 'LC', ciudad: 'STGO' }), '', 'sin calle no hay a dónde ir');
+    es(destinoDe({ direccion: '   ' }), '', 'una calle en blanco tampoco');
+    es(sabeDondeVive({ direccion: 'Serrano 123' }), true, 'con calle sí');
+    es(sabeDondeVive({ direccion: '' }), false, 'sin calle no');
+
+    // Los maestros de traducir no están cargados aquí, que es justo el caso que
+    // importa: antes que meter «08301» en la dirección, se deja fuera.
+    es(destinoDe({ direccion: 'Serrano 123', comuna: '08301', ciudad: '001' }),
+        'Serrano 123, Chile', 'un código sin traducir no viaja al mapa');
 }
 
 console.log(`OK — ${hechas} comprobaciones`);
