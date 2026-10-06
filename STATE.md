@@ -1253,9 +1253,43 @@ esto se puede ver, sobre un `htdocs\ensayo\venta-softland` en `srv` ya borrado:
 
 **Y una basura encontrada en producción**: `C:\xampp\htdocs\venta-softland\index.php`
 tenía un «Hola Mundo» de alguna prueba vieja, no versionado y no alcanzable por
-el `Alias`. El próximo `bin/deploy.sh` lo reemplaza por el puente de verdad.
+el `Alias`. **Reemplazado por el puente** en el despliegue del mismo día.
+
+**Desplegado y repartido el 2026-10-06.** `bin/deploy.sh` y `bin/publicar-apk.sh`
+con Apache parado —van por `scp` y por el `php.exe` de consola, ninguno de los
+dos necesita que el servidor esté sirviendo—, y los cuatro archivos nuevos
+comprobados por md5 contra los de aquí: `.htaccess`, `index.php`,
+`deploy/arranque.php` y `venta-softland-0.52.0.apk`. Lo que falta para que el
+APK se pueda bajar es que alguien vuelva a levantar Apache; ver «Incidencias».
 
 ## Incidencias
+
+### 2026-10-06 · La API contestaba 502 y no era de la aplicación
+
+El proxy devolvía **502** y el 8086 rechazaba la conexión, con la máquina
+respondiendo a `ping` y el 22 abierto. No era un fallo: el `error.log` tiene la
+frase exacta —`AH00422: Parent: Received shutdown signal`, a las **11:29:30**—,
+o sea que **alguien paró Apache a mano** y salió limpio.
+
+Lo que se midió, y conviene saberlo antes de intentar levantarlo:
+
+- **El Apache de XAMPP no está instalado como servicio.** `httpd -k query`
+  contesta `AH00436: No installed service named "Apache2.4"`. Lo arranca una
+  persona desde el panel de XAMPP, en su sesión: nadie lo va a levantar solo al
+  reiniciar, y desde aquí no hay servicio que arrancar.
+- **El 8086 está ocupado por otro programa.** Un `node.exe` escuchando en
+  `127.0.0.1:8086` —sólo loopback—, en la sesión RDP de `administrador`. Con un
+  socket de loopback cogido, Windows no deja que Apache tome `0.0.0.0:8086`, así
+  que levantarlo sin más fallaría al enlazar el puerto. **No se tocó ese
+  proceso**: es de alguien que está trabajando en la máquina.
+- **Los dos `httpd.exe` que quedan vivos no son los de XAMPP**: escuchan en
+  **8085** y ninguna conf de `C:\xampp\apache\conf` declara ese puerto. Ver uno
+  en `tasklist` no significa que la aplicación esté servida.
+
+**De paso, dos cosas que convendría mirar**: `httpd -t` avisa de que el `Alias`
+de `venta-softland.conf:3` «probably never match because it overlaps an earlier
+Alias», y el registro tiene barridos buscando `wp-login.php` desde
+`172.30.206.185`.
 
 ### 2026-09-25 · La API dejó de conectar a SQL Server, tres veces, y no era lo que parecía
 
