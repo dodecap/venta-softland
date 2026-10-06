@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-10-01 — versión **0.51.1**
+2026-10-06 — versión **0.52.0**
 
 ## Resumen del estado actual
 **Versión 0.51.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1215,6 +1215,46 @@ los renglones impresos con su fecha. Las dos pantallas nuevas revisadas sobre un
 maqueta desechable, ya borrada, porque las de verdad están detrás del login. 218
 comprobaciones del teléfono pasando.
 
+### 2026-10-06 · El puente: la aplicación servida sin tocar `httpd.conf` (0.52.0)
+
+Primera pieza del paquete de instalación que se va a repartir a otras empresas,
+con la forma que ya tiene `~/GIT/inventario-softland`: un `.exe` y un ZIP. Esto
+es lo que hace que descomprimir dentro de `C:\xampp\htdocs` y abrir el
+navegador baste.
+
+- `.htaccess` e `index.php` en la raíz, y `deploy/arranque.php`.
+- `public/index.php` llama a `arranque.php` cuando no hay `.env`.
+- `bin/deploy.sh` lleva ya `deploy/`, `.htaccess` e `index.php`.
+
+**Comprobado por el puente y no por el `Alias`**, que es el único camino donde
+esto se puede ver, sobre un `htdocs\ensayo\venta-softland` en `srv` ya borrado:
+`/setup` en 200 con el `.env` recién creado, `SCRIPT_NAME` sin `/public` dentro,
+`HTTP_AUTHORIZATION` llegando a PHP, y 24 rutas denegadas contestando 403.
+
+**Dos hallazgos medidos y sin arreglar**, los dos del puente y ninguno del
+`Alias`:
+
+1. **`public/` es un segundo portal.** Las reglas de rewrite de un subdirectorio
+   **reemplazan** las del padre, no las heredan, así que la regla que deniega los
+   `.php` no alcanza a `public/index.php`: `…/public/` contesta 302 a `setup`
+   igual que la raíz. No es un agujero —misma aplicación, misma autenticación—
+   pero es la entrada mala, la que mete `/public` en las direcciones que escribe
+   Laravel. No se puede cerrar desde el `.htaccess` de la raíz, justo por la no
+   herencia: hace falta una condición en `public/.htaccess`, y ése es el archivo
+   que sirve la instalación de `srv` ahora mismo, así que se decide aparte.
+2. **`/app` se lo queda `mod_dir` antes que ninguna regla.** La página del código
+   QR comparte nombre con la carpeta `app/` de Laravel, y Apache contesta un 301
+   que añade la barra final con una dirección **absoluta** dentro; `/app/` ya
+   resuelve bien. No hay rewrite que lo evite —se decide en el recorrido de
+   directorios, antes de los `fixups`— y `DirectorySlash Off`, que sí lo arregla,
+   deja la carpeta pedida sin barra final en **403**, que es la dirección que
+   abre el instalador y la que teclea la gente. Probadas las dos. En una red
+   local no molesta; detrás de un proxy inverso sí, y para eso está el `Alias`.
+
+**Y una basura encontrada en producción**: `C:\xampp\htdocs\venta-softland\index.php`
+tenía un «Hola Mundo» de alguna prueba vieja, no versionado y no alcanzable por
+el `Alias`. El próximo `bin/deploy.sh` lo reemplaza por el puente de verdad.
+
 ## Incidencias
 
 ### 2026-09-25 · La API dejó de conectar a SQL Server, tres veces, y no era lo que parecía
@@ -1334,6 +1374,40 @@ se añadió a los paquetes de `deploy.sh` y de la publicación, donde no estaba:
 sin eso el arreglo no llegaba a un servidor instalado desde el tar.
 
 ## Pendiente / próximos pasos
+- [ ] **El paquete de instalación**, con la forma de `~/GIT/inventario-softland`:
+      un `.exe` y un ZIP que arma `bin/empaquetar.sh`. Va el puente (0.52.0); lo
+      que queda:
+      - **`bin/empaquetar.sh`**, primero con `--solo-zip`: el árbol, el APK
+        sembrado en `storage/app/private/apk` —así `/app` no sale vacío el primer
+        día, que hoy depende de `ventas:actualizar --apk` y de tener internet—, el
+        LEEME con marca de orden de bytes, y la comprobación que aborta si se
+        cuela un `.env`, un `softland.json`, un `.pem`, un `.key` o un registro.
+        **Reutilizando el `vendor-<sha>.tgz` que ya cachea `bin/publicar-version.sh`**,
+        no construyendo otro.
+      - **El `.exe`** (NSIS, compilado con `makensis` en `srv`): `mirar.nsh`
+        aparte porque no escribe nada, y `probar.nsi` para comprobarlo en una
+        máquina de verdad sin instalar encima de un servidor que está sirviendo.
+        Pone las DLL de `sqlsrv` que XAMPP no trae —la equivocada no da error, PHP
+        arranca y la extensión no está—, abre el puerto en el Firewall, reinicia
+        Apache y llama a `ventas:install`.
+      - **El driver ODBC, decidido en el momento**: si hay 17 y 18, nada; si sólo
+        hay 18, nada; **si sólo hay 17, nada y no se ofrece el 18** —instalarlo en
+        un servidor que funciona cambia el driver que elige la app, en caliente, y
+        por un problema que ese servidor no tiene—; si no hay ninguno, se instala
+        el 18, bajándolo de Microsoft y abriendo **su** instalador, para que su
+        licencia la acepte quien instala.
+      - **Publicar el `.exe` y el ZIP** como dos activos más de la publicación,
+        junto a las tres que ya sube `bin/publicar-version.sh`.
+      - **Unir las dos secciones «Instalar en otra empresa» de `CLAUDE.md`**, que
+        hoy están dos veces con contenidos distintos, y poner al día
+        `docs/instalacion.md`.
+- [ ] **Los dos hallazgos del puente**, en «Hecho / 2026-10-06»: cerrar `public/`
+      como segundo portal —toca `public/.htaccess`, que es el que sirve `srv`— y
+      decidir qué se hace con el 301 de `mod_dir` en `/app`.
+- [ ] **¿Y `ventas:install` en `bin/deploy.sh`?** Hoy no está, y el riesgo es el
+      mismo que resolvió `inventario-softland` metiéndolo: desplegar código que
+      usa una tabla nueva sin crearla deja el servidor servido y roto, con el
+      error saliendo después y en otro sitio. Es idempotente.
 - [ ] **Fase 5 — cobranza.** Van los pasos 0 y 1 de 6. El plan entero está en
       `docs/cobranza.md`; lo que queda:
       - **Paso 2 — la cartera.** Leer el saldo por documento y su antigüedad,

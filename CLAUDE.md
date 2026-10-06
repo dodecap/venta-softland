@@ -1019,6 +1019,22 @@ nadie edite un archivo. Lo que hay que saber antes de tocar nada:
 - **`bin/instalar.cmd` deja el servidor listo; `/setup` hace el resto.** El
   script no pide ninguna contraseña: ésas se escriben en el navegador. Es
   idempotente y no pisa el `.env` ni regenera la clave.
+- **Y desde la 0.52.0 no hace falta ni consola ni `httpd.conf`.** El `.htaccess`
+  y el `index.php` de la raíz sirven la aplicación desde dentro de `htdocs` por
+  un puente y deniegan todo lo demás, y `deploy/arranque.php` crea el `.env`, la
+  `APP_KEY` y las carpetas de escritura en la primera petición. Eso último no es
+  comodidad: **sin `.env` Laravel no arranca ni para enseñar `/setup`**, porque su
+  driver de sesiones por omisión es la base de datos, que es lo que aún no está
+  configurado. El `Alias` de Apache sigue siendo la forma ordenada y es como está
+  publicado `srv`; las dos conviven y **manda el `.htaccess` del que atendió la
+  petición**.
+- **Y por eso los dos `.htaccess` tienen que pasar las mismas cabeceras.** Apache
+  no mete `Authorization` en el entorno de PHP por su cuenta y Laravel construye
+  la petición desde `$_SERVER`: sin las tres líneas que la vuelven a poner,
+  `bearerToken()` sale nulo y **toda la API contesta 401** aunque el servidor esté
+  bien instalado y conectado. Por el `Alias` manda `public/.htaccess`, que las
+  lleva desde siempre, así que esto no se ve desde el escritorio. Si se toca el de
+  la raíz, se comprueba con una instalación servida **por el puente**.
 - **La comprobación del servidor va antes del formulario**, no después de
   pulsar «Instalar» (`App\Support\Requisitos`). Quien instala está en el
   servidor de un cliente sin este repositorio delante, y «could not find
@@ -1119,7 +1135,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.51.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.52.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

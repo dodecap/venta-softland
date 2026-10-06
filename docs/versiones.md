@@ -42,6 +42,58 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.52.0 — El puente: servir la aplicación sin tocar httpd.conf
+*2026-10-06*
+
+Primera pieza del paquete de instalación: que descomprimir el proyecto dentro de
+`C:\xampp\htdocs` y abrir el navegador **baste**, sin consola, sin Composer y
+sin tocar `httpd.conf`. Es el camino que va a seguir quien instale en otra
+empresa, y hasta ahora no existía: el `Alias` de Apache —como está publicado
+`srv`— obliga a editar la configuración del servidor y reiniciarlo, y eso no lo
+hace quien recibe un ZIP.
+
+- **`.htaccess` e `index.php` en la raíz.** El puente entra por `index.php`, que
+  requiere `public/index.php`, y **no** por un rewrite a `public/`: lo que Apache
+  deja en `SCRIPT_NAME` es lo que Laravel usa para saber dónde vive, y
+  rewriteando acabaría escribiendo direcciones con un `/public` dentro que no
+  abren. Medido en `srv`: `SCRIPT_NAME = /ensayo/venta-softland/index.php`.
+- **Las tres líneas de `Authorization`.** Apache no mete esa cabecera en el
+  entorno de PHP por su cuenta, y Laravel construye la petición desde
+  `$_SERVER`: sin ellas `bearerToken()` sale nulo y **toda la API contesta 401**
+  con el servidor bien instalado. `public/.htaccess` las lleva desde siempre, así
+  que por el camino del `Alias` esto no se ve nunca. Comprobado por el puente con
+  una sonda: `HTTP_AUTHORIZATION = Bearer prueba-123`.
+- **Sin `RewriteBase`, a propósito.** Escribir `/venta-softland/` dentro sería
+  una trampa: la carpeta se renombra, se instala en una subcarpeta, y con el
+  nombre equivocado **toda ruta profunda da 404**. En un `.htaccess` no hace
+  falta. La línea se queda sólo en `public/.htaccess`, que es el que manda con el
+  `Alias`, y `deploy/arranque.php` la repara si no coincide.
+- **`deploy/arranque.php`**: crea el `.env`, la `APP_KEY` y las carpetas de
+  escritura en la primera petición. No es comodidad: **sin `.env` Laravel no
+  arranca ni para enseñar `/setup`**, porque su driver de sesiones por omisión es
+  la base de datos, que es justo lo que no está configurado. El `.env` se escribe
+  con `rename` y la clave dentro, nunca a medias — con esa clave se cifran la
+  conexión a SQL Server, la clave del certificado del DTE y la del SMTP. Y si
+  algo falla, muere con una página que dice qué pasa: en ese punto no hay
+  registro donde escribir ni página de error del framework.
+- **El puente viaja en `bin/deploy.sh`.** Hace falta de verdad: `public/index.php`
+  requiere `deploy/arranque.php` cuando no hay `.env`, así que desplegar sin esa
+  carpeta deja un servidor que no arranca el día que se instala en otro sitio.
+
+**Comprobado en `srv`** sobre una instalación de ensayo servida por el puente
+—`htdocs\ensayo\venta-softland`, ya borrada— y no por el `Alias`, que es el
+único camino donde esto se puede ver: `/setup` dibujándose en 200 con el `.env`
+recién nacido, la redirección con `Location` **relativo**, la cabecera
+`Authorization` llegando a PHP, y las 24 rutas que tienen que estar denegadas
+—`.env`, `artisan`, `composer.lock`, `storage/`, `vendor/`, `config/`, `sii/`,
+`mobile/`, los `.php` del proyecto— contestando 403 una por una.
+
+**Dos cosas quedaron medidas y sin arreglar**, anotadas en `STATE.md`: `public/`
+sigue siendo un segundo portal por el puente —las reglas de rewrite de un
+subdirectorio reemplazan las del padre, no las heredan— y una ruta que coincida
+con una carpeta del disco, como `/app`, se la queda `mod_dir` con un 301 de
+dirección absoluta antes de que corra ninguna regla.
+
 ### 0.51.1 — El asistente de voz: el plan
 *2026-10-01*
 

@@ -1,0 +1,162 @@
+# Venta Softland — servir la aplicación sin tocar httpd.conf
+#
+# La forma ordenada de publicar Laravel en Apache es un `Alias` a `public/`, es
+# como está publicado `srv` (`deploy/apache-venta-softland.conf`) y sigue
+# documentada en `docs/instalacion.md`. Pero un `Alias` obliga a editar
+# `httpd.conf` y reiniciar Apache, y eso no lo hace quien recibe un ZIP: el
+# paquete de instalación se descomprime dentro de `htdocs` y se abre en el
+# navegador. Este archivo es lo que hace que eso funcione.
+#
+# Las dos formas conviven, y **manda el `.htaccess` del que atendió la
+# petición**: por el `Alias` manda `public/.htaccess` y por aquí manda éste. De
+# ahí la regla que gobierna este archivo: lo que uno pase al entorno, el otro
+# también. Lo que se toque aquí se comprueba con una instalación servida **por el
+# puente**, no por el `Alias`, porque son caminos distintos y sólo uno se usa en
+# casa de un cliente.
+#
+# El precio de estar dentro de `htdocs` es que el código queda debajo de la raíz
+# del sitio, así que aquí se deniega todo lo que no sea una ruta de la
+# aplicación. Las reglas de abajo son eso, y no una precaución de más.
+#
+# ## Aquí no hay `RewriteBase`, y es a propósito
+#
+# Escribir `/venta-softland/` dentro sería una trampa: la carpeta no siempre se
+# llama así —una instalación de ensayo al lado, una empresa que la renombra, el
+# paquete descomprimido en una subcarpeta— y con la carpeta equivocada **toda
+# ruta profunda da 404**. Sólo respondería la raíz, que no pasa por ninguna
+# regla.
+#
+# No hace falta ninguna: en un `.htaccess` mod_rewrite quita el prefijo de la
+# carpeta antes de mirar las reglas y lo vuelve a poner al sustituir, y la única
+# sustitución de aquí abajo —`index.php`— es relativa. Las demás reglas no
+# sustituyen nada: prohíben. Así que la carpeta se llame como se llame, y esté
+# donde esté dentro de `htdocs`, esto funciona sin decirle dónde está.
+#
+# Donde sí hace falta es en `public/.htaccess`, que es el que manda con el
+# `Alias`: ahí la dirección por la que se pide y la carpeta del disco no se
+# parecen, y Apache no puede deducir una de la otra. Esa línea se queda, y
+# `deploy/arranque.php` la repara si no coincide.
+
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+# Denegado sin depender de mod_rewrite. Si mod_rewrite estuviera apagado las
+# reglas de más abajo no correrían y el `.env` —con la `APP_KEY` que descifra la
+# conexión a SQL Server y la clave del certificado del DTE— quedaría a la vista
+# de quien adivinara la dirección. Esto sigue en pie aunque no haya rewrite.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^(composer\.(json|lock)|artisan|phpunit\.xml|VERSION|LEEME\.txt)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # La cabecera `Authorization`, que es por donde viaja el token de la app.
+    #
+    # Apache **no la mete en el entorno de PHP** por su cuenta: el teléfono la
+    # manda, Apache la recibe —`getallheaders()` la ve— y `$_SERVER` no la tiene.
+    # Y Laravel construye la petición desde `$_SERVER`, así que `bearerToken()`
+    # sale nulo y **toda la API contesta 401** aunque el servidor esté bien
+    # instalado y conectado. Estas tres líneas son la receta de siempre: leer la
+    # cabecera de la petición y volver a ponerla en el entorno.
+    #
+    # El `public/.htaccess` las lleva desde el primer día, y por eso esto no se
+    # ve nunca desde aquí: en `srv` manda ese otro archivo. Por este puente, que
+    # es el camino del paquete y del instalador, no — y lo que se rompe es justo
+    # lo que no se prueba en el escritorio: entrar desde un teléfono.
+    #
+    # Sin `[L]` a propósito: esto no resuelve la petición, sólo le añade algo al
+    # entorno y deja seguir a las reglas de abajo.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # La otra que pasa el `public/.htaccess`, por el mismo mecanismo y por la
+    # misma razón. Hoy no la usa nadie —la app manda token Bearer, y los
+    # formularios de `/setup` y `/app` llevan el CSRF en el cuerpo, no en una
+    # cabecera—, así que esto no arregla nada que esté roto. Está porque el de al
+    # lado la lleva: la de arriba también sobraba hasta el día que se descubrió
+    # que no, y el mecanismo es idéntico. Dos líneas por no volver a averiguarlo
+    # igual.
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # La raíz de la carpeta la sirve `DirectoryIndex`, que no pasa por aquí. Esta
+    # regla lo deja dicho y corta la vuelta antes de las demás: es el camino por
+    # el que `deploy/arranque.php` atiende una instalación recién descomprimida,
+    # cuando todavía no hay `.env` y nada más podría responder.
+    RewriteRule ^$ - [L]
+
+    # Y lo que no se arregla desde aquí, anotado para no volver a buscarlo: una
+    # ruta que **coincida con una carpeta del disco** se la queda `mod_dir` antes
+    # que ninguna regla, con un 301 que añade la barra final y que lleva una
+    # dirección **absoluta** dentro. Pasa con `/app`, que es la página del código
+    # QR y también una carpeta de Laravel: medido, `/app` contesta 301 a
+    # `http://servidor:8086/…/app/` y `/app/` ya resuelve bien.
+    #
+    # No hay rewrite que lo evite —Apache lo decide en el recorrido de
+    # directorios, antes de los `fixups` donde corre mod_rewrite— y
+    # `DirectorySlash Off`, que sí lo arregla, deja la carpeta pedida sin barra
+    # final en **403**: y ésa es la dirección que abre el instalador y la que
+    # teclea la gente. Probadas las dos cosas. Así que se queda el 301.
+    #
+    # En una red local no molesta: la dirección absoluta apunta al mismo sitio
+    # que se pidió. Lo que no hay que hacer es poner una instalación servida por
+    # este puente detrás de un proxy inverso, porque ahí el esquema y el puerto
+    # de ese 301 son los de dentro. Para eso está el `Alias` de Apache
+    # (`deploy/apache-venta-softland.conf`), que es como está publicado `srv`: por
+    # ese camino la raíz del sitio es `public/` y ninguna carpeta del proyecto
+    # tapa una ruta.
+
+    # Ningún `.php` del proyecto se sirve, salvo el puente de esta carpeta. Sin
+    # esta regla, pedir `app/Http/Controllers/SetupController.php` no lo enseña:
+    # lo **ejecuta** suelto, fuera de Laravel, y lo que sale de ahí es un error
+    # con rutas del servidor dentro.
+    #
+    # Con una excepción medida, y no es un descuido de la regla: `public/` tiene
+    # su propio `.htaccess`, y **las reglas de rewrite de un subdirectorio no
+    # heredan las del padre**, las reemplazan. Así que `public/index.php` sigue
+    # sirviéndose y por el puente queda un segundo portal: `…/public/` contesta
+    # 302 a `setup` igual que la raíz. No es un agujero —es la misma aplicación,
+    # con la misma autenticación— pero es la entrada mala: entrando por ahí
+    # `SCRIPT_NAME` lleva `/public` dentro y Laravel escribe direcciones con esa
+    # carpeta, que es el 404 contra el que está escrito todo este archivo. No se
+    # puede cerrar desde aquí, justo por la no herencia; se cierra con una
+    # condición en `public/.htaccess`, y eso se decide aparte porque ese archivo
+    # es el que sirve la instalación de `srv` ahora mismo.
+    RewriteRule ^(?!index\.php$).+\.php$ - [F,L]
+
+    # Lo que no es código pero tampoco es del sitio. Tres que importan aquí más
+    # que en cualquier otro proyecto:
+    #
+    #  · `storage/`, donde viven la conexión cifrada, el certificado del DTE con
+    #    su clave, los XML firmados y el APK publicado —que se entrega por
+    #    `/app/apk`, una ruta de Laravel que sabe ponerle el tipo MIME que
+    #    Android espera, y no por su sitio en el disco.
+    #  · `sii/`, los padrones públicos: RUT, nombre y domicilio de cientos de
+    #    miles de personas y sociedades.
+    #  · `mobile/`, que lleva el código de la app y no tiene nada que hacer
+    #    servido.
+    #
+    # `app` no está en la lista a propósito: `/app` es la página del código QR
+    # con la que se reparte el APK. Los `.php` de la carpeta `app/` los para la
+    # regla de arriba, y una carpeta sin índice no lista nada por
+    # `Options -Indexes`.
+    RewriteRule ^(storage|vendor|bootstrap|config|database|deploy|docs|bin|lang|resources|routes|tests|sii|mobile|node_modules)(/|$) - [F,L]
+
+    # Y todo lo demás al puente. No se comprueba si el archivo existe: lo único
+    # servible de este proyecto son sus rutas —`public/` tiene cuatro archivos y
+    # ninguno hace falta—. La negación del patrón es lo que corta la segunda
+    # vuelta; sin ella, esto es un bucle.
+    RewriteRule !^index\.php$ index.php [L]
+</IfModule>
+
+# Comprimir, que es lo mismo que hace `public/.htaccess` y por lo mismo: la API
+# contesta JSON a un teléfono que a veces está en una barra de cobertura. No es
+# una regla de ruta, así que vale igual por los dos caminos; está en los dos
+# archivos porque cada uno tiene que valerse solo.
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
