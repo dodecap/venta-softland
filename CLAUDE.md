@@ -265,6 +265,7 @@ ssh srv                                  # entrar al servidor
 bin/deploy.sh                            # desplegar la API a srv
 bash mobile/build-apk.sh                 # compilar el APK
 bin/publicar-apk.sh                      # y repartirlo desde /app
+bin/empaquetar.sh --solo-zip             # el ZIP para instalar en otra empresa
 cd mobile && npm run dev                 # probar la UI en el navegador
 ```
 
@@ -1028,6 +1029,29 @@ nadie edite un archivo. Lo que hay que saber antes de tocar nada:
   configurado. El `Alias` de Apache sigue siendo la forma ordenada y es como está
   publicado `srv`; las dos conviven y **manda el `.htaccess` del que atendió la
   petición**.
+- **El paquete se arma con `bin/empaquetar.sh` y no se mira: se descomprime.**
+  Un ZIP de 32 MB con el árbol, el `vendor` y el APK dentro, que no necesita
+  consola, Composer, Node ni internet en el servidor donde se instala. La prueba
+  no es leer la lista de archivos: es descomprimirlo en una carpeta desechable y
+  servirlo con el servidor propio de PHP usando **el `index.php` del puente como
+  enrutador**, que es lo que hace el puente. Así se comprueba sin Apache y sin
+  tocar producción que `/` redirige a `setup`, que `/setup` contesta 200 con su
+  formulario y que `arranque.php` escribió la `APP_KEY`.
+- **El `vendor` del paquete es el mismo que el de la publicación**, byte a byte:
+  `vendor-<sha256 del composer.lock>.tgz`, cacheado en `dist/`. No se construye
+  otro. Dos `vendor` para la misma versión es una diferencia que no se ve hasta
+  que sale en casa de un cliente, y por eso `bin/publicar-version.sh` ya no vacía
+  `dist/` del todo.
+- **Al paquete no va `bin/` entero**, aunque `bin/deploy.sh` sí lo mande a
+  producción: esos guiones llevan dentro el alias `srv` y rutas de esta máquina.
+  Va `instalar.cmd`, que es el único escrito para quien instala. Y el APK va
+  **sembrado** en `storage/app/private/apk`, porque `/app` vacío el primer día
+  obliga a `ventas:actualizar --apk`, que necesita internet justo donde puede no
+  haberlo.
+- **Que falte algo en el paquete se comprueba igual que que sobre.** Sobrar es un
+  `.env` o un certificado viajando por WhatsApp; faltar es un paquete sin el
+  puente, que se descomprime igual y no sirve de nada. Las dos comprobaciones
+  abortan, y las dos están en el guion y no en la cabeza de quien empaqueta.
 - **Y por eso los dos `.htaccess` tienen que pasar las mismas cabeceras.** Apache
   no mete `Authorization` en el entorno de PHP por su cuenta y Laravel construye
   la petición desde `$_SERVER`: sin las tres líneas que la vuelven a poner,
@@ -1135,7 +1159,7 @@ abierta en `docs/versiones.md`. **Toda tarea significativa sube la versión**,
 igual que actualiza `STATE.md`.
 
 ## Estado actual
-Versión **0.52.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
+Versión **0.53.0**. Fases 1, 2 y 3 terminadas, más el motor de documentos, el
 panel comercial hasta el paso 4 y la fase 4 hasta el paso 3b: el timbre
 comprobado contra 615 documentos emitidos, la escritura en inventario
 contrastada columna por columna contra 199, el XML del DTE regenerado y firmado

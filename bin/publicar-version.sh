@@ -67,8 +67,12 @@ if [[ ! -f "$APK" ]]; then
     exit 1
 fi
 
-rm -rf "$DIST"
+# Se vacía, pero el `vendor-<sha>.tgz` se queda: lo comparte
+# `bin/empaquetar.sh` y traerlo cuesta un viaje a srv. No puede quedarse viejo
+# —el nombre lleva la huella de `composer.lock` dentro—, así que guardarlo no
+# tiene el riesgo de guardar una caché cualquiera.
 mkdir -p "$DIST"
+find "$DIST" -mindepth 1 -maxdepth 1 ! -name 'vendor-*.tgz' -exec rm -rf {} +
 
 # --- 1) El código -----------------------------------------------------------
 # La misma lista que bin/deploy.sh, y por el mismo motivo: es el código, y

@@ -42,6 +42,77 @@ calcula: `mayor × 10000 + menor × 100 + parche`. El `0.5.0` es el `500`.
 
 <!-- nuevas entradas arriba -->
 
+### 0.53.0 — El paquete de instalación: un ZIP que se descomprime y ya está
+*2026-10-06*
+
+Segunda pieza del paquete de instalación, después del puente de la 0.52.0:
+`bin/empaquetar.sh` arma un ZIP de 32 MB que se descomprime en
+`C:\xampp\htdocs` y deja la aplicación servida y `/setup` en pie, **sin
+consola, sin Composer, sin Node y sin internet** en el servidor donde se
+instala. El instalable de la app Android viaja dentro.
+
+**Probado descomprimiéndolo, no mirándolo.** El ZIP se subió a `srv`, se
+descomprimió en una carpeta desechable y se sirvió con el servidor propio de PHP
+usando **el `index.php` del puente como enrutador**, que es exactamente lo que
+hace el puente. Resultado, con Apache parado y sin tocar producción: `/`
+contesta 302 con `Location: setup` —relativo, o sea que `Support\Rutas` hace su
+trabajo—, `/setup` contesta 200 con el formulario de conexión dentro
+(«Instancia», «Base de datos», «Usuario», «softland»), `deploy/arranque.php`
+escribió el `.env` con una `APP_KEY` de 51 caracteres y `APP_DEBUG=false`, y
+creó las cinco carpetas de escritura. Cero errores en el registro del servidor.
+Y `php artisan --version` dentro del paquete contesta «Laravel Framework
+13.31.0»: el `vendor` empaquetado está completo y el autocargador funciona.
+Comprobado también que el APK sale con el mismo md5 con el que entró.
+
+**El `vendor` no se construye: se reusa el que ya publica
+`bin/publicar-version.sh`.** El nombre lleva dentro el sha256 del
+`composer.lock` (`vendor-9ea5350edab5.tgz`), así que no puede quedarse viejo sin
+que se note, y sobre todo son **los mismos bytes** que ese servidor va a recibir
+cuando se actualice. Construir uno aparte sería tener dos `vendor` para la misma
+versión, y el día que difirieran el error saldría en casa de un cliente. Para
+que eso funcione, `bin/publicar-version.sh` ya **no vacía `dist/` del todo**: el
+`vendor-<sha>.tgz` se queda, porque traerlo cuesta un viaje a `srv` y, siendo el
+nombre su propia huella, guardarlo no tiene el riesgo de guardar una caché
+cualquiera.
+
+**Qué no viaja, y por qué se comprueba dos veces.** Ni `.env`, ni
+`softland.json`, ni el certificado del DTE, ni registros, ni `.git`: un paquete
+se manda por WhatsApp y se reenvía, y con un `.env` dentro va la clave que
+descifra la conexión a SQL Server de otra empresa y la del certificado con el
+que firma sus facturas. El guion aborta si encuentra algo de eso, y el ZIP se
+revisó además por fuera, sin fiarse de esa comprobación: cero coincidencias en
+los ocho patrones y un único `.env.*`, que es `.env.example` —y tiene que estar,
+porque es la plantilla con la que `arranque.php` escribe el de la instalación.
+También se comprueba lo contrario, que **esté** lo imprescindible: un paquete al
+que le falte el puente se descomprime igual y no sirve de nada, y eso no se ve
+hasta abrir el navegador en casa del cliente.
+
+**Tampoco viaja `bin/` entero**, aunque `bin/deploy.sh` sí lo mande a
+producción: esos guiones llevan dentro el alias `srv` y rutas de esta máquina.
+De `bin` va `instalar.cmd`, que es el único escrito para quien instala. Ni
+`tests` ni `phpunit.xml`: en el servidor de un cliente no se corre ninguna
+prueba.
+
+**El APK va sembrado** en `storage/app/private/apk`. Sin eso `/app` sale vacío
+el primer día, y la otra forma de llenarlo —`ventas:actualizar --apk`— necesita
+internet justo donde puede no haberlo; el código QR de `/app` es lo primero que
+se usa después de instalar.
+
+**Lo que el ZIP no puede hacer, y lo dice.** XAMPP no trae `sqlsrv` ni
+`pdo_sqlsrv`, así que recién descomprimido el paso 1 de `/setup` sale en rojo y
+hay que bajar las DLL de Microsoft, acertar con la variante —la de hilos y 64
+bits, que es la única que sirve en un XAMPP—, copiarlas, editar `php.ini` y
+reiniciar Apache. Eso es el `.exe`, que es el paso siguiente. El `LEEME.txt` lo
+explica a mano mientras no exista, y `/setup` lo reclama porque mira el servidor
+**antes** de dibujar el formulario. En esta prueba no salió en rojo porque `srv`
+sí tiene las extensiones puestas: ese camino sigue sin probarse en una máquina
+limpia.
+
+**Y de paso, un arreglo en el origen**: `bin/version.sh` sincronizaba
+`mobile/package.json` pero no su candado, que lleva la versión **dos veces**. En
+la 0.52.0 se arregló a mano, que es tanto como no arreglarlo; ahora lo escribe
+el guion.
+
 ### 0.52.0 — El puente: servir la aplicación sin tocar httpd.conf
 *2026-10-06*
 

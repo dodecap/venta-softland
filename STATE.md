@@ -4,7 +4,7 @@
 > retomar el proyecto, desde este u otro computador.
 
 ## Última actualización
-2026-10-06 — versión **0.52.0**
+2026-10-06 — versión **0.53.0**
 
 ## Resumen del estado actual
 **Versión 0.51.1. Fases 1, 2 y 3 terminadas, el motor de documentos comerciales
@@ -1262,6 +1262,76 @@ comprobados por md5 contra los de aquí: `.htaccess`, `index.php`,
 `deploy/arranque.php` y `venta-softland-0.52.0.apk`. Lo que falta para que el
 APK se pueda bajar es que alguien vuelva a levantar Apache; ver «Incidencias».
 
+### 2026-10-06 · El paquete de instalación: un ZIP que se descomprime y ya está (0.53.0)
+
+Segunda pieza del paquete, después del puente: `bin/empaquetar.sh` arma un ZIP de
+**32 MB y 9.813 archivos** que se descomprime en `C:\xampp\htdocs` y deja la
+aplicación servida y `/setup` en pie, sin consola, sin Composer, sin Node y sin
+internet en el servidor donde se instala. El instalable de la app Android viaja
+dentro.
+
+**Probado descomprimiéndolo.** Un paquete que no se ha descomprimido no está
+probado, así que se subió a `srv`, se descomprimió en `C:\xampp\htdocs\z` y se
+sirvió con el servidor propio de PHP usando **el `index.php` del puente como
+enrutador**, que es exactamente lo que hace el puente. Con Apache parado y sin
+tocar producción:
+
+- `/` → **302** con `Location: setup`, relativo: `Support\Rutas` funcionando.
+- `/setup` → **200**, título «Instalación — Venta Softland», y dentro el
+  formulario de conexión: «Instancia», «Base de datos», «Usuario», «softland».
+- `deploy/arranque.php` escribió el `.env` con una `APP_KEY` de 51 caracteres
+  (`base64:…`) y `APP_DEBUG=false`, y creó las cinco carpetas de escritura.
+- `php artisan --version` dentro del paquete → «Laravel Framework 13.31.0»: el
+  `vendor` empaquetado está completo y el autocargador funciona.
+- El APK sale con el mismo md5 con el que entró.
+- Cero errores en el registro del servidor.
+
+Hecho con las dos versiones, la 0.52.0 y la 0.53.0, y la carpeta de prueba
+borrada después —comprobado que no quedó ni carpeta ni `php.exe` escuchando.
+
+**El `vendor` se reusa, no se construye.** Es el mismo `vendor-9ea5350edab5.tgz`
+que publica `bin/publicar-version.sh`: el nombre lleva dentro el sha256 del
+`composer.lock`, así que no puede quedarse viejo sin que se note, y son **los
+mismos bytes** que ese servidor recibirá al actualizarse. Dos `vendor` para la
+misma versión es un error que sale en casa de un cliente. Para eso
+`bin/publicar-version.sh` ya no vacía `dist/` del todo.
+
+**Lo que no viaja**, comprobado dos veces —por el guion, que aborta, y por fuera
+del guion, sin fiarse de él—: cero coincidencias en los ocho patrones (`.env`,
+`softland.json`, `.pem`, `.key`, `.pfx`, `.p12`, `.log`, `.git/`) y un único
+`.env.*`, que es `.env.example` y tiene que estar. Tampoco `bin/` entero —esos
+guiones llevan el alias `srv` y rutas de esta máquina; va sólo `instalar.cmd`—
+ni `tests` ni `phpunit.xml`. Y se comprueba lo contrario: que **esté** el puente,
+porque un paquete sin él se descomprime igual y no sirve, y eso no se ve hasta
+abrir el navegador en casa del cliente.
+
+**Lo que el ZIP no puede hacer, y por eso falta el `.exe`**: XAMPP no trae
+`sqlsrv` ni `pdo_sqlsrv`. En esta prueba el paso 1 de `/setup` **no** salió en
+rojo porque `srv` sí las tiene puestas, así que **ese camino sigue sin probarse
+en una máquina limpia**. El `LEEME.txt` lo explica a mano mientras no exista el
+`.exe`.
+
+**Dos cosas arregladas de paso**, las dos en el origen y no a mano:
+
+- `bin/version.sh` sincronizaba `mobile/package.json` pero no su candado, que
+  lleva la versión **dos veces** (arriba y en `packages[""]`). En la 0.52.0 se
+  arregló a mano, que es tanto como no arreglarlo.
+- `bin/publicar-version.sh` hacía `rm -rf dist/` y se llevaba por delante los 17
+  MB del `vendor`, que cuestan un viaje a `srv`.
+
+**Y dos cosas vistas que no se tocaron**, porque cambiarlas es cambiar lo que
+reciben los clientes y eso se decide aparte:
+
+- **El `vendor` que se reparte trae dependencias de desarrollo**: `phpunit`,
+  `mockery`, `fakerphp` y `nunomaduro` están en el de producción, y de ahí sale
+  el `.tgz` que bajan los clientes al actualizarse. Funciona y está negado por
+  el `.htaccess`, pero son megas y herramientas de prueba en un servidor de
+  producción.
+- **`ventas:actualizar` sí lleva `bin/` entero** a casa del cliente, porque
+  `servidor.tar.gz` lo incluye. No hay secretos ahí —ni contraseñas ni cadenas
+  de conexión—, pero sí el alias `srv` y rutas `C:\Users\ddecap`. El paquete de
+  instalación ya no lo manda; la publicación todavía sí.
+
 ## Incidencias
 
 ### 2026-10-06 · La API contestaba 502 y no era de la aplicación
@@ -1409,15 +1479,8 @@ sin eso el arreglo no llegaba a un servidor instalado desde el tar.
 
 ## Pendiente / próximos pasos
 - [ ] **El paquete de instalación**, con la forma de `~/GIT/inventario-softland`:
-      un `.exe` y un ZIP que arma `bin/empaquetar.sh`. Va el puente (0.52.0); lo
-      que queda:
-      - **`bin/empaquetar.sh`**, primero con `--solo-zip`: el árbol, el APK
-        sembrado en `storage/app/private/apk` —así `/app` no sale vacío el primer
-        día, que hoy depende de `ventas:actualizar --apk` y de tener internet—, el
-        LEEME con marca de orden de bytes, y la comprobación que aborta si se
-        cuela un `.env`, un `softland.json`, un `.pem`, un `.key` o un registro.
-        **Reutilizando el `vendor-<sha>.tgz` que ya cachea `bin/publicar-version.sh`**,
-        no construyendo otro.
+      un `.exe` y un ZIP que arma `bin/empaquetar.sh`. Van el puente (0.52.0) y el
+      ZIP (0.53.0); lo que queda:
       - **El `.exe`** (NSIS, compilado con `makensis` en `srv`): `mirar.nsh`
         aparte porque no escribe nada, y `probar.nsi` para comprobarlo en una
         máquina de verdad sin instalar encima de un servidor que está sirviendo.

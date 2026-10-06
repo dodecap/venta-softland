@@ -32,15 +32,28 @@ hoy="$(date +%F)"
 
 echo "$nueva" > "$R/VERSION"
 
-# package.json: npm quiere la versión dentro, y si se queda atrás confunde.
-# El versionName y el versionCode del APK los calcula Gradle leyendo VERSION.
+# package.json y su candado: npm quiere la versión dentro, y si se queda atrás
+# confunde. El versionName y el versionCode del APK los calcula Gradle leyendo
+# VERSION.
+#
+# El candado lleva la versión **dos veces** —arriba y en el paquete raíz de
+# `packages`— y hay que escribir las dos: `npm ci` compara `package.json` con
+# el candado y una versión distinta es una diferencia. Hasta la 0.52.0 esto se
+# arreglaba a mano después, que es tanto como no arreglarlo.
 node -e '
 const fs = require("fs");
-const p = process.argv[1];
-const j = JSON.parse(fs.readFileSync(p, "utf8"));
+const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
 j.version = process.argv[2];
-fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+fs.writeFileSync(process.argv[1], JSON.stringify(j, null, 2) + "\n");
 ' "$R/mobile/package.json" "$nueva"
+
+node -e '
+const fs = require("fs");
+const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+j.version = process.argv[2];
+if (j.packages && j.packages[""]) j.packages[""].version = process.argv[2];
+fs.writeFileSync(process.argv[1], JSON.stringify(j, null, 2) + "\n");
+' "$R/mobile/package-lock.json" "$nueva"
 
 # La entrada nueva va arriba del historial, bajo la marca.
 marca='<!-- nuevas entradas arriba -->'
@@ -55,7 +68,7 @@ PY
 cat <<FIN
 $nueva  (versionCode $codigo)
 
-Escrito en VERSION, mobile/package.json y docs/versiones.md.
+Escrito en VERSION, mobile/package.json, su candado y docs/versiones.md.
 Falta anotar qué trae la versión en docs/versiones.md, y después:
 
     git commit -am "$titulo"
